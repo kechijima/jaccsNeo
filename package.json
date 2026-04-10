@@ -1,0 +1,27 @@
+{
+  "name": "jaccs-neo",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "nuxt": "^4.4.2",
+    "vue": "^3.5.32",
+    "vue-router": "^5.0.4",
+    "firebase": "^11.0.0",
+    "@pinia/nuxt": "^0.9.0",
+    "pinia": "^3.0.4",
+    "@vueuse/nuxt": "^13.0.0",
+    "@vueuse/core": "^13.0.0"
+  },
+  "devDependencies": {
+    "@nuxtjs/tailwindcss": "^6.13.1",
+    "@nuxt/icon": "^1.0.0",
+    "typescript": "^5.7.0"
+  }
+}

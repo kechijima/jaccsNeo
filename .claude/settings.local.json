@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Claude_Preview__preview_start",
+      "Bash(npx nuxi:*)",
+      "Bash(xargs grep:*)",
+      "Bash(npm run:*)",
+      "Bash(powershell -Command \"[System.IO.File]::ReadAllText\\('C:\\\\Users\\\\allja\\\\Downloads\\\\【個人・法人】パーソナルデータ_20260410T163739+0900.csv', [System.Text.Encoding]::GetEncoding\\('shift_jis'\\)\\) | Select-String -Pattern '^\\\\\"' | Select-Object -First 1\")",
+      "Bash(powershell.exe -Command \"[System.IO.File]::ReadAllLines\\('C:\\\\\\\\Users\\\\\\\\allja\\\\\\\\Downloads\\\\\\\\【個人・法人】パーソナルデータ_20260410T163739+0900.csv', [System.Text.Encoding]::GetEncoding\\(932\\)\\)[0]\")",
+      "Bash(powershell.exe -Command ':*)"
+    ]
+  }
+}
