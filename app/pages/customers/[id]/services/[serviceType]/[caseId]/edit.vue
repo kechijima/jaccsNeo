@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { SERVICE_LABELS } from '~/types/service'
+import type { ServiceCaseForm, ServiceStatus, ServiceType } from '~/types/service'
+
 definePageMeta({ middleware: ['auth'] })
 
 const route = useRoute()
@@ -6,32 +9,78 @@ const customerId = computed(() => route.params.id as string)
 const serviceType = computed(() => route.params.serviceType as string)
 const caseId = computed(() => route.params.caseId as string)
 
-const serviceLabels: Record<string, string> = {
-  lifeInsurance: '生命保険', fireInsurance: '火災保険', autoInsurance: '自動車保険',
-  realEstatePurchase: '不動産購入', realEstateSale: '不動産売却', homeLoan: '住宅ローン',
-  jobChange: '転職', communication: '通信回線',
-}
-const serviceLabel = computed(() => serviceLabels[serviceType.value] ?? serviceType.value)
-const customerName = ref('田中 一郎')
+const { fetchCustomer } = useCustomers()
+const { fetchCase, updateCase, deleteCase } = useServices()
 
-// フォーム初期値（Phase3でFirestoreから読み込み）
-const form = ref({
-  status: 'contracted',
-  date: '2023-04-01',
-  contractDate: '2023-04-15',
-  amount: '月額 15,000円',
-  company: 'メットライフ生命',
-  notes: '死亡保険金1億円、入院特約付き（日額5,000円）。\n2025年に見直し予定。三大疾病特約も加入済み。',
+const serviceLabel = computed(() => SERVICE_LABELS[serviceType.value] ?? serviceType.value)
+const customerName = ref('')
+const loading = ref(false)
+const error = ref('')
+
+const form = ref<ServiceCaseForm>({
+  status: 'consulting' as ServiceStatus,
+  date: '',
+  contractDate: '',
+  amount: '',
+  company: '',
+  notes: '',
 })
 
 const submitting = ref(false)
 
+onMounted(async () => {
+  loading.value = true
+  error.value = ''
+  try {
+    const [customer, raw] = await Promise.all([
+      fetchCustomer(customerId.value),
+      fetchCase(customerId.value, serviceType.value as ServiceType, caseId.value),
+    ])
+
+    customerName.value = customer?.name ?? ''
+
+    if (raw) {
+      form.value = {
+        status: raw.status,
+        date: raw.date ?? '',
+        contractDate: raw.contractDate ?? '',
+        amount: raw.amount ?? '',
+        company: raw.company ?? '',
+        notes: raw.notes ?? '',
+      }
+    }
+  }
+  catch (e: any) {
+    error.value = e.message ?? 'データの取得に失敗しました'
+  }
+  finally {
+    loading.value = false
+  }
+})
+
 const handleSubmit = async () => {
   submitting.value = true
-  // Phase3でFirestoreへの更新処理に差し替え
-  await new Promise(r => setTimeout(r, 800))
-  submitting.value = false
-  await navigateTo(`/customers/${customerId.value}/services/${serviceType.value}/${caseId.value}`)
+  error.value = ''
+  try {
+    await updateCase(customerId.value, serviceType.value as ServiceType, caseId.value, form.value)
+    await navigateTo(`/customers/${customerId.value}/services/${serviceType.value}/${caseId.value}`)
+  }
+  catch (e: any) {
+    error.value = e.message ?? '保存に失敗しました'
+    submitting.value = false
+  }
+}
+
+const handleDelete = async () => {
+  if (!confirm('この案件を削除してよろしいですか？')) return
+  error.value = ''
+  try {
+    await deleteCase(customerId.value, serviceType.value as ServiceType, caseId.value)
+    await navigateTo(`/customers/${customerId.value}/services/${serviceType.value}`)
+  }
+  catch (e: any) {
+    error.value = e.message ?? '削除に失敗しました'
+  }
 }
 </script>
 

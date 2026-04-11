@@ -1,37 +1,46 @@
 <script setup lang="ts">
+import type { AttendanceStatus } from '~/types/event'
+
 definePageMeta({ middleware: ['auth'] })
 
 const route = useRoute()
 const eventId = computed(() => route.params.eventId as string)
 const { canEditCustomer } = usePermission()
 
-// ダミーデータ（Phase4でFirestoreから取得）
-const event = ref({
-  id: 'evt_001',
-  title: 'りらくす組合 数字会議',
-  startAt: '2026年4月15日（水） 20:00',
-  endAt: '21:30',
-  location: 'オンライン（Zoom）',
-  targetScope: 'りらくす組合',
-  description: '4月の活動報告と今後の目標確認を行います。\n\n各自、先週の活動件数・成約件数を事前に集計しておいてください。\n参加URLは別途Zoomから送付します。',
-  createdBy: '牧田 マネージャー',
-  attendeeCount: 12,
-  isAttending: false,
-  attendees: [
-    { name: '西島 伸樹', status: 'attending' },
-    { name: '池田 健太郎', status: 'attending' },
-    { name: '田中 洋子', status: 'attending' },
-    { name: '山田 健太', status: 'pending' },
-    { name: '鈴木 真理子', status: 'not_attending' },
-  ],
-})
+const { fetchEvent, fetchAttendees, fetchMyAttendance, updateAttendance } = useEvents()
 
+const loading = ref(false)
+const error = ref('')
+
+interface AttendeeRow {
+  name: string
+  status: string
+}
+
+interface EventRow {
+  id: string
+  title: string
+  startAt: string
+  endAt: string
+  location: string | undefined
+  targetScope: string
+  description: string | undefined
+  createdBy: string
+  attendeeCount: number
+  isAttending: boolean
+  attendees: AttendeeRow[]
+}
+
+const event = ref<EventRow | null>(null)
 const attending = ref(false)
 
-const toggleAttend = () => {
-  attending.value = !attending.value
-  // Phase4でFirestoreへの更新処理に差し替え
-}
+const formatDateTime = (ts: { toDate(): Date }) =>
+  ts.toDate().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' }) +
+  ' ' +
+  ts.toDate().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
+
+const formatTime = (ts: { toDate(): Date } | undefined) =>
+  ts ? ts.toDate().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) : ''
 
 const statusBadge = (status: string) => {
   if (status === 'attending') return 'bg-green-100 text-green-700'
@@ -43,6 +52,52 @@ const statusLabel = (status: string) => {
   if (status === 'not_attending') return '不参加'
   return '未回答'
 }
+
+const toggleAttend = async () => {
+  try {
+    const newStatus: AttendanceStatus = attending.value ? 'attending' : 'not_attending'
+    await updateAttendance(eventId.value, newStatus)
+  } catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : '出欠の更新に失敗しました'
+  }
+}
+
+onMounted(async () => {
+  loading.value = true
+  error.value = ''
+  try {
+    const [e, attendeeList, myStatus] = await Promise.all([
+      fetchEvent(eventId.value),
+      fetchAttendees(eventId.value),
+      fetchMyAttendance(eventId.value),
+    ])
+
+    if (!e) {
+      error.value = 'イベントが見つかりませんでした'
+      return
+    }
+
+    attending.value = myStatus === 'attending'
+
+    event.value = {
+      id: e.id,
+      title: e.title,
+      startAt: formatDateTime(e.startAt),
+      endAt: formatTime(e.endAt),
+      location: e.location,
+      targetScope: e.scope,
+      description: e.description,
+      createdBy: e.createdByName,
+      attendeeCount: e.attendeeCount,
+      isAttending: myStatus === 'attending',
+      attendees: attendeeList.map(a => ({ name: a.displayName, status: a.status })),
+    }
+  } catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : 'イベントの取得に失敗しました'
+  } finally {
+    loading.value = false
+  }
+})
 </script>
 
 <template>

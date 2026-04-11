@@ -1,7 +1,7 @@
 <script setup lang="ts">
 definePageMeta({ middleware: ['auth', 'admin'] })
 
-// ダミーインポート履歴（Phase2でFirestoreから取得）
+// インポート履歴（importLogs コレクションから取得 — bulkImport 完了時に書き込まれる）
 const importHistory = ref([
   {
     id: 'imp_001',

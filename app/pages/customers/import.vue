@@ -54,14 +54,35 @@ const errorCount = computed(() => previewRows.value.filter(r => !r.valid).length
 // インポート
 const importing = ref(false)
 const importDone = ref(false)
-const importResult = ref({ success: 4, skip: 0, error: 1 })
+const importResult = ref({ success: 0, skip: 0, error: 0 })
+const importError = ref('')
+
+const { bulkImport } = useCustomers()
 
 const handleImport = async () => {
   importing.value = true
-  // Phase2で実際のインポート処理に差し替え
-  await new Promise(r => setTimeout(r, 1500))
-  importing.value = false
-  importDone.value = true
+  importError.value = ''
+  try {
+    // previewRows の有効行を CustomerForm に変換してインポート
+    const validRows = previewRows.value
+      .filter(r => r.valid)
+      .map(r => ({
+        name:     r.name,
+        nameKana: r.nameKana,
+        dob:      r.dob,
+        gender:   r.gender,
+        tel:      r.tel,
+        email:    r.email,
+        type:     'individual' as const,
+      }))
+    const result = await bulkImport(validRows)
+    importResult.value = { success: result.success, skip: 0, error: result.errors.length }
+    importDone.value = true
+  } catch (e: any) {
+    importError.value = e.message ?? 'インポートに失敗しました'
+  } finally {
+    importing.value = false
+  }
 }
 </script>
 

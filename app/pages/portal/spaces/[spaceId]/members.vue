@@ -1,19 +1,48 @@
 <script setup lang="ts">
+import type { AppUser } from '~/types/user'
+
 definePageMeta({ middleware: ['auth'] })
 
 const route = useRoute()
 const spaceId = computed(() => route.params.spaceId as string)
 
-const spaceName = ref('りらくす組合')
+const { fetchSpace, addMember, removeMember, toggleAdmin } = useSpaces()
+const { fetchUsers } = useUsers()
 
-// ダミーデータ（Phase4でFirestoreから取得）
-const members = ref([
-  { uid: 'u001', name: '西島 伸樹', role: 'admin', position: 'PM', kumiaiName: 'りらくす組合', joinedAt: '2024/01/01' },
-  { uid: 'u002', name: '池田 健太郎', role: 'member', position: '一般FP', kumiaiName: 'りらくす組合', joinedAt: '2024/01/01' },
-  { uid: 'u003', name: '田中 洋子', role: 'member', position: '一般FP', kumiaiName: 'りらくす組合', joinedAt: '2024/01/15' },
-  { uid: 'u004', name: '山田 健太', role: 'member', position: '一般FP', kumiaiName: 'りらくす組合', joinedAt: '2024/02/01' },
-  { uid: 'u005', name: '鈴木 真理子', role: 'member', position: '一般FP', kumiaiName: 'りらくす組合', joinedAt: '2024/02/15' },
-])
+const loading = ref(false)
+const error = ref('')
+const spaceName = ref('')
+let adminUids: string[] = []
+
+type MemberView = { uid: string; name: string; role: 'admin' | 'member'; position: string; kumiaiName: string; joinedAt: string }
+const members = ref<MemberView[]>([])
+
+const loadData = async () => {
+  loading.value = true
+  error.value = ''
+  try {
+    const [space, allUsers] = await Promise.all([fetchSpace(spaceId.value), fetchUsers()])
+    if (!space) return
+    spaceName.value = space.name
+    adminUids = space.adminUids ?? []
+    members.value = allUsers
+      .filter(u => space.memberUids.includes(u.uid))
+      .map(u => ({
+        uid:        u.uid,
+        name:       u.displayName,
+        role:       adminUids.includes(u.uid) ? 'admin' : 'member',
+        position:   u.position ?? '',
+        kumiaiName: u.kumiaiId ?? '',
+        joinedAt:   '',
+      }))
+  } catch (e: any) {
+    error.value = e.message ?? 'データの取得に失敗しました'
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(loadData)
 
 const searchQuery = ref('')
 const filteredMembers = computed(() => {
@@ -21,9 +50,25 @@ const filteredMembers = computed(() => {
   return members.value.filter(m => m.name.includes(searchQuery.value))
 })
 
-const handleRemove = (uid: string) => {
+const handleRemove = async (uid: string) => {
   if (!confirm('このメンバーをスペースから削除しますか？')) return
-  members.value = members.value.filter(m => m.uid !== uid)
+  try {
+    await removeMember(spaceId.value, uid)
+    members.value = members.value.filter(m => m.uid !== uid)
+  } catch (e: any) {
+    error.value = e.message ?? '削除に失敗しました'
+  }
+}
+
+const handleToggleAdmin = async (uid: string, currentRole: string) => {
+  const makeAdmin = currentRole !== 'admin'
+  try {
+    await toggleAdmin(spaceId.value, uid, makeAdmin)
+    const m = members.value.find(m => m.uid === uid)
+    if (m) m.role = makeAdmin ? 'admin' : 'member'
+  } catch (e: any) {
+    error.value = e.message ?? '更新に失敗しました'
+  }
 }
 </script>
 

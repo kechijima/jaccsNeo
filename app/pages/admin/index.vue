@@ -39,13 +39,24 @@ const adminMenus = [
   },
 ]
 
-// ダミー統計（Phase1で実際のFirestoreデータに差し替え）
+const { fetchUsers } = useUsers()
+const { fetchAllSpaces } = useSpaces()
+
 const stats = ref([
-  { label: '登録ユーザー数', value: 42, icon: 'heroicons:users', color: 'text-blue-600' },
-  { label: '顧客データ件数', value: '27,780', icon: 'heroicons:user-group', color: 'text-green-600' },
-  { label: '有効スペース数', value: 38, icon: 'heroicons:squares-2x2', color: 'text-purple-600' },
-  { label: '今月のインポート', value: 0, icon: 'heroicons:arrow-up-tray', color: 'text-amber-600' },
+  { label: '登録ユーザー数',  value: '－', icon: 'heroicons:users',          color: 'text-blue-600' },
+  { label: '顧客データ件数',  value: '－', icon: 'heroicons:user-group',      color: 'text-green-600' },
+  { label: '有効スペース数',  value: '－', icon: 'heroicons:squares-2x2',     color: 'text-purple-600' },
+  { label: '今月のインポート', value: '0', icon: 'heroicons:arrow-up-tray',   color: 'text-amber-600' },
 ])
+
+onMounted(async () => {
+  const [users, spaces] = await Promise.all([
+    fetchUsers().catch(() => []),
+    fetchAllSpaces().catch(() => []),
+  ])
+  stats.value[0].value = String(users.length)
+  stats.value[2].value = String(spaces.filter(s => !s.isArchived).length)
+})
 </script>
 
 <template>

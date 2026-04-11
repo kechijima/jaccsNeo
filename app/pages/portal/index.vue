@@ -1,56 +1,85 @@
 <script setup lang="ts">
+import type { SpaceSummary, Post } from '~/types/portal'
+import type { EventSummary } from '~/types/event'
+
 definePageMeta({ middleware: ['auth'] })
 
 const { user } = useCurrentUser()
+const { fetchSpaces, fetchPosts } = useSpaces()
+const { fetchEvents } = useEvents()
 
-// ダミーデータ（Phase4でFirestoreから取得）
-const pinnedSpaces = ref([
-  { id: 'space_001', name: 'りらくす組合', type: 'kumiai', memberCount: 119, unread: 3 },
-  { id: 'space_002', name: 'Reterace グループ活動報告', type: 'group', memberCount: 245, unread: 1 },
-])
+const loading = ref(false)
+const error = ref('')
 
-const recentPosts = ref([
-  {
-    id: 'post_001',
-    spaceId: 'space_001',
-    spaceName: 'りらくす組合',
-    authorName: '西島 伸樹',
-    authorInitial: '西',
-    content: '本日の活動報告です。田中様と面談し、生命保険の見直しを提案しました。来週中に返答をいただける予定です。',
-    reactions: { '👍': 3, '✨': 1 },
-    commentCount: 2,
-    postedAt: '4時間前',
-  },
-  {
-    id: 'post_002',
-    spaceId: 'space_001',
-    spaceName: 'りらくす組合',
-    authorName: '池田 健太郎',
-    authorInitial: '池',
-    content: '先週の数字会議の議事録をアップしました。ご確認ください。今月の目標達成に向けて引き続き頑張りましょう！',
-    reactions: { '👍': 5 },
-    commentCount: 4,
-    postedAt: '1日前',
-  },
-  {
-    id: 'post_003',
-    spaceId: 'space_002',
-    spaceName: 'Reterace グループ活動報告',
-    authorName: '佐々木 マネージャー',
-    authorInitial: '佐',
-    content: '4月の活動目標を共有します。各組合のリーダーは先週のミーティング資料をご参照ください。',
-    reactions: { '👍': 12, '🎉': 2 },
-    commentCount: 8,
-    postedAt: '2日前',
-  },
-])
+// スペース一覧
+const allSpaces = ref<Array<{ id: string; name: string; memberCount: number; unread: number; color: string }>>([])
 
-const allSpaces = ref([
-  { id: 'space_001', name: 'りらくす組合', type: 'kumiai', memberCount: 119, unread: 3, color: 'bg-indigo-100 text-indigo-700' },
-  { id: 'space_002', name: 'Reterace グループ活動報告', type: 'group', memberCount: 245, unread: 1, color: 'bg-indigo-100 text-indigo-700' },
-  { id: 'space_003', name: 'Reterace グループ理事会', type: 'board', memberCount: 18, unread: 0, color: 'bg-indigo-100 text-indigo-700' },
-  { id: 'space_004', name: '全体連絡・お知らせ', type: 'all', memberCount: 387, unread: 2, color: 'bg-green-100 text-green-700' },
-])
+// ピン留めスペース（先頭2件）
+const pinnedSpaces = computed(() => allSpaces.value.slice(0, 2))
+
+// 最近の投稿
+const recentPosts = ref<Array<{
+  id: string
+  spaceId: string
+  spaceName: string
+  authorName: string
+  authorInitial: string
+  content: string
+  reactions: Record<string, number>
+  commentCount: number
+  postedAt: string
+}>>([])
+
+// イベント
+const upcomingEvents = ref<EventSummary[]>([])
+
+const spaceColorMap: Record<string, string> = {
+  all:     'bg-green-100 text-green-700',
+  group:   'bg-indigo-100 text-indigo-700',
+  kumiai:  'bg-indigo-100 text-indigo-700',
+  special: 'bg-amber-100 text-amber-700',
+}
+
+onMounted(async () => {
+  loading.value = true
+  error.value = ''
+  try {
+    // スペース取得
+    const spaces: SpaceSummary[] = await fetchSpaces()
+    allSpaces.value = spaces.map(s => ({
+      id:          s.id,
+      name:        s.name,
+      memberCount: s.memberCount,
+      unread:      0,
+      color:       spaceColorMap[s.type] ?? 'bg-indigo-100 text-indigo-700',
+    }))
+
+    // 最初のスペースの投稿を取得
+    if (spaces.length > 0) {
+      const firstSpace = spaces[0]
+      const posts: Post[] = await fetchPosts(firstSpace.id)
+      recentPosts.value = posts.map(p => ({
+        id:            p.id,
+        spaceId:       firstSpace.id,
+        spaceName:     firstSpace.name,
+        authorName:    p.authorName,
+        authorInitial: p.authorName.charAt(0),
+        content:       p.content,
+        reactions:     p.reactionCounts,
+        commentCount:  p.commentCount,
+        postedAt:      p.createdAt.toDate().toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' }),
+      }))
+    }
+
+    // 直近イベント（上位2件）
+    const events = await fetchEvents({ upcoming: true })
+    upcomingEvents.value = events.slice(0, 2)
+  } catch (e: any) {
+    error.value = e?.message ?? 'データの取得に失敗しました'
+  } finally {
+    loading.value = false
+  }
+})
 </script>
 
 <template>
@@ -77,7 +106,7 @@ const allSpaces = ref([
         <div class="card p-4">
           <div class="flex items-center gap-3">
             <div class="flex h-9 w-9 items-center justify-center rounded-full bg-primary-100 text-primary-700 font-semibold text-sm shrink-0">
-              {{ user?.name?.charAt(0) ?? 'U' }}
+              {{ user?.displayName?.charAt(0) ?? 'U' }}
             </div>
             <NuxtLink
               :to="`/portal/spaces/${pinnedSpaces[0]?.id}`"

@@ -1,73 +1,112 @@
 <script setup lang="ts">
+import type { AppUser } from '~/types/user'
+
 definePageMeta({ middleware: ['auth'] })
 
-// ダミーデータ（Phase5でFirestoreから取得）
-const groups = ref([
-  {
-    id: 'reterace',
-    label: 'Reterace',
-    color: 'bg-indigo-500',
-    bgColor: 'bg-indigo-50',
-    kumiais: [
-      {
-        name: 'りらくす組合',
-        members: [
-          { uid: 'u001', name: '西島 伸樹', position: 'PM', contracts: 10, newClients: 4 },
-          { uid: 'u002', name: '池田 健太郎', position: '一般FP', contracts: 5, newClients: 3 },
-          { uid: 'u003', name: '田中 洋子', position: '一般FP', contracts: 4, newClients: 5 },
-        ],
-      },
-      {
-        name: 'ラジカル組合',
-        members: [
-          { uid: 'u006', name: '中村 大輔', position: 'PM', contracts: 8, newClients: 3 },
-          { uid: 'u007', name: '小林 さゆり', position: '一般FP', contracts: 6, newClients: 2 },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'miraito',
-    label: 'Miraito',
-    color: 'bg-sky-500',
-    bgColor: 'bg-sky-50',
-    kumiais: [
-      {
-        name: 'ミライト組合',
-        members: [
-          { uid: 'u010', name: '川崎 浩二', position: 'EM2', contracts: 12, newClients: 5 },
-          { uid: 'u011', name: '木村 真一', position: 'PM', contracts: 9, newClients: 4 },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'asset',
-    label: 'Asset',
-    color: 'bg-amber-500',
-    bgColor: 'bg-amber-50',
-    kumiais: [
-      {
-        name: 'アセット組合',
-        members: [
-          { uid: 'u020', name: '山田 太郎', position: 'PM', contracts: 12, newClients: 6 },
-          { uid: 'u021', name: '鈴木 美咲', position: '一般FP', contracts: 7, newClients: 3 },
-        ],
-      },
-    ],
-  },
-])
+const { fetchUsers } = useUsers()
+
+// Color palette cycled per unique groupId
+const GROUP_COLORS: { color: string; bgColor: string }[] = [
+  { color: 'bg-indigo-500', bgColor: 'bg-indigo-50' },
+  { color: 'bg-sky-500', bgColor: 'bg-sky-50' },
+  { color: 'bg-amber-500', bgColor: 'bg-amber-50' },
+  { color: 'bg-emerald-500', bgColor: 'bg-emerald-50' },
+  { color: 'bg-rose-500', bgColor: 'bg-rose-50' },
+]
+
+interface MemberRow {
+  uid: string
+  name: string
+  position: string
+  contracts: number
+  newClients: number
+}
+
+interface KumaiRow {
+  name: string
+  members: MemberRow[]
+}
+
+interface GroupRow {
+  id: string
+  label: string
+  color: string
+  bgColor: string
+  kumiais: KumaiRow[]
+}
+
+const groups = ref<GroupRow[]>([])
+const loading = ref(false)
+const error = ref('')
 
 const searchQuery = ref('')
-const expandedGroups = ref<string[]>(['reterace'])
+const expandedGroups = ref<string[]>([])
 
 const toggleGroup = (id: string) => {
   if (expandedGroups.value.includes(id)) {
     expandedGroups.value = expandedGroups.value.filter(g => g !== id)
-  } else {
+  }
+  else {
     expandedGroups.value.push(id)
   }
 }
+
+onMounted(async () => {
+  loading.value = true
+  error.value = ''
+  try {
+    const users: AppUser[] = await fetchUsers()
+
+    // Group users by groupId; users without a groupId go into a fallback group
+    const groupMap = new Map<string, AppUser[]>()
+    for (const u of users) {
+      const key = u.groupId ?? '__ungrouped__'
+      if (!groupMap.has(key)) groupMap.set(key, [])
+      groupMap.get(key)!.push(u)
+    }
+
+    let colorIndex = 0
+    const built: GroupRow[] = []
+    for (const [groupId, members] of groupMap.entries()) {
+      const palette = GROUP_COLORS[colorIndex % GROUP_COLORS.length]
+      colorIndex++
+
+      // Each groupId forms one kumiai; the kumiai name is the groupId itself
+      const kumiai: KumaiRow = {
+        name: groupId === '__ungrouped__' ? '未所属' : groupId,
+        members: members.map((u) => ({
+          uid: u.uid,
+          name: u.displayName,
+          position: u.role,
+          // Phase 5 — aggregate contract/newClient stats from meetings
+          contracts: 0,
+          newClients: 0,
+        })),
+      }
+
+      built.push({
+        id: groupId,
+        label: groupId === '__ungrouped__' ? '未所属' : groupId,
+        color: palette.color,
+        bgColor: palette.bgColor,
+        kumiais: [kumiai],
+      })
+    }
+
+    groups.value = built
+
+    // Auto-expand the first group
+    if (built.length > 0) {
+      expandedGroups.value = [built[0].id]
+    }
+  }
+  catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : 'メンバーの読み込みに失敗しました'
+  }
+  finally {
+    loading.value = false
+  }
+})
 </script>
 
 <template>

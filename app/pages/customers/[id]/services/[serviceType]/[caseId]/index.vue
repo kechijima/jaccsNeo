@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { SERVICE_LABELS, STATUS_LABELS } from '~/types/service'
+import type { ServiceType } from '~/types/service'
+
 definePageMeta({ middleware: ['auth'] })
 
 const route = useRoute()
@@ -7,35 +10,40 @@ const serviceType = computed(() => route.params.serviceType as string)
 const caseId = computed(() => route.params.caseId as string)
 const { canEditCustomer } = usePermission()
 
-const serviceLabels: Record<string, string> = {
-  lifeInsurance: '生命保険', fireInsurance: '火災保険', autoInsurance: '自動車保険（ソニー損保）',
-  realEstatePurchase: '不動産購入', realEstateSale: '不動産売却', realEstateRental: '不動産賃貸',
-  homeLoan: '住宅ローン', jobChange: '転職', communication: '通信回線',
-}
-const serviceLabel = computed(() => serviceLabels[serviceType.value] ?? serviceType.value)
-const customerName = ref('田中 一郎')
+const { fetchCustomer } = useCustomers()
+const { fetchCase, deleteCase } = useServices()
 
-// ダミー案件データ（Phase3でFirestoreから取得）
-const caseData = ref({
-  status: 'contracted',
-  statusLabel: '成約',
-  company: 'メットライフ生命',
-  date: '2023/04/01',
-  contractDate: '2023/04/15',
-  amount: '月額 15,000円',
-  assignedFp: '西島 伸樹',
-  notes: '死亡保険金1億円、入院特約付き（日額5,000円）。\n2025年に見直し予定。三大疾病特約も加入済み。',
-  attachments: [
-    { name: '保険証券_田中一郎.pdf', size: '245 KB', uploadedAt: '2023/04/15' },
-    { name: '設計書.pdf', size: '1.2 MB', uploadedAt: '2023/04/15' },
-  ],
-  history: [
-    { date: '2023/04/15', action: 'ステータスを「成約」に変更', user: '西島 伸樹' },
-    { date: '2023/04/10', action: 'ステータスを「検討中」に変更', user: '西島 伸樹' },
-    { date: '2023/04/01', action: '案件を作成', user: '西島 伸樹' },
-  ],
-  createdAt: '2023/04/01',
-  updatedAt: '2023/04/15',
+const serviceLabel = computed(() => SERVICE_LABELS[serviceType.value] ?? serviceType.value)
+const customerName = ref('')
+const loading = ref(false)
+const error = ref('')
+
+const caseData = ref<{
+  status: string
+  statusLabel: string
+  company: string
+  date: string
+  contractDate: string
+  amount: string
+  assignedFp: string
+  notes: string
+  attachments: { name: string; size: string; uploadedAt: string }[]
+  history: { date: string; action: string; user: string }[]
+  createdAt: string
+  updatedAt: string
+}>({
+  status: '',
+  statusLabel: '',
+  company: '',
+  date: '',
+  contractDate: '',
+  amount: '',
+  assignedFp: '',
+  notes: '',
+  attachments: [],
+  history: [],
+  createdAt: '',
+  updatedAt: '',
 })
 
 const statusClass = (status: string) => {
@@ -49,10 +57,55 @@ const statusClass = (status: string) => {
   }
 }
 
+onMounted(async () => {
+  loading.value = true
+  error.value = ''
+  try {
+    const [customer, raw] = await Promise.all([
+      fetchCustomer(customerId.value),
+      fetchCase(customerId.value, serviceType.value as ServiceType, caseId.value),
+    ])
+
+    customerName.value = customer?.name ?? ''
+
+    if (raw) {
+      caseData.value = {
+        status: raw.status,
+        statusLabel: STATUS_LABELS[raw.status] ?? raw.status,
+        company: raw.company ?? '',
+        date: raw.date ?? '',
+        contractDate: raw.contractDate ?? '',
+        amount: raw.amount ?? '',
+        assignedFp: raw.updatedBy ?? '',
+        notes: raw.notes ?? '',
+        attachments: (raw.attachments ?? []).map(a => ({
+          name: a.name,
+          size: `${Math.round(a.size / 1024)} KB`,
+          uploadedAt: a.uploadedAt ? a.uploadedAt.toDate().toLocaleDateString('ja-JP') : '',
+        })),
+        history: [],
+        createdAt: raw.createdAt ? raw.createdAt.toDate().toLocaleDateString('ja-JP') : '',
+        updatedAt: raw.updatedAt ? raw.updatedAt.toDate().toLocaleDateString('ja-JP') : '',
+      }
+    }
+  }
+  catch (e: any) {
+    error.value = e.message ?? 'データの取得に失敗しました'
+  }
+  finally {
+    loading.value = false
+  }
+})
+
 const handleDelete = async () => {
   if (!confirm('この案件を削除してよろしいですか？')) return
-  // Phase3で実装
-  await navigateTo(`/customers/${customerId.value}/services/${serviceType.value}`)
+  try {
+    await deleteCase(customerId.value, serviceType.value as ServiceType, caseId.value)
+    await navigateTo(`/customers/${customerId.value}/services/${serviceType.value}`)
+  }
+  catch (e: any) {
+    error.value = e.message ?? '削除に失敗しました'
+  }
 }
 </script>
 

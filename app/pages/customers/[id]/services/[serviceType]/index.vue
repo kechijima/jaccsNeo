@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { SERVICE_LABELS, STATUS_LABELS } from '~/types/service'
+import type { ServiceCase, ServiceType } from '~/types/service'
+
 definePageMeta({ middleware: ['auth'] })
 
 const route = useRoute()
@@ -6,44 +9,26 @@ const customerId = computed(() => route.params.id as string)
 const serviceType = computed(() => route.params.serviceType as string)
 const { canEditCustomer } = usePermission()
 
-const serviceLabels: Record<string, string> = {
-  lifeInsurance: '生命保険', fireInsurance: '火災保険', autoInsurance: '自動車保険（ソニー損保）',
-  realEstatePurchase: '不動産購入', realEstateSale: '不動産売却', realEstateRental: '不動産賃貸',
-  homeLoan: '住宅ローン', jobChange: '転職', seniorPlanning: 'シニアプランニング',
-  communication: '通信回線', hikari: 'ピカラ光', moving: '引越し', renovation: 'リフォーム',
-  travel: '旅行', bridal: '結婚式場紹介', legal: '法務関係', inheritance: '相続・遺言',
-  companySetup: '法人設立', waterServer: 'ウォーターサーバー',
-}
-const serviceLabel = computed(() => serviceLabels[serviceType.value] ?? serviceType.value)
-const customerName = ref('田中 一郎')
+const { fetchCustomer } = useCustomers()
+const { fetchCases } = useServices()
 
-// ダミー案件データ（Phase3でFirestoreから取得）
-const cases = ref([
-  {
-    id: 'case001',
-    status: 'contracted',
-    statusLabel: '成約',
-    assignedFp: '西島 伸樹',
-    date: '2023/04/15',
-    contractDate: '2023/04/15',
-    amount: '月額 15,000円',
-    company: 'メットライフ生命',
-    notes: '死亡保険金1億円、入院特約付き。2025年に見直し予定。',
-    updatedAt: '2024/03/10',
-  },
-  {
-    id: 'case002',
-    status: 'consulting',
-    statusLabel: '相談中',
-    assignedFp: '西島 伸樹',
-    date: '2024/01/20',
-    contractDate: '',
-    amount: '',
-    company: '',
-    notes: '保障内容の見直し相談。追加保険の検討中。',
-    updatedAt: '2024/01/20',
-  },
-])
+const serviceLabel = computed(() => SERVICE_LABELS[serviceType.value] ?? serviceType.value)
+const customerName = ref('')
+const loading = ref(false)
+const error = ref('')
+
+const cases = ref<Array<{
+  id: string
+  status: string
+  statusLabel: string
+  assignedFp: string
+  date: string
+  contractDate: string
+  amount: string
+  company: string
+  notes: string
+  updatedAt: string
+}>>([])
 
 const statusClass = (status: string) => {
   switch (status) {
@@ -55,6 +40,38 @@ const statusClass = (status: string) => {
     default: return 'bg-gray-100 text-gray-500'
   }
 }
+
+onMounted(async () => {
+  loading.value = true
+  error.value = ''
+  try {
+    const [customer, rawCases] = await Promise.all([
+      fetchCustomer(customerId.value),
+      fetchCases(customerId.value, serviceType.value as ServiceType),
+    ])
+
+    customerName.value = customer?.name ?? ''
+
+    cases.value = rawCases.map((c: ServiceCase) => ({
+      id: c.id,
+      status: c.status,
+      statusLabel: STATUS_LABELS[c.status] ?? c.status,
+      assignedFp: c.updatedBy ?? '',
+      date: c.date ?? '',
+      contractDate: c.contractDate ?? '',
+      amount: c.amount ?? '',
+      company: c.company ?? '',
+      notes: c.notes ?? '',
+      updatedAt: c.updatedAt ? c.updatedAt.toDate().toLocaleDateString('ja-JP') : '',
+    }))
+  }
+  catch (e: any) {
+    error.value = e.message ?? 'データの取得に失敗しました'
+  }
+  finally {
+    loading.value = false
+  }
+})
 </script>
 
 <template>

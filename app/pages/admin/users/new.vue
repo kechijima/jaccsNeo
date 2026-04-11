@@ -1,32 +1,61 @@
 <script setup lang="ts">
+import { createUserWithEmailAndPassword } from 'firebase/auth'
+import type { UserRole, SpecialTeam, GroupId } from '~/types/user'
+
 definePageMeta({ middleware: ['auth', 'admin'] })
 
+const { createUserDoc } = useUsers()
+
 const form = ref({
-  name: '',
-  email: '',
-  role: 'general',
-  groupId: '',
-  kumiaiId: '',
-  position: '',
-  specialTeams: [] as string[],
+  name:            '',
+  email:           '',
+  password:        'Jaccs2024!',  // 仮パスワード（初回ログイン時に変更促す）
+  role:            'general' as UserRole,
+  groupId:         '' as GroupId | '',
+  kumiaiId:        '',
+  position:        '',
+  specialTeams:    [] as SpecialTeam[],
   sendInviteEmail: true,
 })
 
 const submitting = ref(false)
+const error = ref('')
 
 const handleSubmit = async () => {
   submitting.value = true
-  // Phase1でFirebase Auth + Firestoreへの保存処理に差し替え
-  await new Promise(r => setTimeout(r, 800))
-  submitting.value = false
-  await navigateTo('/admin/users')
+  error.value = ''
+  try {
+    const { $auth } = useNuxtApp()
+    // Firebase Auth でユーザー作成（管理者アカウントはCloud Functions推奨だが、
+    // クライアント側から一時パスワードで作成する簡易実装）
+    const credential = await createUserWithEmailAndPassword($auth, form.value.email, form.value.password)
+    await createUserDoc(credential.user.uid, {
+      email:        form.value.email,
+      displayName:  form.value.name,
+      role:         form.value.role,
+      specialTeams: form.value.specialTeams,
+      groupId:      form.value.groupId as GroupId || undefined,
+      kumiaiId:     form.value.kumiaiId || undefined,
+      position:     form.value.position || undefined,
+    })
+    await navigateTo('/admin/users')
+  } catch (e: any) {
+    const msgs: Record<string, string> = {
+      'auth/email-already-in-use': 'このメールアドレスは既に使用されています',
+      'auth/weak-password':        'パスワードが弱すぎます',
+      'auth/invalid-email':        'メールアドレスの形式が正しくありません',
+    }
+    error.value = msgs[e.code] ?? e.message ?? 'ユーザーの作成に失敗しました'
+    submitting.value = false
+  }
 }
 
 const toggleSpecialTeam = (team: string) => {
-  if (form.value.specialTeams.includes(team)) {
-    form.value.specialTeams = form.value.specialTeams.filter(t => t !== team)
+  const t = team as SpecialTeam
+  if (form.value.specialTeams.includes(t)) {
+    form.value.specialTeams = form.value.specialTeams.filter(s => s !== t)
   } else {
-    form.value.specialTeams.push(team)
+    form.value.specialTeams.push(t)
   }
 }
 </script>

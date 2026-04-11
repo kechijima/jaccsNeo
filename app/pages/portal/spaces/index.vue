@@ -1,53 +1,85 @@
 <script setup lang="ts">
+import type { SpaceSummary } from '~/types/portal'
+
 definePageMeta({ middleware: ['auth'] })
 
-// ダミーデータ（Phase4でFirestoreから取得）
-const spaceGroups = ref([
-  {
-    label: '全体スペース',
-    spaces: [
-      { id: 'all_001', name: '全体連絡・お知らせ', memberCount: 387, unread: 2, description: '全FP向けの重要連絡・お知らせ', isPinned: true },
-      { id: 'all_002', name: 'イベント告知', memberCount: 387, unread: 0, description: 'セミナー・勉強会などのイベント告知', isPinned: false },
-      { id: 'all_003', name: '中央理事会', memberCount: 15, unread: 0, description: '理事会メンバー専用', isPinned: false },
-    ],
-  },
-  {
-    label: 'Reterace グループ',
-    color: 'bg-indigo-50',
-    spaces: [
-      { id: 'ret_001', name: 'Reterace グループ活動報告', memberCount: 245, unread: 1, description: 'Reteraceグループ全体の活動報告', isPinned: false },
-      { id: 'ret_002', name: 'Reterace グループ理事会', memberCount: 18, unread: 0, description: 'グループ管理者以上', isPinned: false },
-      { id: 'ret_003', name: 'りらくす組合', memberCount: 119, unread: 3, description: 'りらくす組合のスペース', isPinned: true },
-      { id: 'ret_004', name: 'ラジカル組合', memberCount: 63, unread: 0, description: '', isPinned: false },
-      { id: 'ret_005', name: '都華-ichika-組合', memberCount: 48, unread: 0, description: '', isPinned: false },
-    ],
-  },
-  {
-    label: 'Miraito グループ',
-    color: 'bg-sky-50',
-    spaces: [
-      { id: 'mir_001', name: 'Miraito グループ活動報告', memberCount: 198, unread: 0, description: '', isPinned: false },
-      { id: 'mir_002', name: 'ミライト組合', memberCount: 87, unread: 1, description: '', isPinned: false },
-      { id: 'mir_003', name: 'リアン組合', memberCount: 54, unread: 0, description: '', isPinned: false },
-    ],
-  },
-  {
-    label: 'Asset グループ',
-    color: 'bg-amber-50',
-    spaces: [
-      { id: 'ast_001', name: 'Asset グループ活動報告', memberCount: 212, unread: 0, description: '', isPinned: false },
-      { id: 'ast_002', name: 'アセット組合', memberCount: 76, unread: 2, description: '', isPinned: false },
-      { id: 'ast_003', name: 'テゴリス組合', memberCount: 68, unread: 0, description: '', isPinned: false },
-    ],
-  },
-  {
-    label: '専門チーム',
-    spaces: [
-      { id: 'sp_001', name: '未来設計ハウジング（不動産チーム）', memberCount: 32, unread: 1, description: '不動産専門チームスペース', isPinned: false },
-      { id: 'sp_002', name: '損保チーム', memberCount: 28, unread: 0, description: '損保専門チームスペース', isPinned: false },
-    ],
-  },
-])
+const { fetchSpaces } = useSpaces()
+
+const loading = ref(false)
+const error = ref('')
+
+type SpaceRow = {
+  id: string
+  name: string
+  memberCount: number
+  unread: number
+  description: string
+  isPinned: boolean
+}
+
+type SpaceGroup = {
+  label: string
+  color?: string
+  spaces: SpaceRow[]
+}
+
+const spaceGroups = ref<SpaceGroup[]>([])
+
+const typeLabelMap: Record<string, { label: string; color?: string }> = {
+  all:     { label: '全体スペース' },
+  group:   { label: 'グループ' },
+  kumiai:  { label: '組合' },
+  special: { label: '専門チーム' },
+}
+
+onMounted(async () => {
+  loading.value = true
+  error.value = ''
+  try {
+    const spaces: SpaceSummary[] = await fetchSpaces()
+
+    // type ごとにグルーピング
+    const groupMap = new Map<string, SpaceRow[]>()
+    for (const s of spaces) {
+      const key = s.type
+      if (!groupMap.has(key)) groupMap.set(key, [])
+      groupMap.get(key)!.push({
+        id:          s.id,
+        name:        s.name,
+        memberCount: s.memberCount,
+        unread:      0,
+        description: '',
+        isPinned:    false,
+      })
+    }
+
+    // type の表示順
+    const typeOrder = ['all', 'group', 'kumiai', 'special']
+    const groups: SpaceGroup[] = []
+    for (const type of typeOrder) {
+      if (groupMap.has(type)) {
+        const meta = typeLabelMap[type] ?? { label: type }
+        groups.push({
+          label:  meta.label,
+          color:  meta.color,
+          spaces: groupMap.get(type)!,
+        })
+      }
+    }
+    // 未知の type があればそのまま追加
+    for (const [type, rows] of groupMap) {
+      if (!typeOrder.includes(type)) {
+        groups.push({ label: type, spaces: rows })
+      }
+    }
+
+    spaceGroups.value = groups
+  } catch (e: any) {
+    error.value = e?.message ?? 'データの取得に失敗しました'
+  } finally {
+    loading.value = false
+  }
+})
 
 const searchQuery = ref('')
 const activeGroup = ref('all')

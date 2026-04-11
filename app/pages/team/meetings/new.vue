@@ -1,14 +1,22 @@
 <script setup lang="ts">
+import type { AppUser } from '~/types/user'
+import type { MeetingForm } from '~/types/meeting'
+
 definePageMeta({ middleware: ['auth'] })
 
-// ダミー参加者リスト（Phase5でFirestoreから取得）
-const participants = ref([
-  { uid: 'u001', name: '西島 伸樹', newClients: null as number | null, contracts: null as number | null, activities: null as number | null, notes: '' },
-  { uid: 'u002', name: '池田 健太郎', newClients: null as number | null, contracts: null as number | null, activities: null as number | null, notes: '' },
-  { uid: 'u003', name: '田中 洋子', newClients: null as number | null, contracts: null as number | null, activities: null as number | null, notes: '' },
-  { uid: 'u004', name: '山田 健太', newClients: null as number | null, contracts: null as number | null, activities: null as number | null, notes: '' },
-  { uid: 'u005', name: '鈴木 真理子', newClients: null as number | null, contracts: null as number | null, activities: null as number | null, notes: '' },
-])
+const { fetchUsers } = useUsers()
+const { createMeeting } = useMeetings()
+
+interface ParticipantRow {
+  uid: string
+  name: string
+  newClients: number | null
+  contracts: number | null
+  activities: number | null
+  notes: string
+}
+
+const participants = ref<ParticipantRow[]>([])
 
 const form = ref({
   date: new Date().toISOString().split('T')[0],
@@ -23,13 +31,57 @@ const totals = computed(() => ({
 }))
 
 const submitting = ref(false)
+const loading = ref(false)
+const error = ref('')
+
+onMounted(async () => {
+  loading.value = true
+  error.value = ''
+  try {
+    const users: AppUser[] = await fetchUsers()
+    participants.value = users.map((u) => ({
+      uid: u.uid,
+      name: u.displayName,
+      newClients: null,
+      contracts: null,
+      activities: null,
+      notes: '',
+    }))
+  }
+  catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : 'メンバーの読み込みに失敗しました'
+  }
+  finally {
+    loading.value = false
+  }
+})
 
 const handleSubmit = async () => {
   submitting.value = true
-  // Phase5でFirestoreへの保存処理に差し替え
-  await new Promise(r => setTimeout(r, 800))
-  submitting.value = false
-  await navigateTo('/team/meetings')
+  error.value = ''
+  try {
+    const meetingForm: MeetingForm = {
+      date: form.value.date,
+      spaceId: form.value.spaceId || undefined,
+      memo: form.value.memo || undefined,
+      reports: participants.value.map((p) => ({
+        uid: p.uid,
+        displayName: p.name,
+        newClients: p.newClients,
+        contracts: p.contracts,
+        activities: p.activities,
+        notes: p.notes || undefined,
+      })),
+    }
+    await createMeeting(meetingForm)
+    await navigateTo('/team/meetings')
+  }
+  catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : '保存に失敗しました'
+  }
+  finally {
+    submitting.value = false
+  }
 }
 </script>
 

@@ -1,35 +1,86 @@
 <script setup lang="ts">
+import type { EventForm } from '~/types/event'
+
 definePageMeta({ middleware: ['auth'] })
 
 const route = useRoute()
 const eventId = computed(() => route.params.eventId as string)
 
-// フォーム初期値（Phase4でFirestoreから読み込み）
+const { fetchEvent, updateEvent, deleteEvent } = useEvents()
+
+const loading = ref(false)
+const error = ref('')
+const submitting = ref(false)
+
 const form = ref({
-  title: 'りらくす組合 数字会議',
-  startDate: '2026-04-15',
-  startTime: '20:00',
-  endDate: '2026-04-15',
-  endTime: '21:30',
-  location: 'オンライン（Zoom）',
-  targetScope: 'kumiai',
-  description: '4月の活動報告と今後の目標確認を行います。',
+  title: '',
+  startDate: '',
+  startTime: '',
+  endDate: '',
+  endTime: '',
+  location: '',
+  targetScope: 'all',
+  description: '',
   notifyEmail: true,
   notifyApp: true,
 })
 
-const submitting = ref(false)
+onMounted(async () => {
+  loading.value = true
+  try {
+    const ev = await fetchEvent(eventId.value)
+    if (ev) {
+      const start = ev.startAt.toDate()
+      const end   = ev.endAt?.toDate()
+      form.value = {
+        title:       ev.title,
+        startDate:   start.toISOString().split('T')[0],
+        startTime:   start.toTimeString().slice(0, 5),
+        endDate:     end ? end.toISOString().split('T')[0] : '',
+        endTime:     end ? end.toTimeString().slice(0, 5) : '',
+        location:    ev.location ?? '',
+        targetScope: ev.scope,
+        description: ev.description ?? '',
+        notifyEmail: true,
+        notifyApp:   true,
+      }
+    }
+  } catch (e: any) {
+    error.value = e.message ?? 'イベントの取得に失敗しました'
+  } finally {
+    loading.value = false
+  }
+})
 
 const handleSubmit = async () => {
   submitting.value = true
-  await new Promise(r => setTimeout(r, 800))
-  submitting.value = false
-  await navigateTo(`/events/${eventId.value}`)
+  error.value = ''
+  try {
+    const startAt = form.value.startDate + (form.value.startTime ? 'T' + form.value.startTime : 'T00:00')
+    const endAt   = form.value.endDate ? form.value.endDate + (form.value.endTime ? 'T' + form.value.endTime : 'T00:00') : undefined
+    await updateEvent(eventId.value, {
+      title:       form.value.title,
+      startAt,
+      endAt,
+      location:    form.value.location || undefined,
+      scope:       form.value.targetScope as EventForm['scope'],
+      description: form.value.description || undefined,
+    })
+    await navigateTo(`/events/${eventId.value}`)
+  } catch (e: any) {
+    error.value = e.message ?? '保存に失敗しました'
+    submitting.value = false
+  }
 }
 
 const handleDelete = async () => {
   if (!confirm('このイベントを削除しますか？')) return
-  await navigateTo('/events')
+  try {
+    await deleteEvent(eventId.value)
+    await navigateTo('/events')
+  } catch (e: any) {
+    error.value = e.message ?? '削除に失敗しました'
+  }
 }
 </script>
 

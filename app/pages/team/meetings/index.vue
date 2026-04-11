@@ -1,30 +1,50 @@
 <script setup lang="ts">
+import type { MeetingSummary } from '~/types/meeting'
+
 definePageMeta({ middleware: ['auth'] })
 
-// ダミーデータ（Phase5でFirestoreから取得）
-const meetings = ref([
-  {
-    id: 'mtg_001',
-    date: '2026/04/08',
-    spaceName: 'りらくす組合 数字会議',
-    attendeeCount: 12,
-    summary: { totalNewClients: 18, totalContracts: 24, totalActivities: 89 },
-  },
-  {
-    id: 'mtg_002',
-    date: '2026/04/01',
-    spaceName: 'りらくす組合 数字会議',
-    attendeeCount: 11,
-    summary: { totalNewClients: 15, totalContracts: 20, totalActivities: 75 },
-  },
-  {
-    id: 'mtg_003',
-    date: '2026/03/25',
-    spaceName: 'りらくす組合 数字会議',
-    attendeeCount: 12,
-    summary: { totalNewClients: 22, totalContracts: 30, totalActivities: 102 },
-  },
-])
+const { fetchMeetings } = useMeetings()
+
+interface MeetingRow {
+  id: string
+  date: string
+  spaceName: string | undefined
+  attendeeCount: number
+  summary: {
+    totalNewClients: number
+    totalContracts: number
+    totalActivities: number
+  }
+}
+
+const meetings = ref<MeetingRow[]>([])
+const loading = ref(false)
+const error = ref('')
+
+onMounted(async () => {
+  loading.value = true
+  error.value = ''
+  try {
+    const data: MeetingSummary[] = await fetchMeetings()
+    meetings.value = data.map((m) => ({
+      id: m.id,
+      date: m.date,
+      spaceName: m.spaceName,
+      attendeeCount: m.participantCount,
+      summary: {
+        totalNewClients: m.totalNewClients,
+        totalContracts: m.totalContracts,
+        totalActivities: m.totalActivities,
+      },
+    }))
+  }
+  catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : '読み込みに失敗しました'
+  }
+  finally {
+    loading.value = false
+  }
+})
 </script>
 
 <template>

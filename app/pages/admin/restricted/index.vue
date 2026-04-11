@@ -1,16 +1,27 @@
 <script setup lang="ts">
+import type { RestrictedDoc } from '~/types/group'
+
 definePageMeta({ middleware: ['auth', 'admin'] })
 
-// ダミーデータ（Phase6でFirestoreから取得）
-const docs = ref([
-  { id: 'r001', title: 'JACCS 提携プログラム 2026年度版', category: 'JACCS', createdAt: '2026/04/01', accessCount: 12 },
-  { id: 'r002', title: 'JACCS 手数料体系（内部資料）', category: 'JACCS', createdAt: '2026/03/15', accessCount: 8 },
-  { id: 'r003', title: '経営方針・数値目標（機密）', category: '経営資料', createdAt: '2026/04/05', accessCount: 5 },
-  { id: 'r004', title: '組合マスター利益配分基準', category: '経営資料', createdAt: '2026/02/10', accessCount: 3 },
-])
+const { fetchDocs } = useRestricted()
+
+const loading = ref(false)
+const error = ref('')
+const docs = ref<RestrictedDoc[]>([])
+
+onMounted(async () => {
+  loading.value = true
+  try {
+    docs.value = await fetchDocs()
+  } catch (e: any) {
+    error.value = e.message ?? 'データの取得に失敗しました'
+  } finally {
+    loading.value = false
+  }
+})
 
 const categoryColors: Record<string, string> = {
-  'JACCS': 'bg-red-100 text-red-700',
+  'JACCS':  'bg-red-100 text-red-700',
   '経営資料': 'bg-purple-100 text-purple-700',
 }
 </script>

@@ -1,84 +1,179 @@
 <script setup lang="ts">
+import type { Unsubscribe } from 'firebase/firestore'
+import type { Space, Post, Comment } from '~/types/portal'
+
 definePageMeta({ middleware: ['auth'] })
 
 const route = useRoute()
 const spaceId = computed(() => route.params.spaceId as string)
 const { user } = useCurrentUser()
+const { fetchSpace, subscribePosts, createPost, fetchComments, createComment } = useSpaces()
 
-// ダミーデータ（Phase4でFirestoreから取得）
-const space = ref({
-  id: 'space_001',
-  name: 'りらくす組合',
-  memberCount: 119,
+const loading = ref(false)
+const error = ref('')
+
+// ----- スペース情報 -----
+type SpaceView = {
+  id: string
+  name: string
+  memberCount: number
+  isAdmin: boolean
+  isPinned: boolean
+}
+const space = ref<SpaceView>({
+  id: '',
+  name: '',
+  memberCount: 0,
   isAdmin: false,
-  isPinned: true,
+  isPinned: false,
 })
 
-const pinnedPost = ref({
-  id: 'pin_001',
-  content: '4月の数字会議は4/15(水)20時〜開催予定です。参加の方は出席管理にて出欠確認をお願いします。',
-  authorName: '牧田 マネージャー',
-  postedAt: '4/1',
+// ----- ピン留め投稿 -----
+type PinnedPostView = { id: string; content: string; authorName: string; postedAt: string } | null
+const pinnedPost = ref<PinnedPostView>(null)
+
+// ----- 投稿一覧 -----
+type CommentView = { authorName: string; authorInitial: string; content: string; postedAt: string }
+type PostView = {
+  id: string
+  authorName: string
+  authorInitial: string
+  authorColor: string
+  content: string
+  reactions: Record<string, number>
+  comments: CommentView[]
+  showComments: boolean
+  postedAt: string
+  attachments: { name: string; size: string }[]
+}
+const posts = ref<PostView[]>([])
+
+// コメント入力バッファ
+const commentInputs = ref<Record<string, string>>({})
+
+// Firestoreリアルタイムリスナーの解除関数
+let unsubscribe: Unsubscribe | undefined
+
+const mapPost = (p: Post): PostView => ({
+  id:            p.id,
+  authorName:    p.authorName,
+  authorInitial: p.authorName.charAt(0),
+  authorColor:   'bg-indigo-100 text-indigo-700',
+  content:       p.content,
+  reactions:     p.reactionCounts,
+  comments:      [],
+  showComments:  false,
+  postedAt:      p.createdAt.toDate().toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' }),
+  attachments:   (p.attachments ?? []).map(a => ({ name: a.name, size: String(a.size) })),
 })
 
-const posts = ref([
-  {
-    id: 'post_001',
-    authorName: '西島 伸樹',
-    authorInitial: '西',
-    authorColor: 'bg-indigo-100 text-indigo-700',
-    content: '本日の活動報告です。田中様と面談し、生命保険の見直しを提案しました。来週中に返答をいただける予定です。\n\nまた、佐藤様から不動産購入のご相談をいただき、初回面談を設定しました。',
-    reactions: { '👍': 3, '✨': 1 },
-    comments: [
-      { authorName: '山田 健太', authorInitial: '山', content: 'いいですね！契約につながるといいですね。', postedAt: '3時間前' },
-      { authorName: '池田 健太郎', authorInitial: '池', content: '田中様は以前から検討されていた方ですね。頑張ってください！', postedAt: '2時間前' },
-    ],
-    showComments: false,
-    postedAt: '4時間前',
-    attachments: [],
-  },
-  {
-    id: 'post_002',
-    authorName: '池田 健太郎',
-    authorInitial: '池',
-    authorColor: 'bg-purple-100 text-purple-700',
-    content: '先週の数字会議の議事録をアップしました。ご確認ください。今月の目標達成に向けて引き続き頑張りましょう！\n\n目標: 新規5件、成約3件\n現状: 新規3件、成約2件',
-    reactions: { '👍': 5 },
-    comments: [
-      { authorName: '田中 洋子', authorInitial: '田', content: '確認しました！残り1週間で頑張ります。', postedAt: '1日前' },
-    ],
-    showComments: false,
-    postedAt: '1日前',
-    attachments: [{ name: '議事録_数字会議_4月.pdf', size: '245 KB' }],
-  },
-  {
-    id: 'post_003',
-    authorName: '田中 洋子',
-    authorInitial: '田',
-    authorColor: 'bg-rose-100 text-rose-700',
-    content: '鈴木様のご紹介で新規顧客を獲得しました！山本様（35歳）で、まず生命保険の見直しをご希望とのことです。',
-    reactions: { '🎉': 4, '👍': 2 },
-    comments: [],
-    showComments: false,
-    postedAt: '2日前',
-    attachments: [],
-  },
-])
+onMounted(async () => {
+  loading.value = true
+  error.value = ''
+  try {
+    const fetchedSpace: Space | null = await fetchSpace(spaceId.value)
+    if (fetchedSpace) {
+      space.value = {
+        id:          fetchedSpace.id,
+        name:        fetchedSpace.name,
+        memberCount: fetchedSpace.memberUids.length,
+        isAdmin:     fetchedSpace.adminUids.includes(user.value?.uid ?? ''),
+        isPinned:    !!fetchedSpace.pinnedPostId,
+      }
+    }
 
+    // リアルタイム投稿購読
+    unsubscribe = subscribePosts(spaceId.value, (rawPosts: Post[]) => {
+      // 既存の showComments / comments を保持しながら更新
+      const existing = new Map(posts.value.map(p => [p.id, p]))
+      posts.value = rawPosts.map(p => {
+        const prev = existing.get(p.id)
+        const mapped = mapPost(p)
+        if (prev) {
+          mapped.showComments = prev.showComments
+          mapped.comments = prev.comments
+        }
+        return mapped
+      })
+
+      // ピン留め投稿を特定
+      const pinned = rawPosts.find(p => p.isPinned)
+      pinnedPost.value = pinned
+        ? {
+            id:         pinned.id,
+            content:    pinned.content,
+            authorName: pinned.authorName,
+            postedAt:   pinned.createdAt.toDate().toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' }),
+          }
+        : null
+    })
+  } catch (e: any) {
+    error.value = e?.message ?? 'データの取得に失敗しました'
+  } finally {
+    loading.value = false
+  }
+})
+
+onUnmounted(() => {
+  unsubscribe?.()
+})
+
+// ----- 投稿送信 -----
 const newPostContent = ref('')
 const submitting = ref(false)
 
 const handlePostSubmit = async () => {
   if (!newPostContent.value.trim()) return
   submitting.value = true
-  // Phase4でFirestoreへの保存処理に差し替え
-  await new Promise(r => setTimeout(r, 500))
-  submitting.value = false
-  newPostContent.value = ''
+  try {
+    await createPost(spaceId.value, { content: newPostContent.value })
+    newPostContent.value = ''
+  } catch (e: any) {
+    error.value = e?.message ?? '投稿に失敗しました'
+  } finally {
+    submitting.value = false
+  }
 }
 
-const toggleComments = (post: any) => {
+// ----- コメント展開 -----
+const toggleComments = async (post: PostView) => {
   post.showComments = !post.showComments
+  if (post.showComments && post.comments.length === 0) {
+    try {
+      const rawComments: Comment[] = await fetchComments(spaceId.value, post.id)
+      post.comments = rawComments.map(c => ({
+        authorName:    c.authorName,
+        authorInitial: c.authorName.charAt(0),
+        content:       c.content,
+        postedAt:      c.createdAt.toDate().toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' }),
+      }))
+    } catch (_) {
+      // コメント取得失敗は静かに処理
+    }
+  }
+}
+
+// ----- コメント送信 -----
+const submitComment = async (postId: string) => {
+  const content = commentInputs.value[postId]?.trim()
+  if (!content) return
+  try {
+    await createComment(spaceId.value, postId, content)
+    commentInputs.value[postId] = ''
+    // コメントを再取得
+    const post = posts.value.find(p => p.id === postId)
+    if (post) {
+      const rawComments: Comment[] = await fetchComments(spaceId.value, postId)
+      post.comments = rawComments.map(c => ({
+        authorName:    c.authorName,
+        authorInitial: c.authorName.charAt(0),
+        content:       c.content,
+        postedAt:      c.createdAt.toDate().toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' }),
+      }))
+    }
+  } catch (e: any) {
+    error.value = e?.message ?? 'コメントの投稿に失敗しました'
+  }
 }
 </script>
 
@@ -138,7 +233,7 @@ const toggleComments = (post: any) => {
     <div class="card p-4">
       <div class="flex items-start gap-3">
         <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-100 text-primary-700 font-semibold text-sm">
-          {{ user?.name?.charAt(0) ?? 'U' }}
+          {{ user?.displayName?.charAt(0) ?? 'U' }}
         </div>
         <div class="flex-1 space-y-2">
           <textarea

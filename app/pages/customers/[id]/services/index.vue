@@ -1,14 +1,21 @@
 <script setup lang="ts">
+import { SERVICE_LABELS, STATUS_LABELS } from '~/types/service'
+import type { ServiceStatus } from '~/types/service'
+
 definePageMeta({ middleware: ['auth'] })
 
 const route = useRoute()
 const customerId = computed(() => route.params.id as string)
 const { canEditCustomer } = usePermission()
 
-// ダミー顧客名（Phase3でFirestoreから取得）
-const customerName = ref('田中 一郎')
+const { fetchCustomer } = useCustomers()
+const { fetchAllServiceSummaries } = useServices()
 
-// サービスカテゴリとステータス（Phase3でFirestoreデータに差し替え）
+const customerName = ref('')
+const loading = ref(false)
+const error = ref('')
+
+// サービスカテゴリ定義（UIはそのまま、statusはFirestoreデータで上書き）
 const serviceCategories = ref([
   {
     label: '保険',
@@ -16,9 +23,9 @@ const serviceCategories = ref([
     color: 'text-blue-600',
     bgColor: 'bg-blue-50',
     services: [
-      { key: 'lifeInsurance', label: '生命保険', status: 'contracted', statusLabel: '成約', date: '2023/04', note: 'メットライフ' },
-      { key: 'fireInsurance', label: '火災保険', status: 'contracted', statusLabel: '成約', date: '2022/09', note: '' },
-      { key: 'autoInsurance', label: '自動車保険（ソニー損保）', status: 'considering', statusLabel: '検討中', date: '', note: '' },
+      { key: 'lifeInsurance', label: SERVICE_LABELS.lifeInsurance, status: 'none', statusLabel: '対応なし', date: '', note: '' },
+      { key: 'fireInsurance', label: SERVICE_LABELS.fireInsurance, status: 'none', statusLabel: '対応なし', date: '', note: '' },
+      { key: 'autoInsurance', label: SERVICE_LABELS.autoInsurance, status: 'none', statusLabel: '対応なし', date: '', note: '' },
     ],
   },
   {
@@ -27,10 +34,10 @@ const serviceCategories = ref([
     color: 'text-amber-600',
     bgColor: 'bg-amber-50',
     services: [
-      { key: 'realEstatePurchase', label: '不動産購入', status: 'none', statusLabel: '対応なし', date: '', note: '' },
-      { key: 'realEstateSale', label: '不動産売却', status: 'none', statusLabel: '対応なし', date: '', note: '' },
-      { key: 'realEstateRental', label: '不動産賃貸', status: 'contracted', statusLabel: '成約', date: '2021/12', note: '' },
-      { key: 'homeLoan', label: '住宅ローン', status: 'contracted', statusLabel: '成約', date: '2021/12', note: '' },
+      { key: 'realEstatePurchase', label: SERVICE_LABELS.realEstatePurchase, status: 'none', statusLabel: '対応なし', date: '', note: '' },
+      { key: 'realEstateSale', label: SERVICE_LABELS.realEstateSale, status: 'none', statusLabel: '対応なし', date: '', note: '' },
+      { key: 'realEstateRental', label: SERVICE_LABELS.realEstateRental, status: 'none', statusLabel: '対応なし', date: '', note: '' },
+      { key: 'homeLoan', label: SERVICE_LABELS.homeLoan, status: 'none', statusLabel: '対応なし', date: '', note: '' },
     ],
   },
   {
@@ -39,8 +46,8 @@ const serviceCategories = ref([
     color: 'text-purple-600',
     bgColor: 'bg-purple-50',
     services: [
-      { key: 'jobChange', label: '転職（サークロス/アセット）', status: 'none', statusLabel: '対応なし', date: '', note: '' },
-      { key: 'seniorPlanning', label: 'シニアプランニング', status: 'none', statusLabel: '対応なし', date: '', note: '' },
+      { key: 'jobChange', label: SERVICE_LABELS.jobChange, status: 'none', statusLabel: '対応なし', date: '', note: '' },
+      { key: 'seniorPlanning', label: SERVICE_LABELS.seniorPlanning, status: 'none', statusLabel: '対応なし', date: '', note: '' },
     ],
   },
   {
@@ -49,8 +56,8 @@ const serviceCategories = ref([
     color: 'text-sky-600',
     bgColor: 'bg-sky-50',
     services: [
-      { key: 'communication', label: '通信回線', status: 'consulting', statusLabel: '相談中', date: '', note: '' },
-      { key: 'hikari', label: 'ピカラ光', status: 'none', statusLabel: '対応なし', date: '', note: '' },
+      { key: 'communication', label: SERVICE_LABELS.communication, status: 'none', statusLabel: '対応なし', date: '', note: '' },
+      { key: 'hikari', label: SERVICE_LABELS.hikari, status: 'none', statusLabel: '対応なし', date: '', note: '' },
     ],
   },
   {
@@ -59,10 +66,10 @@ const serviceCategories = ref([
     color: 'text-rose-600',
     bgColor: 'bg-rose-50',
     services: [
-      { key: 'moving', label: '引越し', status: 'none', statusLabel: '対応なし', date: '', note: '' },
-      { key: 'renovation', label: 'リフォーム', status: 'none', statusLabel: '対応なし', date: '', note: '' },
-      { key: 'travel', label: '旅行', status: 'none', statusLabel: '対応なし', date: '', note: '' },
-      { key: 'bridal', label: '結婚式場紹介', status: 'none', statusLabel: '対応なし', date: '', note: '' },
+      { key: 'moving', label: SERVICE_LABELS.moving, status: 'none', statusLabel: '対応なし', date: '', note: '' },
+      { key: 'renovation', label: SERVICE_LABELS.renovation, status: 'none', statusLabel: '対応なし', date: '', note: '' },
+      { key: 'travel', label: SERVICE_LABELS.travel, status: 'none', statusLabel: '対応なし', date: '', note: '' },
+      { key: 'bridal', label: SERVICE_LABELS.bridal, status: 'none', statusLabel: '対応なし', date: '', note: '' },
     ],
   },
   {
@@ -71,9 +78,9 @@ const serviceCategories = ref([
     color: 'text-gray-600',
     bgColor: 'bg-gray-100',
     services: [
-      { key: 'legal', label: '登記簿謄本', status: 'none', statusLabel: '対応なし', date: '', note: '' },
-      { key: 'inheritance', label: '相続・遺言', status: 'none', statusLabel: '対応なし', date: '', note: '' },
-      { key: 'companySetup', label: '法人設立', status: 'none', statusLabel: '対応なし', date: '', note: '' },
+      { key: 'legal', label: SERVICE_LABELS.legal, status: 'none', statusLabel: '対応なし', date: '', note: '' },
+      { key: 'inheritance', label: SERVICE_LABELS.inheritance, status: 'none', statusLabel: '対応なし', date: '', note: '' },
+      { key: 'companySetup', label: SERVICE_LABELS.companySetup, status: 'none', statusLabel: '対応なし', date: '', note: '' },
     ],
   },
 ])
@@ -88,6 +95,41 @@ const statusClass = (status: string) => {
     default: return 'bg-gray-100 text-gray-500'
   }
 }
+
+onMounted(async () => {
+  loading.value = true
+  error.value = ''
+  try {
+    const [customer, summaries] = await Promise.all([
+      fetchCustomer(customerId.value),
+      fetchAllServiceSummaries(customerId.value),
+    ])
+
+    customerName.value = customer?.name ?? ''
+
+    // サマリーデータをカテゴリのservicesに反映
+    const summaryMap = new Map(summaries.map(s => [s.serviceType, s]))
+
+    for (const cat of serviceCategories.value) {
+      for (const svc of cat.services) {
+        const summary = summaryMap.get(svc.key as any)
+        if (summary && summary.latestStatus) {
+          svc.status = summary.latestStatus
+          svc.statusLabel = STATUS_LABELS[summary.latestStatus as ServiceStatus] ?? '対応なし'
+          svc.date = summary.latestUpdatedAt
+            ? summary.latestUpdatedAt.toDate().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit' })
+            : ''
+        }
+      }
+    }
+  }
+  catch (e: any) {
+    error.value = e.message ?? 'データの取得に失敗しました'
+  }
+  finally {
+    loading.value = false
+  }
+})
 </script>
 
 <template>

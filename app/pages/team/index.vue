@@ -1,12 +1,16 @@
 <script setup lang="ts">
+import type { MeetingSummary } from '~/types/meeting'
+
 definePageMeta({ middleware: ['auth'] })
 
 const { canViewGlobalDashboard, canViewGroupDashboard } = usePermission()
 const { user } = useCurrentUser()
+const { fetchMeetings } = useMeetings()
 
-// ダミーデータ（Phase5でFirestoreから取得）
-const currentMonth = '2026年4月'
+// 現在の年月を動的に生成
+const currentMonth = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long' })
 
+// Phase 5 — aggregate from meetings by group (dummy until per-group data is available)
 const groupKpis = ref([
   { label: 'Reterace', color: 'bg-indigo-500', contracts: 42, newClients: 18, activities: 156 },
   { label: 'Miraito', color: 'bg-sky-500', contracts: 38, newClients: 15, activities: 134 },
@@ -30,13 +34,17 @@ const fpRanking = ref([
   { rank: 5, name: '池田 美咲', group: 'Reterace', contracts: 7, badge: '' },
 ])
 
-// 個人KPI
+// 個人KPI（Phase 5 — per-user stats aggregation from Firestore）
 const myKpis = ref([
   { label: '今月の活動数', value: 24, unit: '件', icon: 'heroicons:clipboard-document-list', color: 'bg-blue-50 text-blue-700' },
   { label: '今月の成約数', value: 8, unit: '件', icon: 'heroicons:trophy', color: 'bg-green-50 text-green-700' },
   { label: '目標達成率', value: 80, unit: '%', icon: 'heroicons:chart-bar', color: 'bg-purple-50 text-purple-700' },
   { label: '今月の紹介獲得', value: 3, unit: '件', icon: 'heroicons:share', color: 'bg-amber-50 text-amber-700' },
 ])
+
+onMounted(async () => {
+  await fetchMeetings()
+})
 </script>
 
 <template>

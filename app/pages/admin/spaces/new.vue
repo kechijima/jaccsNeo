@@ -1,22 +1,39 @@
 <script setup lang="ts">
+import type { SpaceForm } from '~/types/portal'
+import type { GroupId } from '~/types/user'
+
 definePageMeta({ middleware: ['auth', 'admin'] })
 
+const { createSpace } = useSpaces()
+
 const form = ref({
-  name: '',
+  name:        '',
   description: '',
-  type: 'kumiai',
-  groupId: '',
-  kumiaiId: '',
-  isPrivate: false,
+  type:        'kumiai',
+  groupId:     '' as GroupId | '',
+  kumiaiId:    '',
+  isPrivate:   false,
 })
 
 const submitting = ref(false)
+const error = ref('')
 
 const handleSubmit = async () => {
   submitting.value = true
-  await new Promise(r => setTimeout(r, 800))
-  submitting.value = false
-  await navigateTo('/admin/spaces')
+  error.value = ''
+  try {
+    await createSpace({
+      name:        form.value.name,
+      description: form.value.description || undefined,
+      type:        form.value.type as SpaceForm['type'],
+      groupId:     (form.value.groupId as GroupId) || undefined,
+      kumiaiId:    form.value.kumiaiId || undefined,
+    })
+    await navigateTo('/admin/spaces')
+  } catch (e: any) {
+    error.value = e.message ?? '作成に失敗しました'
+    submitting.value = false
+  }
 }
 </script>
 

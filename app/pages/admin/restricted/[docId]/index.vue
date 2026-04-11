@@ -1,24 +1,40 @@
 <script setup lang="ts">
+import type { RestrictedDoc, RestrictedAccessLog } from '~/types/group'
+
 definePageMeta({ middleware: ['auth', 'admin'] })
 
 const route = useRoute()
 const docId = computed(() => route.params.docId as string)
 
-// ダミーデータ（Phase6でFirestoreから取得）
-const doc = ref({
-  title: 'JACCS 提携プログラム 2026年度版',
-  category: 'JACCS',
-  content: 'JACCS（ジャックス）との提携プログラムに関する内部資料です。\n\n1. 提携手数料体系\n   - 生命保険紹介: X%\n   - 損保紹介: Y%\n\n2. 対象商品リスト\n   - 詳細は添付PDFをご参照ください\n\n3. 申請手順\n   - システムから申請書を提出後、JACCS担当者に連絡',
-  attachments: [
-    { name: 'JACCS_提携プログラム2026.pdf', size: '2.3 MB', uploadedAt: '2026/04/01' },
-  ],
-  createdAt: '2026/04/01',
-  createdBy: '管理者 太郎',
-  accessLog: [
-    { user: '管理者 太郎', accessedAt: '2026/04/10 14:30' },
-    { user: '管理者 太郎', accessedAt: '2026/04/08 09:15' },
-    { user: '理事会 花子', accessedAt: '2026/04/05 16:20' },
-  ],
+const { fetchDoc, fetchAccessLogs } = useRestricted()
+
+const loading = ref(false)
+const error = ref('')
+
+const doc = ref<(RestrictedDoc & { createdAtLabel: string; accessLog: { user: string; accessedAt: string }[] }) | null>(null)
+
+onMounted(async () => {
+  loading.value = true
+  try {
+    const [fetchedDoc, logs] = await Promise.all([
+      fetchDoc(docId.value),
+      fetchAccessLogs(docId.value),
+    ])
+    if (fetchedDoc) {
+      doc.value = {
+        ...fetchedDoc,
+        createdAtLabel: fetchedDoc.createdAt.toDate().toLocaleDateString('ja-JP'),
+        accessLog: logs.map(l => ({
+          user:       l.displayName,
+          accessedAt: l.accessedAt.toDate().toLocaleString('ja-JP'),
+        })),
+      }
+    }
+  } catch (e: any) {
+    error.value = e.message ?? 'データの取得に失敗しました'
+  } finally {
+    loading.value = false
+  }
 })
 </script>
 
@@ -46,7 +62,7 @@ const doc = ref({
           <span class="badge bg-red-100 text-red-700 text-xs">{{ doc.category }}</span>
         </div>
         <h1 class="text-xl font-bold text-gray-900">{{ doc.title }}</h1>
-        <p class="text-xs text-gray-400 mt-0.5">作成: {{ doc.createdAt }} · {{ doc.createdBy }}</p>
+        <p class="text-xs text-gray-400 mt-0.5">作成: {{ doc.createdAtLabel }} · {{ doc.createdByName }}</p>
       </div>
       <button class="btn-secondary text-sm flex items-center gap-1.5 shrink-0">
         <Icon name="heroicons:pencil" class="h-4 w-4" />

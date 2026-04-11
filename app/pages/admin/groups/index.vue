@@ -1,45 +1,44 @@
 <script setup lang="ts">
+import type { Group } from '~/types/group'
+
 definePageMeta({ middleware: ['auth', 'admin'] })
 
-// ダミーデータ（Phase1でFirestoreから取得）
-const groups = ref([
-  {
-    id: 'reterace',
-    name: 'Reterace',
-    color: 'bg-indigo-500',
-    managerName: '岡 リーダー',
-    kumiais: [
-      { id: 'riraclus', name: 'りらくす組合', adminName: '牧田 PM', memberCount: 119 },
-      { id: 'radical', name: 'ラジカル組合', adminName: '中村 PM', memberCount: 63 },
-      { id: 'rattrapante', name: 'ラトラパンテ組合', adminName: '田中 PM', memberCount: 48 },
-      { id: 'ichika', name: '都華-ichika-組合', adminName: '山田 PM', memberCount: 32 },
-    ],
-  },
-  {
-    id: 'miraito',
-    name: 'Miraito',
-    color: 'bg-sky-500',
-    managerName: '川崎 リーダー',
-    kumiais: [
-      { id: 'miraito_k', name: 'ミライト組合', adminName: '川崎 EM2', memberCount: 87 },
-      { id: 'riane', name: 'リアン組合', adminName: '木村 PM', memberCount: 54 },
-      { id: 'calest', name: 'カレスト組合', adminName: '佐々木 PM', memberCount: 41 },
-    ],
-  },
-  {
-    id: 'asset',
-    name: 'Asset',
-    color: 'bg-amber-500',
-    managerName: '兵頭 リーダー',
-    kumiais: [
-      { id: 'asset_k', name: 'アセット組合', adminName: '兵頭 EM2', memberCount: 76 },
-      { id: 'tegoris', name: 'テゴリス組合', adminName: '服部 PM', memberCount: 68 },
-      { id: 'yokoito', name: '緯-yokoito-組合', adminName: '相原 PM', memberCount: 45 },
-    ],
-  },
-])
+const { fetchGroups } = useGroups()
 
-const expandedGroups = ref(['reterace', 'miraito', 'asset'])
+const loading = ref(false)
+const error = ref('')
+
+const groups = ref<(Group & { color: string; managerName: string; kumiais: { id: string; name: string; adminName: string; memberCount: number }[] })[]>([])
+
+const colorMap: Record<string, string> = {
+  reterace: 'bg-indigo-500',
+  miraito:  'bg-sky-500',
+  asset:    'bg-amber-500',
+}
+
+onMounted(async () => {
+  loading.value = true
+  try {
+    const fetchedGroups = await fetchGroups()
+    groups.value = fetchedGroups.map(g => ({
+      ...g,
+      color:       colorMap[g.id] ?? 'bg-gray-500',
+      managerName: '',
+      kumiais:     g.kumiai.map(k => ({
+        id:          k.id,
+        name:        k.name,
+        adminName:   '',
+        memberCount: 0,
+      })),
+    }))
+  } catch (e: any) {
+    error.value = e.message ?? 'データの取得に失敗しました'
+  } finally {
+    loading.value = false
+  }
+})
+
+const expandedGroups = ref<string[]>(['reterace', 'miraito', 'asset'])
 const editingGroup = ref<string | null>(null)
 </script>
 

@@ -1,56 +1,36 @@
 <script setup lang="ts">
+import type { EventSummary } from '~/types/event'
+
 definePageMeta({ middleware: ['auth'] })
+
+const { fetchEvents } = useEvents()
 
 const viewMode = ref<'list' | 'calendar'>('list')
 const currentMonth = ref(new Date(2026, 3, 1)) // 2026年4月
 
-// ダミーデータ（Phase4でFirestoreから取得）
-const events = ref([
-  {
-    id: 'evt_001',
-    title: 'りらくす組合 数字会議',
-    startAt: new Date(2026, 3, 15, 20, 0),
-    endAt: new Date(2026, 3, 15, 21, 30),
-    location: 'オンライン（Zoom）',
-    targetScope: 'りらくす組合',
-    attendeeCount: 12,
-    isAttending: true,
-    color: 'bg-indigo-100 text-indigo-700 border-indigo-200',
-  },
-  {
-    id: 'evt_002',
-    title: 'FP勉強会（全体）',
-    startAt: new Date(2026, 3, 20, 13, 0),
-    endAt: new Date(2026, 3, 20, 16, 0),
-    location: '大阪本社 会議室A',
-    targetScope: '全体',
-    attendeeCount: 38,
-    isAttending: false,
-    color: 'bg-green-100 text-green-700 border-green-200',
-  },
-  {
-    id: 'evt_003',
-    title: 'Reterace グループ会議',
-    startAt: new Date(2026, 3, 22, 19, 0),
-    endAt: new Date(2026, 3, 22, 20, 30),
-    location: 'オンライン（Google Meet）',
-    targetScope: 'Reterace グループ',
-    attendeeCount: 24,
-    isAttending: true,
-    color: 'bg-indigo-100 text-indigo-700 border-indigo-200',
-  },
-  {
-    id: 'evt_004',
-    title: '新人研修（4月）',
-    startAt: new Date(2026, 3, 25, 10, 0),
-    endAt: new Date(2026, 3, 25, 17, 0),
-    location: '大阪本社 研修室',
-    targetScope: '全体',
-    attendeeCount: 8,
-    isAttending: false,
-    color: 'bg-amber-100 text-amber-700 border-amber-200',
-  },
-])
+const loading = ref(false)
+const error = ref('')
+
+const scopeColorMap: Record<string, string> = {
+  all: 'bg-green-100 text-green-700 border-green-200',
+  group: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+  kumiai: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+  space: 'bg-amber-100 text-amber-700 border-amber-200',
+}
+
+interface EventRow {
+  id: string
+  title: string
+  startAt: Date
+  endAt: Date | undefined
+  location: string | undefined
+  targetScope: string
+  attendeeCount: number
+  isAttending: boolean
+  color: string
+}
+
+const events = ref<EventRow[]>([])
 
 const formatDate = (d: Date) => d.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' })
 const formatTime = (d: Date) => d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
@@ -65,6 +45,29 @@ const pastEvents = computed(() =>
 const monthName = computed(() =>
   currentMonth.value.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long' })
 )
+
+onMounted(async () => {
+  loading.value = true
+  error.value = ''
+  try {
+    const summaries: EventSummary[] = await fetchEvents()
+    events.value = summaries.map(data => ({
+      id: data.id,
+      title: data.title,
+      startAt: data.startAt.toDate(),
+      endAt: data.endAt?.toDate(),
+      location: data.location,
+      targetScope: data.scope,
+      attendeeCount: data.attendeeCount,
+      isAttending: false,
+      color: scopeColorMap[data.scope] ?? 'bg-gray-100 text-gray-700 border-gray-200',
+    }))
+  } catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : 'イベントの取得に失敗しました'
+  } finally {
+    loading.value = false
+  }
+})
 </script>
 
 <template>

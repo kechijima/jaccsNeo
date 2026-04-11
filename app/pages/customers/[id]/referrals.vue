@@ -1,26 +1,88 @@
 <script setup lang="ts">
+import type { Referral } from '~/types/referral'
+
 definePageMeta({ middleware: ['auth'] })
 
 const route = useRoute()
 const customerId = computed(() => route.params.id as string)
 
-const customerName = ref('田中 一郎')
+const loading = ref(false)
+const error = ref('')
 
-// ダミー紹介ネットワークデータ（Phase3でFirestoreから取得）
-const referredBy = ref({
-  id: 'customer_abc',
-  name: '山田 太郎',
-  relationship: '同僚',
-  date: '2021/03',
-})
+const customerName = ref('')
 
-const referredCustomers = ref([
-  { id: 'cust_001', name: '佐藤 花子', relationship: '友人', date: '2022/05', services: ['生命保険', '不動産'] },
-  { id: 'cust_002', name: '鈴木 美咲', relationship: '家族', date: '2023/01', services: ['生命保険'] },
-  { id: 'cust_003', name: '伊藤 健二', relationship: '会社同僚', date: '2023/08', services: ['転職'] },
-])
+// 紹介元：この顧客を紹介してくれた人（toCustomerId == customerId）
+// テンプレートは先頭の1件のみ使う
+const referredBy = ref<{
+  id: string
+  name: string
+  relationship?: string
+  date?: string
+} | null>(null)
+
+// 紹介した顧客一覧（fromCustomerId == customerId）
+const referredCustomers = ref<{
+  id: string
+  name: string
+  relationship?: string
+  date?: string
+  services?: string[]
+}[]>([])
 
 const totalReferrals = computed(() => referredCustomers.value.length)
+
+// Timestamp → 'YYYY/MM' 形式の文字列に変換
+const toYearMonth = (ts: Referral['createdAt'] | undefined): string => {
+  if (!ts) return ''
+  const d = ts.toDate()
+  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+const { fetchReferredBy, fetchReferredTo } = useReferrals()
+const { fetchCustomer } = useCustomers()
+
+onMounted(async () => {
+  loading.value = true
+  error.value = ''
+  try {
+    const id = customerId.value
+
+    const [customer, referredByList, referredToList] = await Promise.all([
+      fetchCustomer(id),
+      fetchReferredBy(id),
+      fetchReferredTo(id),
+    ])
+
+    customerName.value = customer?.name ?? ''
+
+    // referredToList: 誰かがこの顧客を紹介した記録。
+    // fromCustomerName が「紹介元」の人。先頭1件のみ表示。
+    if (referredToList.length > 0) {
+      const r = referredToList[0]
+      referredBy.value = {
+        id:   r.fromCustomerId,
+        name: r.fromCustomerName,
+        date: toYearMonth(r.createdAt),
+      }
+    } else {
+      referredBy.value = null
+    }
+
+    // referredByList: この顧客が紹介した記録。
+    // toCustomerName が「紹介した顧客」の人。
+    referredCustomers.value = referredByList.map(r => ({
+      id:   r.toCustomerId,
+      name: r.toCustomerName,
+      date: toYearMonth(r.createdAt),
+      ...(r.notes ? { relationship: r.notes } : {}),
+      services: [],
+    }))
+  } catch (e: any) {
+    error.value = e?.message ?? '取得に失敗しました'
+  } finally {
+    loading.value = false
+  }
+})
 </script>
 
 <template>

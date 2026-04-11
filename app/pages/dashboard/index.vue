@@ -12,7 +12,6 @@ const greeting = computed(() => {
   return 'こんばんは'
 })
 
-// ダミーデータ（Phase5で実際のFirestoreデータに差し替え）
 const kpiCards = computed(() => [
   { label: '今月の活動数',  value: '－',  unit: '件', icon: 'heroicons:clipboard-document-list', color: 'bg-blue-50 text-blue-700' },
   { label: '今月の成約数',  value: '－',  unit: '件', icon: 'heroicons:trophy',                  color: 'bg-green-50 text-green-700' },
@@ -20,17 +19,38 @@ const kpiCards = computed(() => [
   { label: '紹介獲得数',    value: '－',  unit: '件', icon: 'heroicons:share',                   color: 'bg-amber-50 text-amber-700' },
 ])
 
-const scheduleItems = ref([
-  // Phase4で実際のデータに差し替え
-])
+const { fetchEvents } = useEvents()
+const { fetchSpaces, fetchPosts } = useSpaces()
+const { fetchCustomers } = useCustomers()
 
-const followUpItems = ref([
-  // Phase2で実際のデータに差し替え
-])
+const scheduleItems = ref<Array<{ id: string; title: string; startAt: string; location?: string }>>([])
+const followUpItems = ref<Array<{ id: string; name: string; tel?: string; note: string }>>([])
+const portalPosts = ref<Array<{ id: string; spaceId: string; spaceName: string; authorName: string; content: string }>>([])
 
-const portalPosts = ref([
-  // Phase4で実際のデータに差し替え
-])
+onMounted(async () => {
+  const [events, spaces] = await Promise.all([
+    fetchEvents({ upcoming: true }).catch(() => []),
+    fetchSpaces().catch(() => []),
+  ])
+
+  scheduleItems.value = events.slice(0, 3).map(e => ({
+    id:       e.id,
+    title:    e.title,
+    startAt:  e.startAt.toDate().toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+    location: e.location,
+  }))
+
+  if (spaces.length > 0) {
+    const posts = await fetchPosts(spaces[0].id).catch(() => [])
+    portalPosts.value = posts.slice(0, 2).map(p => ({
+      id:         p.id,
+      spaceId:    spaces[0].id,
+      spaceName:  spaces[0].name,
+      authorName: p.authorName,
+      content:    p.content.slice(0, 80) + (p.content.length > 80 ? '...' : ''),
+    }))
+  }
+})
 </script>
 
 <template>

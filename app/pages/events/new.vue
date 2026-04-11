@@ -1,5 +1,9 @@
 <script setup lang="ts">
+import type { EventForm } from '~/types/event'
+
 definePageMeta({ middleware: ['auth'] })
+
+const { createEvent } = useEvents()
 
 const form = ref({
   title: '',
@@ -16,13 +20,38 @@ const form = ref({
 })
 
 const submitting = ref(false)
+const error = ref('')
 
 const handleSubmit = async () => {
   submitting.value = true
-  // Phase4でFirestoreへの保存処理に差し替え
-  await new Promise(r => setTimeout(r, 800))
-  submitting.value = false
-  await navigateTo('/events')
+  error.value = ''
+  try {
+    const startAt = form.value.startTime
+      ? `${form.value.startDate}T${form.value.startTime}`
+      : `${form.value.startDate}T00:00`
+
+    const endAt = form.value.endDate
+      ? form.value.endTime
+        ? `${form.value.endDate}T${form.value.endTime}`
+        : `${form.value.endDate}T00:00`
+      : undefined
+
+    const eventForm: EventForm = {
+      title: form.value.title,
+      description: form.value.description || undefined,
+      startAt,
+      endAt,
+      location: form.value.location || undefined,
+      scope: form.value.targetScope as EventForm['scope'],
+    }
+
+    await createEvent(eventForm)
+    await navigateTo('/events')
+  } catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : 'イベントの作成に失敗しました'
+  } finally {
+    submitting.value = false
+  }
 }
 </script>
 

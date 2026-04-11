@@ -4,24 +4,62 @@ definePageMeta({ middleware: ['auth'] })
 const route = useRoute()
 const spaceId = computed(() => route.params.spaceId as string)
 
+const { fetchSpace, updateSpace, archiveSpace } = useSpaces()
+
+const loading = ref(false)
+const error = ref('')
+const saving = ref(false)
+
 const form = ref({
-  name: 'りらくす組合',
-  description: 'りらくす組合のFP活動報告・情報共有スペース',
+  name: '',
+  description: '',
   type: 'kumiai',
   isArchived: false,
 })
 
-const saving = ref(false)
+onMounted(async () => {
+  loading.value = true
+  try {
+    const space = await fetchSpace(spaceId.value)
+    if (space) {
+      form.value = {
+        name:        space.name,
+        description: space.description ?? '',
+        type:        space.type,
+        isArchived:  space.isArchived,
+      }
+    }
+  } catch (e: any) {
+    error.value = e.message ?? 'スペース情報の取得に失敗しました'
+  } finally {
+    loading.value = false
+  }
+})
 
 const handleSave = async () => {
   saving.value = true
-  await new Promise(r => setTimeout(r, 800))
-  saving.value = false
+  error.value = ''
+  try {
+    await updateSpace(spaceId.value, {
+      name:        form.value.name,
+      description: form.value.description || undefined,
+      type:        form.value.type as any,
+    })
+  } catch (e: any) {
+    error.value = e.message ?? '保存に失敗しました'
+  } finally {
+    saving.value = false
+  }
 }
 
-const handleArchive = () => {
+const handleArchive = async () => {
   if (!confirm('このスペースをアーカイブしますか？')) return
-  // Phase4で実装
+  try {
+    await archiveSpace(spaceId.value, true)
+    await navigateTo('/portal/spaces')
+  } catch (e: any) {
+    error.value = e.message ?? 'アーカイブに失敗しました'
+  }
 }
 </script>
 

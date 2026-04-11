@@ -1,23 +1,21 @@
 <script setup lang="ts">
+import { SERVICE_LABELS } from '~/types/service'
+import type { ServiceCaseForm, ServiceStatus, ServiceType } from '~/types/service'
+
 definePageMeta({ middleware: ['auth'] })
 
 const route = useRoute()
 const customerId = computed(() => route.params.id as string)
 const serviceType = computed(() => route.params.serviceType as string)
 
-const serviceLabels: Record<string, string> = {
-  lifeInsurance: '生命保険', fireInsurance: '火災保険', autoInsurance: '自動車保険（ソニー損保）',
-  realEstatePurchase: '不動産購入', realEstateSale: '不動産売却', realEstateRental: '不動産賃貸',
-  homeLoan: '住宅ローン', jobChange: '転職', seniorPlanning: 'シニアプランニング',
-  communication: '通信回線', hikari: 'ピカラ光', moving: '引越し', renovation: 'リフォーム',
-  travel: '旅行', bridal: '結婚式場紹介', legal: '法務関係', inheritance: '相続・遺言',
-  companySetup: '法人設立', waterServer: 'ウォーターサーバー',
-}
-const serviceLabel = computed(() => serviceLabels[serviceType.value] ?? serviceType.value)
-const customerName = ref('田中 一郎')
+const { fetchCustomer } = useCustomers()
+const { createCase } = useServices()
 
-const form = ref({
-  status: 'consulting',
+const serviceLabel = computed(() => SERVICE_LABELS[serviceType.value] ?? serviceType.value)
+const customerName = ref('')
+
+const form = ref<ServiceCaseForm>({
+  status: 'consulting' as ServiceStatus,
   date: '',
   contractDate: '',
   amount: '',
@@ -26,13 +24,29 @@ const form = ref({
 })
 
 const submitting = ref(false)
+const error = ref('')
+
+onMounted(async () => {
+  try {
+    const customer = await fetchCustomer(customerId.value)
+    customerName.value = customer?.name ?? ''
+  }
+  catch (e: any) {
+    error.value = e.message ?? '顧客情報の取得に失敗しました'
+  }
+})
 
 const handleSubmit = async () => {
   submitting.value = true
-  // Phase3でFirestoreへの保存処理に差し替え
-  await new Promise(r => setTimeout(r, 800))
-  submitting.value = false
-  await navigateTo(`/customers/${customerId.value}/services/${serviceType.value}`)
+  error.value = ''
+  try {
+    await createCase(customerId.value, serviceType.value as ServiceType, form.value)
+    await navigateTo(`/customers/${customerId.value}/services/${serviceType.value}`)
+  }
+  catch (e: any) {
+    error.value = e.message ?? '保存に失敗しました'
+    submitting.value = false
+  }
 }
 </script>
 

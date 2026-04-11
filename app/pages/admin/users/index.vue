@@ -1,28 +1,37 @@
 <script setup lang="ts">
+import type { AppUser } from '~/types/user'
+
 definePageMeta({ middleware: ['auth', 'admin'] })
 
-// ダミーデータ（Phase1でFirestoreから取得）
-const users = ref([
-  { uid: 'u001', name: '西島 伸樹', email: 'nishijima@example.com', role: 'general', groupId: 'reterace', kumiaiName: 'りらくす組合', position: 'PM', isActive: true },
-  { uid: 'u002', name: '池田 健太郎', email: 'ikeda@example.com', role: 'general', groupId: 'reterace', kumiaiName: 'りらくす組合', position: '一般FP', isActive: true },
-  { uid: 'u003', name: '川崎 浩二', email: 'kawasaki@example.com', role: 'em2_above', groupId: 'miraito', kumiaiName: 'ミライト組合', position: 'EM2', isActive: true },
-  { uid: 'u004', name: '山田 太郎', email: 'yamada@example.com', role: 'general', groupId: 'asset', kumiaiName: 'アセット組合', position: 'PM', isActive: true },
-  { uid: 'u005', name: '管理者 太郎', email: 'admin@example.com', role: 'system_admin', groupId: '', kumiaiName: '', position: '', isActive: true },
-  { uid: 'u006', name: '理事会 花子', email: 'board@example.com', role: 'board', groupId: '', kumiaiName: '', position: '理事会メンバー', isActive: true },
-])
+const { fetchUsers } = useUsers()
+
+const loading = ref(false)
+const error = ref('')
+const users = ref<AppUser[]>([])
+
+onMounted(async () => {
+  loading.value = true
+  try {
+    users.value = await fetchUsers()
+  } catch (e: any) {
+    error.value = e.message ?? 'ユーザー一覧の取得に失敗しました'
+  } finally {
+    loading.value = false
+  }
+})
 
 const roleLabels: Record<string, string> = {
   system_admin: 'システム管理者',
-  board: '理事会メンバー',
-  em2_above: 'EM2以上',
-  general: '一般',
+  board:        '理事会メンバー',
+  em2_above:    'EM2以上',
+  general:      '一般',
 }
 
 const roleColors: Record<string, string> = {
   system_admin: 'bg-red-100 text-red-700',
-  board: 'bg-purple-100 text-purple-700',
-  em2_above: 'bg-indigo-100 text-indigo-700',
-  general: 'bg-gray-100 text-gray-600',
+  board:        'bg-purple-100 text-purple-700',
+  em2_above:    'bg-indigo-100 text-indigo-700',
+  general:      'bg-gray-100 text-gray-600',
 }
 
 const groupLabel: Record<string, string> = { reterace: 'Reterace', miraito: 'Miraito', asset: 'Asset' }
@@ -30,7 +39,9 @@ const groupLabel: Record<string, string> = { reterace: 'Reterace', miraito: 'Mir
 const searchQuery = ref('')
 const filteredUsers = computed(() => {
   if (!searchQuery.value) return users.value
-  return users.value.filter(u => u.name.includes(searchQuery.value) || u.email.includes(searchQuery.value))
+  return users.value.filter(u =>
+    u.displayName.includes(searchQuery.value) || u.email.includes(searchQuery.value),
+  )
 })
 </script>
 
@@ -76,7 +87,7 @@ const filteredUsers = computed(() => {
         </thead>
         <tbody class="divide-y divide-gray-50">
           <tr v-for="u in filteredUsers" :key="u.uid" class="hover:bg-gray-50">
-            <td class="px-4 py-3 font-medium text-gray-900">{{ u.name }}</td>
+            <td class="px-4 py-3 font-medium text-gray-900">{{ u.displayName }}</td>
             <td class="px-4 py-3 text-gray-500 text-xs">{{ u.email }}</td>
             <td class="px-4 py-3">
               <span class="badge text-xs" :class="roleColors[u.role]">{{ roleLabels[u.role] }}</span>
@@ -104,7 +115,7 @@ const filteredUsers = computed(() => {
       <div v-for="u in filteredUsers" :key="u.uid" class="card p-4">
         <div class="flex items-center justify-between gap-2">
           <div>
-            <p class="font-semibold text-gray-900">{{ u.name }}</p>
+            <p class="font-semibold text-gray-900">{{ u.displayName }}</p>
             <p class="text-xs text-gray-400 mt-0.5">{{ u.email }}</p>
           </div>
           <span class="badge text-xs" :class="roleColors[u.role]">{{ roleLabels[u.role] }}</span>

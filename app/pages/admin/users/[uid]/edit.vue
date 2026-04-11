@@ -1,45 +1,96 @@
 <script setup lang="ts">
+import type { UserRole, SpecialTeam, GroupId } from '~/types/user'
+
 definePageMeta({ middleware: ['auth', 'admin'] })
 
 const route = useRoute()
 const uid = computed(() => route.params.uid as string)
 
-// フォーム初期値（Phase1でFirestoreから読み込み）
+const { fetchUser, updateUser } = useUsers()
+const { sendPasswordReset } = useAuth()
+
+const loading = ref(false)
+const error = ref('')
+const submitting = ref(false)
+
 const form = ref({
-  name: '西島 伸樹',
-  email: 'nishijima@example.com',
-  role: 'general',
-  groupId: 'reterace',
-  kumiaiId: 'riraclus',
-  position: 'PM',
-  specialTeams: [] as string[],
-  isActive: true,
+  name:         '',
+  email:        '',
+  role:         'general' as UserRole,
+  groupId:      '' as GroupId | '',
+  kumiaiId:     '',
+  position:     '',
+  specialTeams: [] as SpecialTeam[],
+  isActive:     true,
 })
 
-const submitting = ref(false)
+onMounted(async () => {
+  loading.value = true
+  try {
+    const user = await fetchUser(uid.value)
+    if (user) {
+      form.value = {
+        name:         user.displayName,
+        email:        user.email,
+        role:         user.role,
+        groupId:      user.groupId ?? '',
+        kumiaiId:     user.kumiaiId ?? '',
+        position:     user.position ?? '',
+        specialTeams: user.specialTeams ?? [],
+        isActive:     true,
+      }
+    }
+  } catch (e: any) {
+    error.value = e.message ?? 'ユーザー情報の取得に失敗しました'
+  } finally {
+    loading.value = false
+  }
+})
 
 const handleSubmit = async () => {
   submitting.value = true
-  await new Promise(r => setTimeout(r, 800))
-  submitting.value = false
-  await navigateTo('/admin/users')
+  error.value = ''
+  try {
+    await updateUser(uid.value, {
+      displayName:  form.value.name,
+      role:         form.value.role,
+      specialTeams: form.value.specialTeams,
+      groupId:      (form.value.groupId as GroupId) || null,
+      kumiaiId:     form.value.kumiaiId || null,
+      position:     form.value.position || null,
+    })
+    await navigateTo('/admin/users')
+  } catch (e: any) {
+    error.value = e.message ?? '保存に失敗しました'
+    submitting.value = false
+  }
 }
 
-const handleDeactivate = () => {
+const handleDeactivate = async () => {
   if (!confirm(`「${form.value.name}」のアカウントを無効化しますか？`)) return
-  form.value.isActive = false
+  try {
+    await updateUser(uid.value, { isDisabled: true })
+    form.value.isActive = false
+  } catch (e: any) {
+    error.value = e.message ?? '無効化に失敗しました'
+  }
 }
 
-const handlePasswordReset = () => {
-  // Firebase Auth でパスワードリセットメールを送信
-  alert('パスワードリセットメールを送信しました（Phase1で実装予定）')
+const handlePasswordReset = async () => {
+  try {
+    await sendPasswordReset(form.value.email)
+    alert('パスワードリセットメールを送信しました')
+  } catch (e: any) {
+    error.value = e.message ?? 'メール送信に失敗しました'
+  }
 }
 
 const toggleSpecialTeam = (team: string) => {
-  if (form.value.specialTeams.includes(team)) {
-    form.value.specialTeams = form.value.specialTeams.filter(t => t !== team)
+  const t = team as SpecialTeam
+  if (form.value.specialTeams.includes(t)) {
+    form.value.specialTeams = form.value.specialTeams.filter(s => s !== t)
   } else {
-    form.value.specialTeams.push(team)
+    form.value.specialTeams.push(t)
   }
 }
 </script>

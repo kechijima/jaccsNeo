@@ -1,20 +1,34 @@
 <script setup lang="ts">
 definePageMeta({ middleware: ['auth', 'admin'] })
 
+const { createDoc } = useRestricted()
+
 const form = ref({
-  title: '',
-  category: 'JACCS',
-  content: '',
-  files: [] as File[],
+  title:      '',
+  category:   'JACCS',
+  content:    '',
+  accessRoles: ['system_admin'],
+  files:      [] as File[],
 })
 
 const submitting = ref(false)
+const error = ref('')
 
 const handleSubmit = async () => {
   submitting.value = true
-  await new Promise(r => setTimeout(r, 800))
-  submitting.value = false
-  await navigateTo('/admin/restricted')
+  error.value = ''
+  try {
+    await createDoc({
+      title:       form.value.title,
+      category:    form.value.category,
+      content:     form.value.content,
+      accessRoles: form.value.accessRoles,
+    })
+    await navigateTo('/admin/restricted')
+  } catch (e: any) {
+    error.value = e.message ?? '保存に失敗しました'
+    submitting.value = false
+  }
 }
 </script>
 

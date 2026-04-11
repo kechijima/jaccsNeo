@@ -1,28 +1,67 @@
 <script setup lang="ts">
+import type { Meeting } from '~/types/meeting'
+
 definePageMeta({ middleware: ['auth'] })
 
 const route = useRoute()
 const meetingId = computed(() => route.params.meetingId as string)
 
-// ダミーデータ（Phase5でFirestoreから取得）
-const meeting = ref({
-  date: '2026/04/08',
-  spaceName: 'りらくす組合 数字会議',
-  memo: '今月は不動産案件が好調。来週から保険見直しキャンペーンを開始予定。',
-  reports: [
-    { name: '西島 伸樹', newClients: 4, contracts: 6, activities: 18, notes: '田中様の生保成約が大きかった' },
-    { name: '池田 健太郎', newClients: 3, contracts: 5, activities: 15, notes: '' },
-    { name: '田中 洋子', newClients: 5, contracts: 4, activities: 22, notes: '不動産紹介を複数獲得' },
-    { name: '山田 健太', newClients: 3, contracts: 6, activities: 19, notes: '' },
-    { name: '鈴木 真理子', newClients: 3, contracts: 3, activities: 15, notes: '' },
-  ],
+const { fetchMeeting } = useMeetings()
+
+interface MeetingView {
+  date: string
+  spaceName: string | undefined
+  memo: string | undefined
+  reports: {
+    name: string
+    newClients: number
+    contracts: number
+    activities: number
+    notes: string | undefined
+  }[]
+}
+
+const meeting = ref<MeetingView>({
+  date: '',
+  spaceName: undefined,
+  memo: undefined,
+  reports: [],
 })
+
+const loading = ref(false)
+const error = ref('')
 
 const totals = computed(() => ({
   newClients: meeting.value.reports.reduce((s, r) => s + r.newClients, 0),
   contracts: meeting.value.reports.reduce((s, r) => s + r.contracts, 0),
   activities: meeting.value.reports.reduce((s, r) => s + r.activities, 0),
 }))
+
+onMounted(async () => {
+  loading.value = true
+  error.value = ''
+  try {
+    const data: Meeting = await fetchMeeting(meetingId.value)
+    meeting.value = {
+      date: data.date,
+      spaceName: data.spaceName,
+      memo: data.memo,
+      reports: data.reports.map((r) => ({
+        name: r.displayName,
+        newClients: r.newClients,
+        contracts: r.contracts,
+        activities: r.activities,
+        notes: r.notes,
+      })),
+    }
+  }
+  catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : '読み込みに失敗しました'
+  }
+  finally {
+    loading.value = false
+  }
+})
 </script>
 
 <template>

@@ -1,23 +1,56 @@
 <script setup lang="ts">
+import type { Space } from '~/types/portal'
+
 definePageMeta({ middleware: ['auth', 'admin'] })
 
-// ダミーデータ（Phase4でFirestoreから取得）
-const spaces = ref([
-  { id: 'all_001', name: '全体連絡・お知らせ', type: 'all', typeLabel: '全体', memberCount: 387, postCount: 124, isArchived: false },
-  { id: 'ret_001', name: 'Reterace グループ活動報告', type: 'group', typeLabel: 'グループ', memberCount: 245, postCount: 89, isArchived: false },
-  { id: 'ret_003', name: 'りらくす組合', type: 'kumiai', typeLabel: '組合', memberCount: 119, postCount: 312, isArchived: false },
-  { id: 'sp_001', name: '未来設計ハウジング（不動産チーム）', type: 'specialist', typeLabel: '専門チーム', memberCount: 32, postCount: 56, isArchived: false },
-  { id: 'old_001', name: '旧・東日本グループ（アーカイブ済み）', type: 'group', typeLabel: 'グループ', memberCount: 0, postCount: 45, isArchived: true },
-])
+const { fetchAllSpaces, archiveSpace } = useSpaces()
+
+const loading = ref(false)
+const error = ref('')
+const spaces = ref<(Space & { typeLabel: string; postCount: number })[]>([])
+
+const typeLabelMap: Record<string, string> = {
+  all:     '全体',
+  group:   'グループ',
+  board:   '理事会',
+  kumiai:  '組合',
+  meeting: '数字会議',
+  special: '専門チーム',
+}
+
+onMounted(async () => {
+  loading.value = true
+  try {
+    const all = await fetchAllSpaces()
+    spaces.value = all.map(s => ({
+      ...s,
+      typeLabel: typeLabelMap[s.type] ?? s.type,
+      postCount: 0,
+    }))
+  } catch (e: any) {
+    error.value = e.message ?? 'データの取得に失敗しました'
+  } finally {
+    loading.value = false
+  }
+})
+
+const handleToggleArchive = async (id: string, current: boolean) => {
+  try {
+    await archiveSpace(id, !current)
+    const s = spaces.value.find(s => s.id === id)
+    if (s) s.isArchived = !current
+  } catch (e: any) {
+    error.value = e.message ?? '更新に失敗しました'
+  }
+}
 
 const typeColors: Record<string, string> = {
-  all: 'bg-green-100 text-green-700',
-  group: 'bg-indigo-100 text-indigo-700',
-  board: 'bg-purple-100 text-purple-700',
-  kumiai: 'bg-sky-100 text-sky-700',
+  all:     'bg-green-100 text-green-700',
+  group:   'bg-indigo-100 text-indigo-700',
+  board:   'bg-purple-100 text-purple-700',
+  kumiai:  'bg-sky-100 text-sky-700',
   meeting: 'bg-amber-100 text-amber-700',
-  specialist: 'bg-rose-100 text-rose-700',
-  position: 'bg-gray-100 text-gray-600',
+  special: 'bg-rose-100 text-rose-700',
 }
 
 const showArchived = ref(false)
