@@ -1,0 +1,6 @@
+- [x] `portal/index.vue` のテンプレート修正
+- [x] `events/index.vue` のテンプレート修正
+- [x] `team/index.vue` のテンプレート修正
+- [x] `notifications/index.vue` のテンプレート修正
+- [x] `admin/index.vue` のテンプレート修正
+- [x] エラー解消の最終確認
