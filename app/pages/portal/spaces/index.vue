@@ -1,89 +1,46 @@
 <script setup lang="ts">
-import type { SpaceSummary } from '~/types/portal'
+import { MOCK_SPACES } from '~/data/mock'
 
 definePageMeta({ middleware: ['auth'] })
 
-const { fetchSpaces } = useSpaces()
-
-const loading = ref(false)
-const error = ref('')
-
-type SpaceRow = {
-  id: string
-  name: string
-  memberCount: number
-  unread: number
-  description: string
-  isPinned: boolean
+const typeLabelMap: Record<string, string> = {
+  all:     '全体スペース',
+  group:   'グループ',
+  kumiai:  '組合',
+  special: '専門チーム',
 }
 
-type SpaceGroup = {
-  label: string
-  color?: string
-  spaces: SpaceRow[]
-}
+const unreadMap: Record<string, number> = { s001: 1, s002: 2 }
 
-const spaceGroups = ref<SpaceGroup[]>([])
-
-const typeLabelMap: Record<string, { label: string; color?: string }> = {
-  all:     { label: '全体スペース' },
-  group:   { label: 'グループ' },
-  kumiai:  { label: '組合' },
-  special: { label: '専門チーム' },
-}
-
-onMounted(async () => {
-  loading.value = true
-  error.value = ''
-  try {
-    const spaces: SpaceSummary[] = await fetchSpaces()
-
-    // type ごとにグルーピング
-    const groupMap = new Map<string, SpaceRow[]>()
-    for (const s of spaces) {
-      const key = s.type
-      if (!groupMap.has(key)) groupMap.set(key, [])
-      groupMap.get(key)!.push({
-        id:          s.id,
-        name:        s.name,
-        memberCount: s.memberCount,
-        unread:      0,
-        description: '',
-        isPinned:    false,
-      })
-    }
-
-    // type の表示順
-    const typeOrder = ['all', 'group', 'kumiai', 'special']
-    const groups: SpaceGroup[] = []
-    for (const type of typeOrder) {
-      if (groupMap.has(type)) {
-        const meta = typeLabelMap[type] ?? { label: type }
-        groups.push({
-          label:  meta.label,
-          color:  meta.color,
-          spaces: groupMap.get(type)!,
-        })
-      }
-    }
-    // 未知の type があればそのまま追加
-    for (const [type, rows] of groupMap) {
-      if (!typeOrder.includes(type)) {
-        groups.push({ label: type, spaces: rows })
-      }
-    }
-
-    spaceGroups.value = groups
-  } catch (e: any) {
-    error.value = e?.message ?? 'データの取得に失敗しました'
-  } finally {
-    loading.value = false
+const spaceGroups = computed(() => {
+  const groupMap = new Map<string, any[]>()
+  for (const s of MOCK_SPACES) {
+    const key = s.type
+    if (!groupMap.has(key)) groupMap.set(key, [])
+    groupMap.get(key)!.push({
+      id:          s.id,
+      name:        s.name,
+      memberCount: s.memberCount,
+      description: s.description,
+      isPinned:    s.isPinned,
+      unread:      unreadMap[s.id] ?? 0,
+    })
   }
+
+  const typeOrder = ['all', 'group', 'kumiai', 'special']
+  const groups: { label: string; spaces: any[] }[] = []
+  for (const type of typeOrder) {
+    if (groupMap.has(type)) {
+      groups.push({ label: typeLabelMap[type] ?? type, spaces: groupMap.get(type)! })
+    }
+  }
+  for (const [type, rows] of groupMap) {
+    if (!typeOrder.includes(type)) groups.push({ label: type, spaces: rows })
+  }
+  return groups
 })
 
 const searchQuery = ref('')
-const activeGroup = ref('all')
-
 const allSpaces = computed(() => spaceGroups.value.flatMap(g => g.spaces))
 const filteredSpaces = computed(() => {
   if (!searchQuery.value) return allSpaces.value
@@ -151,7 +108,7 @@ const filteredSpaces = computed(() => {
         :key="group.label"
         class="card overflow-hidden"
       >
-        <div class="px-5 py-3 border-b border-gray-100" :class="group.color ?? 'bg-gray-50'">
+        <div class="px-5 py-3 border-b border-gray-100 bg-gray-50">
           <h2 class="font-semibold text-gray-800 text-sm">{{ group.label }}</h2>
         </div>
         <div class="divide-y divide-gray-50">
@@ -170,7 +127,7 @@ const filteredSpaces = computed(() => {
                   <p class="text-sm font-medium text-gray-900 truncate">{{ space.name }}</p>
                   <Icon v-if="space.isPinned" name="heroicons:bookmark-solid" class="h-3 w-3 text-primary-500 shrink-0" />
                 </div>
-                <p class="text-xs text-gray-400">{{ space.memberCount }}名 {{ space.description ? '· ' + space.description : '' }}</p>
+                <p class="text-xs text-gray-400">{{ space.memberCount }}名 {{ space.description ? '· ' + space.description.slice(0, 30) + '…' : '' }}</p>
               </div>
             </div>
             <div class="flex items-center gap-2 shrink-0">

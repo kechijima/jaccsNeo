@@ -1,15 +1,10 @@
 <script setup lang="ts">
-import type { EventSummary } from '~/types/event'
+import { MOCK_EVENTS } from '~/data/mock'
 
 definePageMeta({ middleware: ['auth'] })
 
-const { fetchEvents } = useEvents()
-
 const viewMode = ref<'list' | 'calendar'>('calendar')
 const currentMonth = ref(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
-
-const loading = ref(false)
-const error = ref('')
 
 interface EventRow {
   id: string
@@ -22,7 +17,18 @@ interface EventRow {
   isAttending: boolean
 }
 
-const events = ref<EventRow[]>([])
+const events = computed<EventRow[]>(() =>
+  MOCK_EVENTS.map(e => ({
+    id:            e.id,
+    title:         e.title,
+    startAt:       e.startAt.toDate(),
+    endAt:         e.endAt?.toDate(),
+    location:      e.location,
+    targetScope:   e.scope,
+    attendeeCount: e.attendeeCount,
+    isAttending:   ['ev001', 'ev003', 'ev005'].includes(e.id),
+  }))
+)
 
 const formatDate = (d: Date) => d.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' })
 const formatTime = (d?: Date) => d ? d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) : ''
@@ -117,27 +123,6 @@ const dotColor = (scope: string) => {
   return map[scope] ?? 'bg-gray-400'
 }
 
-onMounted(async () => {
-  loading.value = true
-  error.value = ''
-  try {
-    const summaries: EventSummary[] = await fetchEvents()
-    events.value = summaries.map(data => ({
-      id:           data.id,
-      title:        data.title,
-      startAt:      data.startAt.toDate(),
-      endAt:        data.endAt?.toDate(),
-      location:     data.location,
-      targetScope:  data.scope,
-      attendeeCount: data.attendeeCount,
-      isAttending:  false,
-    }))
-  } catch (e: unknown) {
-    error.value = e instanceof Error ? e.message : 'イベントの取得に失敗しました'
-  } finally {
-    loading.value = false
-  }
-})
 </script>
 
 <template>
@@ -175,16 +160,8 @@ onMounted(async () => {
       </button>
     </div>
 
-    <!-- エラー -->
-    <div v-if="error" class="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{{ error }}</div>
-
-    <!-- ローディング -->
-    <div v-if="loading" class="flex justify-center py-12">
-      <Icon name="heroicons:arrow-path" class="h-6 w-6 text-gray-300 animate-spin" />
-    </div>
-
     <!-- リストビュー -->
-    <template v-else-if="viewMode === 'list'">
+    <template v-if="viewMode === 'list'">
 
       <!-- 今後のイベント -->
       <div>

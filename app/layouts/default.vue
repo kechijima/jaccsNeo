@@ -7,11 +7,12 @@ const authStore = useAuthStore()
 const route = useRoute()
 
 const navItems = [
-  { label: 'ダッシュボード', icon: 'heroicons:home',         to: '/dashboard' },
-  { label: '顧客管理',       icon: 'heroicons:users',        to: '/customers' },
+  { label: 'ダッシュボード', icon: 'heroicons:home',                   to: '/dashboard' },
+  { label: '顧客管理',       icon: 'heroicons:users',                  to: '/customers' },
+  { label: 'サービス',       icon: 'heroicons:squares-2x2',            to: '/services' },
   { label: 'ポータル',       icon: 'heroicons:chat-bubble-left-right', to: '/portal' },
-  { label: 'イベント',       icon: 'heroicons:calendar-days', to: '/events' },
-  { label: 'チーム',         icon: 'heroicons:chart-bar',    to: '/team' },
+  { label: 'イベント',       icon: 'heroicons:calendar-days',          to: '/events' },
+  { label: 'チーム',         icon: 'heroicons:chart-bar',              to: '/team' },
 ]
 
 const isActive = (to: string) => route.path.startsWith(to)

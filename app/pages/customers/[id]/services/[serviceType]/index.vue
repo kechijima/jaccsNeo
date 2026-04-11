@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { SERVICE_LABELS, STATUS_LABELS } from '~/types/service'
-import type { ServiceCase, ServiceType } from '~/types/service'
+import { MOCK_CUSTOMERS, MOCK_SERVICE_CASES } from '~/data/mock'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -9,26 +9,26 @@ const customerId = computed(() => route.params.id as string)
 const serviceType = computed(() => route.params.serviceType as string)
 const { canEditCustomer } = usePermission()
 
-const { fetchCustomer } = useCustomers()
-const { fetchCases } = useServices()
-
 const serviceLabel = computed(() => SERVICE_LABELS[serviceType.value] ?? serviceType.value)
-const customerName = ref('')
-const loading = ref(false)
-const error = ref('')
 
-const cases = ref<Array<{
-  id: string
-  status: string
-  statusLabel: string
-  assignedFp: string
-  date: string
-  contractDate: string
-  amount: string
-  company: string
-  notes: string
-  updatedAt: string
-}>>([])
+const customer = computed(() => MOCK_CUSTOMERS.find(c => c.id === customerId.value))
+const customerName = computed(() => customer.value?.name ?? '')
+
+const cases = computed(() => {
+  const rawCases = (MOCK_SERVICE_CASES[customerId.value] ?? {})[serviceType.value] ?? []
+  return rawCases.map((c: any) => ({
+    id: c.id,
+    status: c.status,
+    statusLabel: STATUS_LABELS[c.status] ?? c.status,
+    assignedFp: c.updatedBy ?? '',
+    date: c.date ?? '',
+    contractDate: c.contractDate ?? '',
+    amount: c.amount ?? '',
+    company: c.company ?? '',
+    notes: c.notes ?? '',
+    updatedAt: c.updatedAt ? c.updatedAt.toDate().toLocaleDateString('ja-JP') : '',
+  }))
+})
 
 const statusClass = (status: string) => {
   switch (status) {
@@ -40,38 +40,6 @@ const statusClass = (status: string) => {
     default: return 'bg-gray-100 text-gray-500'
   }
 }
-
-onMounted(async () => {
-  loading.value = true
-  error.value = ''
-  try {
-    const [customer, rawCases] = await Promise.all([
-      fetchCustomer(customerId.value),
-      fetchCases(customerId.value, serviceType.value as ServiceType),
-    ])
-
-    customerName.value = customer?.name ?? ''
-
-    cases.value = rawCases.map((c: ServiceCase) => ({
-      id: c.id,
-      status: c.status,
-      statusLabel: STATUS_LABELS[c.status] ?? c.status,
-      assignedFp: c.updatedBy ?? '',
-      date: c.date ?? '',
-      contractDate: c.contractDate ?? '',
-      amount: c.amount ?? '',
-      company: c.company ?? '',
-      notes: c.notes ?? '',
-      updatedAt: c.updatedAt ? c.updatedAt.toDate().toLocaleDateString('ja-JP') : '',
-    }))
-  }
-  catch (e: any) {
-    error.value = e.message ?? 'データの取得に失敗しました'
-  }
-  finally {
-    loading.value = false
-  }
-})
 </script>
 
 <template>

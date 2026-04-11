@@ -1,65 +1,22 @@
 <script setup lang="ts">
-import type { CustomerSummary } from '~/types/customer'
-import { exportCustomersToCsv, downloadCsv } from '~/utils/csvCustomer'
-import { useAuthStore } from '~/stores/auth'
+import { MOCK_CUSTOMERS_SUMMARY } from '~/data/mock'
 
 definePageMeta({ middleware: ['auth'] })
 
-const { fetchCustomers, searchByName } = useCustomers()
-const { canImportCsv, canExportCsv } = usePermission()
-const authStore = useAuthStore()
-
 // ===== 状態 =====
-const customers     = ref<CustomerSummary[]>([])
-const loading       = ref(false)
-const searchQuery   = ref('')
-const lastDoc       = ref<any>(null)
-const hasMore       = ref(false)
-const isSearchMode  = ref(false)
+const searchQuery  = ref('')
+const isSearchMode = computed(() => searchQuery.value.trim().length > 0)
 
-// ===== 初期ロード =====
-const loadCustomers = async (reset = false) => {
-  if (loading.value) return
-  loading.value = true
-  try {
-    if (reset) {
-      customers.value = []
-      lastDoc.value = null
-    }
-    const result = await fetchCustomers({ lastDoc: lastDoc.value })
-    customers.value = reset ? result.customers : [...customers.value, ...result.customers]
-    lastDoc.value = result.lastVisible
-    hasMore.value = result.hasMore
-  } finally {
-    loading.value = false
-  }
-}
-
-// ===== 検索 =====
-const debouncedSearch = useDebounceFn(async () => {
-  if (!searchQuery.value.trim()) {
-    isSearchMode.value = false
-    await loadCustomers(true)
-    return
-  }
-  isSearchMode.value = true
-  loading.value = true
-  try {
-    customers.value = await searchByName(searchQuery.value.trim())
-    hasMore.value = false
-  } finally {
-    loading.value = false
-  }
-}, 400)
-
-watch(searchQuery, debouncedSearch)
-
-// ===== CSV エクスポート =====
-const handleExport = () => {
-  const csv = exportCustomersToCsv(customers.value)
-  const now = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '')
-  downloadCsv(csv, `customers_${now}.csv`)
-}
+// ===== 検索フィルター =====
+const customers = computed(() => {
+  const q = searchQuery.value.trim()
+  if (!q) return MOCK_CUSTOMERS_SUMMARY
+  const lower = q.toLowerCase()
+  return MOCK_CUSTOMERS_SUMMARY.filter(c =>
+    c.name?.toLowerCase().includes(lower) ||
+    c.nameKana?.toLowerCase().includes(lower)
+  )
+})
 
 // ===== 日付フォーマット =====
 const formatDate = (val: any) => {
@@ -68,8 +25,6 @@ const formatDate = (val: any) => {
   if (!d) return '—'
   return d.toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' })
 }
-
-onMounted(() => loadCustomers(true))
 </script>
 
 <template>
@@ -84,24 +39,6 @@ onMounted(() => loadCustomers(true))
         </p>
       </div>
       <div class="flex items-center gap-2">
-        <!-- CSVインポート（EM2以上） -->
-        <NuxtLink
-          v-if="canImportCsv"
-          to="/customers/import"
-          class="btn-secondary text-sm flex items-center gap-1.5"
-        >
-          <Icon name="heroicons:arrow-up-tray" class="h-4 w-4" />
-          CSVインポート
-        </NuxtLink>
-        <!-- CSVエクスポート（全員） -->
-        <button
-          v-if="canExportCsv && customers.length > 0"
-          class="btn-secondary text-sm flex items-center gap-1.5"
-          @click="handleExport"
-        >
-          <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
-          CSVエクスポート
-        </button>
         <!-- 新規登録 -->
         <NuxtLink to="/customers/new" class="btn-primary text-sm flex items-center gap-1.5">
           <Icon name="heroicons:user-plus" class="h-4 w-4" />
@@ -137,13 +74,7 @@ onMounted(() => loadCustomers(true))
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-50">
-            <tr v-if="loading && customers.length === 0">
-              <td colspan="7" class="text-center py-12 text-gray-400">
-                <Icon name="heroicons:arrow-path" class="h-6 w-6 animate-spin mx-auto mb-2" />
-                読み込み中...
-              </td>
-            </tr>
-            <tr v-else-if="customers.length === 0">
+            <tr v-if="customers.length === 0">
               <td colspan="7" class="text-center py-12 text-gray-400">
                 <Icon name="heroicons:users" class="h-10 w-10 mx-auto mb-2 text-gray-300" />
                 {{ isSearchMode ? '検索結果がありません' : '顧客データがありません' }}
@@ -175,27 +106,11 @@ onMounted(() => loadCustomers(true))
           </tbody>
         </table>
       </div>
-
-      <!-- もっと読み込む -->
-      <div v-if="hasMore && !isSearchMode" class="border-t border-gray-100 p-4 text-center">
-        <button
-          class="btn-secondary text-sm"
-          :disabled="loading"
-          @click="loadCustomers(false)"
-        >
-          <Icon v-if="loading" name="heroicons:arrow-path" class="h-4 w-4 animate-spin" />
-          {{ loading ? '読み込み中...' : 'さらに読み込む' }}
-        </button>
-      </div>
     </div>
 
     <!-- ===== カードリスト（SP） ===== -->
     <div class="md:hidden space-y-2">
-      <div v-if="loading && customers.length === 0" class="text-center py-12 text-gray-400">
-        <Icon name="heroicons:arrow-path" class="h-6 w-6 animate-spin mx-auto mb-2" />
-        読み込み中...
-      </div>
-      <div v-else-if="customers.length === 0" class="text-center py-12 text-gray-400">
+      <div v-if="customers.length === 0" class="text-center py-12 text-gray-400">
         <Icon name="heroicons:users" class="h-10 w-10 mx-auto mb-2 text-gray-300" />
         {{ isSearchMode ? '検索結果がありません' : '顧客データがありません' }}
       </div>
@@ -220,12 +135,6 @@ onMounted(() => loadCustomers(true))
           <span>{{ c.assignedFpName || '担当なし' }}</span>
           <span>{{ formatDate(c.updatedAt) }}</span>
         </div>
-      </div>
-
-      <div v-if="hasMore && !isSearchMode" class="text-center pt-2">
-        <button class="btn-secondary text-sm w-full" :disabled="loading" @click="loadCustomers(false)">
-          さらに読み込む
-        </button>
       </div>
     </div>
 

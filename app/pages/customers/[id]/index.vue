@@ -1,51 +1,25 @@
 <script setup lang="ts">
-import type { Customer } from '~/types/customer'
-import { useAuthStore } from '~/stores/auth'
+import { MOCK_CUSTOMERS } from '~/data/mock'
 
 definePageMeta({ middleware: ['auth'] })
 
 const route = useRoute()
-const authStore = useAuthStore()
-const { fetchCustomer, deleteCustomer } = useCustomers()
-const { canEditCustomer } = usePermission()
-
-const customer = ref<Customer | null>(null)
-const loading  = ref(true)
-const error    = ref('')
-const deleting = ref(false)
 
 const id = computed(() => route.params.id as string)
 
-onMounted(async () => {
-  try {
-    customer.value = await fetchCustomer(id.value)
-    if (!customer.value) error.value = '顧客が見つかりません'
-  } catch (e: any) {
-    error.value = e.message
-  } finally {
-    loading.value = false
-  }
-})
+const customer = computed(() => MOCK_CUSTOMERS.find(c => c.id === id.value) ?? null)
+const error    = computed(() => !customer.value ? '顧客が見つかりません' : '')
 
-// ===== 削除 =====
-const handleDelete = async () => {
-  if (!confirm(`「${customer.value?.name}」を削除してよろしいですか？この操作は取り消せません。`)) return
-  deleting.value = true
-  try {
-    await deleteCustomer(id.value)
-    await navigateTo('/customers')
-  } catch (e: any) {
-    alert(e.message)
-  } finally {
-    deleting.value = false
-  }
+// ===== 削除（モック：トースト表示のみ） =====
+const handleDelete = () => {
+  alert('モックのため削除できません')
 }
 
 // ===== フォーマット =====
 const formatDate = (val: any) => {
   if (!val) return '—'
   if (typeof val === 'string') return val.replace(/-/g, '/')
-  const d = val?.toDate?.() ?? null
+  const d = val?.toDate?.() ?? (val instanceof Date ? val : null)
   if (!d) return '—'
   return d.toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' })
 }
@@ -75,13 +49,8 @@ const activeServices = computed(() => {
 <template>
   <div class="p-4 md:p-6 max-w-4xl mx-auto space-y-6">
 
-    <!-- ローディング -->
-    <div v-if="loading" class="flex items-center justify-center py-20">
-      <Icon name="heroicons:arrow-path" class="h-8 w-8 animate-spin text-gray-400" />
-    </div>
-
     <!-- エラー -->
-    <div v-else-if="error" class="card p-8 text-center">
+    <div v-if="error" class="card p-8 text-center">
       <Icon name="heroicons:exclamation-circle" class="h-12 w-12 text-red-400 mx-auto mb-3" />
       <p class="text-gray-600">{{ error }}</p>
       <NuxtLink to="/customers" class="mt-4 inline-block btn-secondary text-sm">一覧に戻る</NuxtLink>
@@ -107,7 +76,6 @@ const activeServices = computed(() => {
         </div>
         <div class="flex items-center gap-2">
           <NuxtLink
-            v-if="canEditCustomer"
             :to="`/customers/${id}/edit`"
             class="btn-secondary text-sm flex items-center gap-1.5"
           >
@@ -115,9 +83,7 @@ const activeServices = computed(() => {
             編集
           </NuxtLink>
           <button
-            v-if="authStore.isSystemAdmin"
             class="btn-danger text-sm flex items-center gap-1.5"
-            :disabled="deleting"
             @click="handleDelete"
           >
             <Icon name="heroicons:trash" class="h-4 w-4" />
@@ -125,6 +91,21 @@ const activeServices = computed(() => {
           </button>
         </div>
       </div>
+
+      <!-- ===== サービス案件ボタン ===== -->
+      <NuxtLink
+        :to="`/customers/${id}/services`"
+        class="flex items-center justify-between w-full rounded-xl border-2 border-primary-200 bg-primary-50 px-5 py-4 hover:bg-primary-100 transition group"
+      >
+        <div class="flex items-center gap-3">
+          <Icon name="heroicons:briefcase" class="h-6 w-6 text-primary-600" />
+          <div>
+            <p class="font-semibold text-primary-800">サービス案件を管理</p>
+            <p class="text-xs text-primary-500 mt-0.5">保険・不動産・転職など全案件を確認・追加できます</p>
+          </div>
+        </div>
+        <Icon name="heroicons:chevron-right" class="h-5 w-5 text-primary-400 group-hover:translate-x-0.5 transition-transform" />
+      </NuxtLink>
 
       <!-- ===== 基本情報 ===== -->
       <div class="card p-5">

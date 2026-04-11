@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { SERVICE_LABELS, STATUS_LABELS } from '~/types/service'
 import type { ServiceStatus } from '~/types/service'
+import { MOCK_CUSTOMERS, getMockServiceSummaries } from '~/data/mock'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -8,82 +9,94 @@ const route = useRoute()
 const customerId = computed(() => route.params.id as string)
 const { canEditCustomer } = usePermission()
 
-const { fetchCustomer } = useCustomers()
-const { fetchAllServiceSummaries } = useServices()
+const customer = computed(() => MOCK_CUSTOMERS.find(c => c.id === customerId.value))
+const customerName = computed(() => customer.value?.name ?? '')
 
-const customerName = ref('')
-const loading = ref(false)
-const error = ref('')
+const serviceCategories = computed(() => {
+  const summaries = getMockServiceSummaries(customerId.value)
+  const summaryMap = new Map(summaries.map(s => [s.serviceType, s]))
 
-// サービスカテゴリ定義（UIはそのまま、statusはFirestoreデータで上書き）
-const serviceCategories = ref([
-  {
-    label: '保険',
-    icon: 'heroicons:shield-check',
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-50',
-    services: [
-      { key: 'lifeInsurance', label: SERVICE_LABELS.lifeInsurance, status: 'none', statusLabel: '対応なし', date: '', note: '' },
-      { key: 'fireInsurance', label: SERVICE_LABELS.fireInsurance, status: 'none', statusLabel: '対応なし', date: '', note: '' },
-      { key: 'autoInsurance', label: SERVICE_LABELS.autoInsurance, status: 'none', statusLabel: '対応なし', date: '', note: '' },
-    ],
-  },
-  {
-    label: '不動産',
-    icon: 'heroicons:home',
-    color: 'text-amber-600',
-    bgColor: 'bg-amber-50',
-    services: [
-      { key: 'realEstatePurchase', label: SERVICE_LABELS.realEstatePurchase, status: 'none', statusLabel: '対応なし', date: '', note: '' },
-      { key: 'realEstateSale', label: SERVICE_LABELS.realEstateSale, status: 'none', statusLabel: '対応なし', date: '', note: '' },
-      { key: 'realEstateRental', label: SERVICE_LABELS.realEstateRental, status: 'none', statusLabel: '対応なし', date: '', note: '' },
-      { key: 'homeLoan', label: SERVICE_LABELS.homeLoan, status: 'none', statusLabel: '対応なし', date: '', note: '' },
-    ],
-  },
-  {
-    label: 'キャリア',
-    icon: 'heroicons:briefcase',
-    color: 'text-purple-600',
-    bgColor: 'bg-purple-50',
-    services: [
-      { key: 'jobChange', label: SERVICE_LABELS.jobChange, status: 'none', statusLabel: '対応なし', date: '', note: '' },
-      { key: 'seniorPlanning', label: SERVICE_LABELS.seniorPlanning, status: 'none', statusLabel: '対応なし', date: '', note: '' },
-    ],
-  },
-  {
-    label: '通信',
-    icon: 'heroicons:wifi',
-    color: 'text-sky-600',
-    bgColor: 'bg-sky-50',
-    services: [
-      { key: 'communication', label: SERVICE_LABELS.communication, status: 'none', statusLabel: '対応なし', date: '', note: '' },
-      { key: 'hikari', label: SERVICE_LABELS.hikari, status: 'none', statusLabel: '対応なし', date: '', note: '' },
-    ],
-  },
-  {
-    label: 'ライフ',
-    icon: 'heroicons:sparkles',
-    color: 'text-rose-600',
-    bgColor: 'bg-rose-50',
-    services: [
-      { key: 'moving', label: SERVICE_LABELS.moving, status: 'none', statusLabel: '対応なし', date: '', note: '' },
-      { key: 'renovation', label: SERVICE_LABELS.renovation, status: 'none', statusLabel: '対応なし', date: '', note: '' },
-      { key: 'travel', label: SERVICE_LABELS.travel, status: 'none', statusLabel: '対応なし', date: '', note: '' },
-      { key: 'bridal', label: SERVICE_LABELS.bridal, status: 'none', statusLabel: '対応なし', date: '', note: '' },
-    ],
-  },
-  {
-    label: '法務',
-    icon: 'heroicons:scale',
-    color: 'text-gray-600',
-    bgColor: 'bg-gray-100',
-    services: [
-      { key: 'legal', label: SERVICE_LABELS.legal, status: 'none', statusLabel: '対応なし', date: '', note: '' },
-      { key: 'inheritance', label: SERVICE_LABELS.inheritance, status: 'none', statusLabel: '対応なし', date: '', note: '' },
-      { key: 'companySetup', label: SERVICE_LABELS.companySetup, status: 'none', statusLabel: '対応なし', date: '', note: '' },
-    ],
-  },
-])
+  const buildService = (key: string, label: string) => {
+    const summary = summaryMap.get(key)
+    const status = summary?.latestStatus ?? 'none'
+    const statusLabel = status !== 'none'
+      ? (STATUS_LABELS[status as ServiceStatus] ?? '対応なし')
+      : '対応なし'
+    const date = summary?.latestUpdatedAt
+      ? summary.latestUpdatedAt.toDate().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit' })
+      : ''
+    return { key, label, status, statusLabel, date, note: '' }
+  }
+
+  return [
+    {
+      label: '保険',
+      icon: 'heroicons:shield-check',
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-50',
+      services: [
+        buildService('lifeInsurance', SERVICE_LABELS.lifeInsurance),
+        buildService('fireInsurance', SERVICE_LABELS.fireInsurance),
+        buildService('autoInsurance', SERVICE_LABELS.autoInsurance),
+      ],
+    },
+    {
+      label: '不動産',
+      icon: 'heroicons:home',
+      color: 'text-amber-600',
+      bgColor: 'bg-amber-50',
+      services: [
+        buildService('realEstatePurchase', SERVICE_LABELS.realEstatePurchase),
+        buildService('realEstateSale', SERVICE_LABELS.realEstateSale),
+        buildService('realEstateRental', SERVICE_LABELS.realEstateRental),
+        buildService('homeLoan', SERVICE_LABELS.homeLoan),
+      ],
+    },
+    {
+      label: 'キャリア',
+      icon: 'heroicons:briefcase',
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-50',
+      services: [
+        buildService('jobChange', SERVICE_LABELS.jobChange),
+        buildService('seniorPlanning', SERVICE_LABELS.seniorPlanning),
+      ],
+    },
+    {
+      label: '通信',
+      icon: 'heroicons:wifi',
+      color: 'text-sky-600',
+      bgColor: 'bg-sky-50',
+      services: [
+        buildService('communication', SERVICE_LABELS.communication),
+        buildService('hikari', SERVICE_LABELS.hikari),
+      ],
+    },
+    {
+      label: 'ライフ',
+      icon: 'heroicons:sparkles',
+      color: 'text-rose-600',
+      bgColor: 'bg-rose-50',
+      services: [
+        buildService('moving', SERVICE_LABELS.moving),
+        buildService('renovation', SERVICE_LABELS.renovation),
+        buildService('travel', SERVICE_LABELS.travel),
+        buildService('bridal', SERVICE_LABELS.bridal),
+      ],
+    },
+    {
+      label: '法務',
+      icon: 'heroicons:scale',
+      color: 'text-gray-600',
+      bgColor: 'bg-gray-100',
+      services: [
+        buildService('legal', SERVICE_LABELS.legal),
+        buildService('inheritance', SERVICE_LABELS.inheritance),
+        buildService('companySetup', SERVICE_LABELS.companySetup),
+      ],
+    },
+  ]
+})
 
 const statusClass = (status: string) => {
   switch (status) {
@@ -95,41 +108,6 @@ const statusClass = (status: string) => {
     default: return 'bg-gray-100 text-gray-500'
   }
 }
-
-onMounted(async () => {
-  loading.value = true
-  error.value = ''
-  try {
-    const [customer, summaries] = await Promise.all([
-      fetchCustomer(customerId.value),
-      fetchAllServiceSummaries(customerId.value),
-    ])
-
-    customerName.value = customer?.name ?? ''
-
-    // サマリーデータをカテゴリのservicesに反映
-    const summaryMap = new Map(summaries.map(s => [s.serviceType, s]))
-
-    for (const cat of serviceCategories.value) {
-      for (const svc of cat.services) {
-        const summary = summaryMap.get(svc.key as any)
-        if (summary && summary.latestStatus) {
-          svc.status = summary.latestStatus
-          svc.statusLabel = STATUS_LABELS[summary.latestStatus as ServiceStatus] ?? '対応なし'
-          svc.date = summary.latestUpdatedAt
-            ? summary.latestUpdatedAt.toDate().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit' })
-            : ''
-        }
-      }
-    }
-  }
-  catch (e: any) {
-    error.value = e.message ?? 'データの取得に失敗しました'
-  }
-  finally {
-    loading.value = false
-  }
-})
 </script>
 
 <template>
