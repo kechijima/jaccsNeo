@@ -8,10 +8,11 @@ const { login, sendPasswordReset } = useAuth()
 const { isLoggedIn } = useCurrentUser()
 const route = useRoute()
 
-// 既にログイン済みならダッシュボードへ
+// 既にログイン済みならダッシュボードへ（直接アクセス時）
 watchEffect(() => {
   if (isLoggedIn.value) {
-    navigateTo('/dashboard')
+    const redirect = route.query.redirect as string | undefined
+    navigateTo(redirect || '/dashboard')
   }
 })
 

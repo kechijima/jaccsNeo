@@ -58,7 +58,11 @@ export const useAuth = () => {
     const { $auth } = useNuxtApp()
     authStore.setLoading(true)
     try {
-      await signInWithEmailAndPassword($auth, email, password)
+      const credential = await signInWithEmailAndPassword($auth, email, password)
+      // onAuthStateChanged の非同期発火を待たず、直接ユーザー情報を取得してストアに反映
+      // これにより auth ミドルウェアが isLoggedIn=true を確認できる状態でルート遷移できる
+      const user = await fetchUserDoc(credential.user)
+      authStore.setUser(user)
       await router.push('/dashboard')
     } finally {
       authStore.setLoading(false)
