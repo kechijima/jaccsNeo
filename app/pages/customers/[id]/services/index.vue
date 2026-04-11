@@ -162,30 +162,27 @@ onMounted(async () => {
         <div
           v-for="svc in cat.services"
           :key="svc.key"
-          class="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition"
+          class="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition group"
         >
-          <div class="flex items-center gap-3 min-w-0">
-            <span class="badge text-xs" :class="statusClass(svc.status)">{{ svc.statusLabel }}</span>
-            <span class="text-sm font-medium text-gray-900 truncate">{{ svc.label }}</span>
-            <span v-if="svc.date" class="text-xs text-gray-400 shrink-0">{{ svc.date }}</span>
-            <span v-if="svc.note" class="text-xs text-gray-400 shrink-0">{{ svc.note }}</span>
-          </div>
-          <div class="flex items-center gap-2 shrink-0">
-            <NuxtLink
-              v-if="svc.status !== 'none'"
-              :to="`/customers/${customerId}/services/${svc.key}`"
-              class="text-xs text-primary-600 hover:underline"
-            >
-              詳細
-            </NuxtLink>
-            <NuxtLink
-              v-if="canEditCustomer"
-              :to="`/customers/${customerId}/services/${svc.key}/new`"
-              class="text-xs text-gray-400 hover:text-primary-600"
-            >
-              + 追加
-            </NuxtLink>
-          </div>
+          <!-- 行全体をクリックでサービス詳細へ -->
+          <NuxtLink
+            :to="`/customers/${customerId}/services/${svc.key}`"
+            class="flex items-center gap-3 min-w-0 flex-1"
+          >
+            <span class="badge text-xs shrink-0" :class="statusClass(svc.status)">{{ svc.statusLabel }}</span>
+            <span class="text-sm font-medium text-gray-900 truncate group-hover:text-primary-600 transition-colors">{{ svc.label }}</span>
+            <span v-if="svc.date" class="text-xs text-gray-400 shrink-0 hidden sm:inline">{{ svc.date }}</span>
+            <Icon name="heroicons:chevron-right" class="h-3.5 w-3.5 text-gray-300 shrink-0 ml-auto" />
+          </NuxtLink>
+          <!-- 追加ボタンは別リンク -->
+          <NuxtLink
+            v-if="canEditCustomer"
+            :to="`/customers/${customerId}/services/${svc.key}/new`"
+            class="ml-2 shrink-0 text-xs text-gray-400 hover:text-primary-600 transition-colors"
+            @click.stop
+          >
+            + 追加
+          </NuxtLink>
         </div>
       </div>
     </div>

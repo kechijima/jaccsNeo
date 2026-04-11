@@ -37,6 +37,13 @@ const adminMenus = [
     description: 'kintoneデータのバッチインポート・履歴',
     color: 'text-green-600 bg-green-50',
   },
+  {
+    to: '/admin/seed',
+    icon: 'heroicons:beaker',
+    label: 'サンプルデータ投入',
+    description: 'デモ・動作確認用の顧客データをFirestoreに投入',
+    color: 'text-amber-600 bg-amber-50',
+  },
 ]
 
 const { fetchUsers } = useUsers()
