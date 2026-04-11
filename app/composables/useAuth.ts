@@ -53,16 +53,21 @@ export const useAuth = () => {
     })
   }
 
-  // ログイン
-  const login = async (email: string, password: string) => {
-    const { $auth } = useNuxtApp()
+  // ログイン (モック版)
+  const login = async (email: string, _password: string) => {
     authStore.setLoading(true)
     try {
-      const credential = await signInWithEmailAndPassword($auth, email, password)
-      // onAuthStateChanged の非同期発火を待たず、直接ユーザー情報を取得してストアに反映
-      // これにより auth ミドルウェアが isLoggedIn=true を確認できる状態でルート遷移できる
-      const user = await fetchUserDoc(credential.user)
-      authStore.setUser(user)
+      // モックアップ用に認証をスキップし、ダミーユーザーをセットして強制遷移
+      const mockUser: AppUser = {
+        uid: 'mock-user-123',
+        email: email || 'test@example.com',
+        displayName: 'テストユーザー',
+        role: 'system_admin',
+        specialTeams: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+      authStore.setUser(mockUser)
       await router.push('/dashboard')
     } finally {
       authStore.setLoading(false)

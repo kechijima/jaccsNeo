@@ -5,16 +5,6 @@ definePageMeta({
 })
 
 const { login, sendPasswordReset } = useAuth()
-const { isLoggedIn } = useCurrentUser()
-const route = useRoute()
-
-// 既にログイン済みならダッシュボードへ（直接アクセス時）
-watchEffect(() => {
-  if (isLoggedIn.value) {
-    const redirect = route.query.redirect as string | undefined
-    navigateTo(redirect || '/dashboard')
-  }
-})
 
 const email    = ref('')
 const password = ref('')
