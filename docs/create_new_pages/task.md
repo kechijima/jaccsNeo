@@ -1,0 +1,6 @@
+- [x] `portal/index.vue` の作成
+- [x] `events/index.vue` の作成
+- [x] `team/index.vue` の作成
+- [x] `notifications/index.vue` の作成
+- [x] `admin/index.vue` の作成
+- [x] 動作確認と最終調整

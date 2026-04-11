@@ -53,12 +53,21 @@ export const useAuth = () => {
     })
   }
 
-  // ログイン
+  // ログイン (モック版)
   const login = async (email: string, password: string) => {
-    const { $auth } = useNuxtApp()
     authStore.setLoading(true)
     try {
-      await signInWithEmailAndPassword($auth, email, password)
+      // モックアップ用に認証をスキップし、ダミーユーザーをセットして強制遷移
+      const mockUser: AppUser = {
+        uid: 'mock-user-123',
+        email: email || 'test@example.com',
+        displayName: 'テストユーザー',
+        role: 'system_admin',
+        specialTeams: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+      authStore.setUser(mockUser)
       await router.push('/dashboard')
     } finally {
       authStore.setLoading(false)

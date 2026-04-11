@@ -8,12 +8,6 @@ const { login, sendPasswordReset } = useAuth()
 const { isLoggedIn } = useCurrentUser()
 const route = useRoute()
 
-// 既にログイン済みならダッシュボードへ
-watchEffect(() => {
-  if (isLoggedIn.value) {
-    navigateTo('/dashboard')
-  }
-})
 
 const email    = ref('')
 const password = ref('')

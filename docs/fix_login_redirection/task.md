@@ -1,0 +1,3 @@
+- [x] `useAuth.ts` の `login` 関数を修正
+- [x] `login.vue` の `watchEffect` を削除
+- [x] 修正内容の確認とドキュメント作成
