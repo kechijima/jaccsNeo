@@ -35,9 +35,15 @@ export default defineNuxtConfig({
         { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
         { name: 'description', content: 'FP業務管理ツール' },
+        { name: 'mobile-web-app-capable', content: 'yes' },
+        { name: 'apple-mobile-web-app-capable', content: 'yes' },
+        { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
+        { name: 'apple-mobile-web-app-title', content: 'jaccsNeo' },
+        { name: 'theme-color', content: '#16a34a' },
       ],
       link: [
         { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
+        { rel: 'apple-touch-icon', href: '/icons/icon-192.png' },
       ],
     },
   },
@@ -50,6 +56,10 @@ export default defineNuxtConfig({
       description: 'FP業務管理ツール',
       theme_color: '#16a34a',
       background_color: '#ffffff',
+      display: 'standalone',
+      orientation: 'portrait',
+      start_url: '/',
+      scope: '/',
       icons: [
         {
           src: '/icons/icon-192.png',
@@ -70,11 +80,18 @@ export default defineNuxtConfig({
       ],
     },
     workbox: {
-      navigateFallback: '/',
+      navigateFallback: '/index.html',
+      globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+      runtimeCaching: [
+        {
+          urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+          handler: 'CacheFirst',
+          options: { cacheName: 'google-fonts-cache' },
+        },
+      ],
     },
     devOptions: {
-      enabled: true,
-      type: 'module',
+      enabled: false,
     },
   },
 })
