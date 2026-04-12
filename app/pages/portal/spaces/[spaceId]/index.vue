@@ -1,16 +1,18 @@
 <script setup lang="ts">
-import { MOCK_SPACES, MOCK_POSTS } from '~/data/mock'
+import { MOCK_SPACES } from '~/data/mock'
+import { usePortalStore } from '~/composables/usePortalStore'
 
 definePageMeta({ middleware: ['auth'] })
 
 const route = useRoute()
 const spaceId = computed(() => route.params.spaceId as string)
 const { user } = useCurrentUser()
+const store = usePortalStore()
 
-// ----- スペース情報 -----
+// ── スペース情報 ──────────────────────────────────────────────────────
 const space = computed(() => {
   const s = MOCK_SPACES.find(sp => sp.id === spaceId.value)
-  if (!s) return { id: '', name: '', memberCount: 0, isAdmin: false, isPinned: false, description: '' }
+  if (!s) return { id: '', name: '', description: '', memberCount: 0, isAdmin: false, isPinned: false }
   return {
     id:          s.id,
     name:        s.name,
@@ -21,43 +23,11 @@ const space = computed(() => {
   }
 })
 
-// ----- 投稿一覧 -----
-type CommentView = { authorName: string; authorInitial: string; content: string; postedAt: string }
-type PostView = {
-  id: string
-  authorName: string
-  authorInitial: string
-  authorColor: string
-  content: string
-  reactions: Record<string, number>
-  comments: CommentView[]
-  showComments: boolean
-  isPinned: boolean
-  postedAt: string
-}
+// ── 投稿一覧（このスペース） ──────────────────────────────────────────
+const spacePosts = store.getPostsBySpace(spaceId)
+const pinnedPost = computed(() => spacePosts.value.find(p => p.isPinned) ?? null)
 
-const localPosts = ref<PostView[]>([])
-
-onMounted(() => {
-  const raw = MOCK_POSTS[spaceId.value] ?? []
-  localPosts.value = raw.map((p: any): PostView => ({
-    id:            p.id,
-    authorName:    p.authorName,
-    authorInitial: p.authorName.charAt(0),
-    authorColor:   'bg-indigo-100 text-indigo-700',
-    content:       p.content,
-    reactions:     { ...(p.reactions ?? {}) },
-    comments:      [],
-    showComments:  false,
-    isPinned:      p.isPinned,
-    postedAt:      p.createdAt.toDate().toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-  }))
-})
-
-// ピン留め投稿
-const pinnedPost = computed(() => localPosts.value.find(p => p.isPinned) ?? null)
-
-// ----- 投稿フォーム -----
+// ── 投稿フォーム ──────────────────────────────────────────────────────
 const newPostContent = ref('')
 const submitting = ref(false)
 
@@ -65,47 +35,49 @@ const handlePostSubmit = async () => {
   if (!newPostContent.value.trim()) return
   submitting.value = true
   await new Promise(r => setTimeout(r, 300))
-  const now = new Date()
-  localPosts.value.unshift({
-    id:            `local-${Date.now()}`,
-    authorName:    user.value?.displayName ?? 'テストユーザー',
-    authorInitial: (user.value?.displayName ?? 'T').charAt(0),
-    authorColor:   'bg-primary-100 text-primary-700',
-    content:       newPostContent.value,
-    reactions:     {},
-    comments:      [],
-    showComments:  false,
-    isPinned:      false,
-    postedAt:      now.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-  })
+  store.addPost(
+    spaceId.value,
+    newPostContent.value,
+    user.value?.displayName ?? 'テストユーザー',
+    user.value?.uid ?? 'mock-user-123',
+  )
   newPostContent.value = ''
   submitting.value = false
 }
 
-// ----- コメント -----
-const commentInputs = ref<Record<string, string>>({})
+// ── リアクション ─────────────────────────────────────────────────────
+const EMOJIS = ['👍', '❤️', '🎉', '😊', '👏', '🔥']
+const showEmojiPicker = ref<string | null>(null)
 
-const toggleComments = (post: PostView) => {
-  post.showComments = !post.showComments
+const onReaction = (postId: string, emoji: string) => {
+  store.toggleReaction(postId, emoji)
+  showEmojiPicker.value = null
 }
+
+// ── コメント ──────────────────────────────────────────────────────────
+const commentInputs = ref<Record<string, string>>({})
 
 const submitComment = (postId: string) => {
   const content = commentInputs.value[postId]?.trim()
   if (!content) return
-  const post = localPosts.value.find(p => p.id === postId)
-  if (!post) return
-  post.comments.push({
-    authorName:    user.value?.displayName ?? 'テストユーザー',
-    authorInitial: (user.value?.displayName ?? 'T').charAt(0),
-    content,
-    postedAt:      new Date().toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' }),
-  })
+  store.addComment(postId, content, user.value?.displayName ?? 'テストユーザー', user.value?.uid ?? 'mock-user-123')
   commentInputs.value[postId] = ''
 }
 
-// ----- リアクション -----
-const addReaction = (post: PostView, emoji: string) => {
-  post.reactions[emoji] = (post.reactions[emoji] ?? 0) + 1
+// ── 編集モーダル ──────────────────────────────────────────────────────
+const editingPostId = ref<string | null>(null)
+const editContent = ref('')
+
+const openEdit = (post: { id: string; content: string }) => {
+  editingPostId.value = post.id
+  editContent.value = post.content
+}
+
+const saveEdit = () => {
+  if (!editingPostId.value || !editContent.value.trim()) return
+  store.editPost(editingPostId.value, editContent.value)
+  editingPostId.value = null
+  editContent.value = ''
 }
 </script>
 
@@ -132,35 +104,29 @@ const addReaction = (post: PostView, emoji: string) => {
         <p v-if="space.description" class="text-xs text-gray-400 mt-1">{{ space.description }}</p>
       </div>
       <div class="flex items-center gap-2 shrink-0">
-        <NuxtLink
-          v-if="space.isAdmin"
-          :to="`/portal/spaces/${spaceId}/members`"
-          class="btn-secondary text-xs flex items-center gap-1"
-        >
-          <Icon name="heroicons:users" class="h-3.5 w-3.5" />
-          メンバー
+        <NuxtLink v-if="space.isAdmin" :to="`/portal/spaces/${spaceId}/members`" class="btn-secondary text-xs flex items-center gap-1">
+          <Icon name="heroicons:users" class="h-3.5 w-3.5" />メンバー
         </NuxtLink>
-        <NuxtLink
-          v-if="space.isAdmin"
-          :to="`/portal/spaces/${spaceId}/settings`"
-          class="btn-secondary text-xs flex items-center gap-1"
-        >
-          <Icon name="heroicons:cog-6-tooth" class="h-3.5 w-3.5" />
-          設定
+        <NuxtLink v-if="space.isAdmin" :to="`/portal/spaces/${spaceId}/settings`" class="btn-secondary text-xs flex items-center gap-1">
+          <Icon name="heroicons:cog-6-tooth" class="h-3.5 w-3.5" />設定
         </NuxtLink>
       </div>
     </div>
 
     <!-- ピン留め投稿 -->
-    <div v-if="pinnedPost" class="card p-4 border-l-4 border-primary-400 bg-primary-50">
+    <NuxtLink
+      v-if="pinnedPost"
+      :to="`/portal/spaces/${spaceId}/posts/${pinnedPost.id}`"
+      class="block card p-4 border-l-4 border-primary-400 bg-primary-50 hover:opacity-90 transition"
+    >
       <div class="flex items-start gap-2">
         <Icon name="heroicons:bookmark-solid" class="h-4 w-4 text-primary-500 shrink-0 mt-0.5" />
         <div>
-          <p class="text-sm font-medium text-primary-800">{{ pinnedPost.content }}</p>
+          <p class="text-sm font-medium text-primary-800 line-clamp-2">{{ pinnedPost.content }}</p>
           <p class="text-xs text-primary-500 mt-1">{{ pinnedPost.authorName }} · {{ pinnedPost.postedAt }}</p>
         </div>
       </div>
-    </div>
+    </NuxtLink>
 
     <!-- 投稿フォーム -->
     <div class="card p-4">
@@ -175,15 +141,7 @@ const addReaction = (post: PostView, emoji: string) => {
             placeholder="投稿する..."
             class="input-field resize-none"
           />
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <button class="text-gray-400 hover:text-gray-600 transition p-1.5 rounded-lg hover:bg-gray-100">
-                <Icon name="heroicons:photo" class="h-4 w-4" />
-              </button>
-              <button class="text-gray-400 hover:text-gray-600 transition p-1.5 rounded-lg hover:bg-gray-100">
-                <Icon name="heroicons:paper-clip" class="h-4 w-4" />
-              </button>
-            </div>
+          <div class="flex items-center justify-end">
             <button
               class="btn-primary text-sm"
               :disabled="!newPostContent.trim() || submitting"
@@ -198,54 +156,89 @@ const addReaction = (post: PostView, emoji: string) => {
     </div>
 
     <!-- 投稿一覧 -->
-    <div
-      v-for="post in localPosts"
-      :key="post.id"
-      class="card p-5"
-    >
+    <div v-for="post in spacePosts" :key="post.id" class="card p-5">
       <div class="flex items-start gap-3">
-        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-semibold text-sm" :class="post.authorColor">
+        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 font-semibold text-sm">
           {{ post.authorInitial }}
         </div>
         <div class="flex-1 min-w-0">
+          <!-- メタ -->
           <div class="flex items-center gap-2 flex-wrap">
             <span class="font-semibold text-sm text-gray-900">{{ post.authorName }}</span>
             <span class="text-xs text-gray-400">{{ post.postedAt }}</span>
             <span v-if="post.isPinned" class="badge bg-amber-50 text-amber-600 text-xs flex items-center gap-0.5">
               <Icon name="heroicons:bookmark-solid" class="h-3 w-3" />ピン留め
             </span>
+            <!-- 自分の投稿なら編集ボタン -->
+            <button
+              v-if="post.authorId === (user?.uid ?? 'mock-user-123')"
+              class="ml-auto text-xs text-gray-400 hover:text-primary-600 transition flex items-center gap-0.5"
+              @click="openEdit(post)"
+            >
+              <Icon name="heroicons:pencil-square" class="h-3.5 w-3.5" />編集
+            </button>
           </div>
-          <p class="mt-2 text-sm text-gray-700 leading-relaxed whitespace-pre-line">{{ post.content }}</p>
 
-          <!-- リアクション・コメントボタン -->
-          <div class="mt-3 flex items-center gap-3 flex-wrap">
-            <div class="flex items-center gap-1.5 flex-wrap">
-              <span
-                v-for="(count, emoji) in post.reactions"
-                :key="String(emoji)"
-                class="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 cursor-pointer hover:bg-primary-50 hover:text-primary-600 transition"
-                @click="addReaction(post, String(emoji))"
-              >{{ String(emoji) }} {{ count }}</span>
-              <button class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs text-gray-400 hover:bg-gray-100 transition">
+          <!-- 本文（タップで詳細へ） -->
+          <NuxtLink :to="`/portal/spaces/${spaceId}/posts/${post.id}`" class="block mt-2">
+            <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line hover:text-gray-900 transition-colors">{{ post.content }}</p>
+          </NuxtLink>
+
+          <!-- アクションバー -->
+          <div class="mt-3 flex items-center gap-2 flex-wrap">
+            <span
+              v-for="(count, emoji) in post.reactions"
+              :key="String(emoji)"
+              class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium cursor-pointer transition"
+              :class="post.myReactions.includes(String(emoji))
+                ? 'bg-primary-100 text-primary-700 ring-1 ring-primary-300'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+              @click="onReaction(post.id, String(emoji))"
+            >{{ String(emoji) }} {{ count }}</span>
+
+            <!-- 絵文字ボタン -->
+            <div class="relative">
+              <button
+                class="inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs text-gray-400 hover:bg-gray-100 transition"
+                @click.stop="showEmojiPicker = showEmojiPicker === post.id ? null : post.id"
+              >
                 <Icon name="heroicons:face-smile" class="h-3.5 w-3.5" /> +
               </button>
+              <div
+                v-if="showEmojiPicker === post.id"
+                class="absolute z-20 left-0 top-full mt-1 flex gap-1 bg-white border border-gray-200 rounded-xl shadow-lg p-2"
+              >
+                <button
+                  v-for="em in EMOJIS"
+                  :key="em"
+                  class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-base transition"
+                  @click="onReaction(post.id, em)"
+                >{{ em }}</button>
+              </div>
             </div>
+
+            <!-- コメント -->
             <button
               class="flex items-center gap-1 text-xs text-gray-400 hover:text-primary-600 transition"
-              @click="toggleComments(post)"
+              @click="post.showComments = !post.showComments"
             >
               <Icon name="heroicons:chat-bubble-left" class="h-3.5 w-3.5" />
-              {{ post.comments.length > 0 ? `${post.comments.length}件のコメント` : 'コメント' }}
+              {{ post.commentCount }}件
             </button>
+
+            <!-- 詳細 -->
+            <NuxtLink
+              :to="`/portal/spaces/${spaceId}/posts/${post.id}`"
+              class="ml-auto text-xs text-gray-400 hover:text-primary-600 transition flex items-center gap-0.5"
+            >
+              詳細<Icon name="heroicons:arrow-top-right-on-square" class="h-3 w-3" />
+            </NuxtLink>
           </div>
 
           <!-- コメント展開 -->
           <div v-if="post.showComments" class="mt-3 space-y-2 border-t border-gray-100 pt-3">
-            <div
-              v-for="comment in post.comments"
-              :key="comment.content + comment.postedAt"
-              class="flex items-start gap-2"
-            >
+            <div v-if="post.comments.length === 0" class="text-xs text-gray-400">コメントはまだありません</div>
+            <div v-for="comment in post.comments" :key="comment.id" class="flex items-start gap-2">
               <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-600 font-semibold text-xs">
                 {{ comment.authorInitial }}
               </div>
@@ -254,9 +247,6 @@ const addReaction = (post: PostView, emoji: string) => {
                 <p class="text-xs text-gray-600 mt-0.5">{{ comment.content }}</p>
               </div>
             </div>
-            <div v-if="post.comments.length === 0" class="text-xs text-gray-400">
-              コメントはまだありません
-            </div>
             <div class="flex items-center gap-2 pt-1">
               <input
                 v-model="commentInputs[post.id]"
@@ -264,10 +254,7 @@ const addReaction = (post: PostView, emoji: string) => {
                 class="flex-1 rounded-full bg-gray-100 px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-primary-300"
                 @keydown.enter.prevent="submitComment(post.id)"
               />
-              <button
-                class="text-xs text-primary-600 font-medium hover:underline"
-                @click="submitComment(post.id)"
-              >送信</button>
+              <button class="text-xs text-primary-600 font-medium hover:underline" @click="submitComment(post.id)">送信</button>
             </div>
           </div>
         </div>
@@ -275,11 +262,40 @@ const addReaction = (post: PostView, emoji: string) => {
     </div>
 
     <!-- 投稿なし -->
-    <div v-if="localPosts.length === 0" class="card p-10 text-center">
+    <div v-if="spacePosts.length === 0" class="card p-10 text-center">
       <Icon name="heroicons:chat-bubble-left-right" class="h-10 w-10 text-gray-200 mx-auto mb-2" />
       <p class="text-sm text-gray-400">まだ投稿がありません</p>
-      <p class="text-xs text-gray-300 mt-1">最初の投稿者になりましょう</p>
     </div>
+
+    <!-- 絵文字ピッカー外クリックで閉じる -->
+    <div v-if="showEmojiPicker" class="fixed inset-0 z-10" @click="showEmojiPicker = null" />
+
+    <!-- 編集モーダル -->
+    <Teleport to="body">
+      <div
+        v-if="editingPostId"
+        class="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40"
+        @click.self="editingPostId = null"
+      >
+        <div class="bg-white w-full md:max-w-lg rounded-t-2xl md:rounded-2xl p-5 space-y-4 shadow-xl">
+          <div class="flex items-center justify-between">
+            <h3 class="font-bold text-gray-900">投稿を編集</h3>
+            <button class="p-1.5 rounded-lg hover:bg-gray-100 transition" @click="editingPostId = null">
+              <Icon name="heroicons:x-mark" class="h-5 w-5 text-gray-500" />
+            </button>
+          </div>
+          <textarea
+            v-model="editContent"
+            rows="6"
+            class="input-field resize-none text-sm"
+          />
+          <div class="flex gap-3">
+            <button class="flex-1 btn-secondary" @click="editingPostId = null">キャンセル</button>
+            <button class="flex-1 btn-primary" :disabled="!editContent.trim()" @click="saveEdit">保存する</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
   </div>
 </template>
