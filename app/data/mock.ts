@@ -767,3 +767,85 @@ export const MOCK_POSTS: Record<string, any[]> = {
     },
   ],
 }
+
+// ══════════════════════════════════════════════════════════════════════
+// 通知データ
+// ══════════════════════════════════════════════════════════════════════
+export const MOCK_NOTIFICATIONS: any[] = [
+  {
+    id: 'n001',
+    uid: 'mock-user-123',
+    type: 'post_comment',
+    title: 'コメントがありました',
+    body: '山田 太郎さんがあなたの投稿にコメントしました。',
+    isRead: false,
+    relatedId: 'p001',
+    createdAt: ts('2026-04-12T10:00:00'),
+  },
+  {
+    id: 'n002',
+    uid: 'mock-user-123',
+    type: 'event_reminder',
+    title: 'イベントのリマインド',
+    body: '本日 14:00 から「田中様 面談」があります。',
+    isRead: false,
+    relatedId: 'ev001',
+    createdAt: ts('2026-04-11T09:00:00'),
+  },
+  {
+    id: 'n003',
+    uid: 'mock-user-123',
+    type: 'customer_assigned',
+    title: '新規顧客の担当割り当て',
+    body: '鈴木 美咲さんの担当にあなたが割り当てられました。',
+    isRead: true,
+    relatedId: 'c004',
+    createdAt: ts('2026-04-10T15:30:00'),
+  },
+  {
+    id: 'n004',
+    uid: 'mock-user-123',
+    type: 'system',
+    title: 'システムメンテナンスのお知らせ',
+    body: '4月15日(水) 02:00〜05:00 の間、システムメンテナンスを実施します。',
+    isRead: true,
+    createdAt: ts('2026-04-05T12:00:00'),
+  },
+]
+
+// ══════════════════════════════════════════════════════════════════════
+// 管理者設定データ
+// ══════════════════════════════════════════════════════════════════════
+
+// ユーザー一覧
+export const MOCK_ADMIN_USERS: any[] = [
+  { uid: 'u001', email: 'admin@example.com', displayName: '管理者 太郎', role: 'system_admin', position: '代表取締役', createdAt: new Date('2024-01-01') },
+  { uid: 'u002', email: 'yamada@example.com', displayName: '山田 一郎', role: 'board', position: '取締役', createdAt: new Date('2024-01-10') },
+  { uid: 'u003', email: 'sato@example.com', displayName: '佐藤 花子', role: 'em2_above', position: '支店長', createdAt: new Date('2024-02-15') },
+  { uid: 'u004', email: 'suzuki@example.com', displayName: '鈴木 二郎', role: 'general', position: 'FP', createdAt: new Date('2024-03-20') },
+  { uid: 'u005', email: 'tanaka@example.com', displayName: '田中 三郎', role: 'general', position: 'FP', createdAt: new Date('2024-04-01') },
+]
+
+// グループ・組合一覧
+export const MOCK_ADMIN_GROUPS: any[] = [
+  { id: 'reterace', name: 'Reterace', memberCount: 52, kumiai: [{ id: 'k001', name: 'りらくす組合' }, { id: 'k002', name: 'ラジカル組合' }] },
+  { id: 'miraito', name: 'Miraito', memberCount: 35, kumiai: [{ id: 'k003', name: 'みらいと組合' }] },
+  { id: 'asset', name: 'Asset', memberCount: 28, kumiai: [{ id: 'k004', name: 'あせっと組合' }] },
+]
+
+// ══════════════════════════════════════════════════════════════════════
+// ダッシュボード統計・アクティビティ
+// ══════════════════════════════════════════════════════════════════════
+export const MOCK_DASHBOARD_STATS = {
+  monthlyActivity: 42,
+  monthlyContracts: 8,
+  assignedCustomers: 156,
+  referralsEarned: 12,
+}
+
+export const MOCK_RECENT_ACTIVITIES: any[] = [
+  { id: 'a001', type: 'contract', user: 'あなた', target: '田中 一郎', content: '生命保険の契約を締結しました', createdAt: ts('2026-04-12T17:30:00') },
+  { id: 'a002', type: 'comment', user: '山田 一郎', target: '全体スペース', content: '「重要なお知らせ」にコメントしました', createdAt: ts('2026-04-12T16:15:00') },
+  { id: 'a003', type: 'customer', user: 'あなた', target: '佐藤 花子', content: '顧客情報を更新しました', createdAt: ts('2026-04-12T14:20:00') },
+  { id: 'a004', type: 'event', user: 'システム', target: 'あなた', content: '明日の「山本様 面談」が登録されました', createdAt: ts('2026-04-12T10:00:00') },
+]

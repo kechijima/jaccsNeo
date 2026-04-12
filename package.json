@@ -10,18 +10,25 @@
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
-    "nuxt": "^4.4.2",
-    "vue": "^3.5.32",
-    "vue-router": "^5.0.4",
-    "firebase": "^11.0.0",
+    "@floating-ui/dom": "^1.7.6",
     "@pinia/nuxt": "^0.9.0",
-    "pinia": "^3.0.4",
+    "@tiptap/core": "^3.22.3",
+    "@tiptap/extension-link": "^3.22.3",
+    "@tiptap/extension-underline": "^3.22.3",
+    "@tiptap/pm": "^3.22.3",
+    "@tiptap/starter-kit": "^3.22.3",
+    "@tiptap/vue-3": "^3.22.3",
+    "@vueuse/core": "^13.0.0",
     "@vueuse/nuxt": "^13.0.0",
-    "@vueuse/core": "^13.0.0"
+    "firebase": "^11.0.0",
+    "nuxt": "^4.4.2",
+    "pinia": "^3.0.4",
+    "vue": "^3.5.32",
+    "vue-router": "^5.0.4"
   },
   "devDependencies": {
-    "@nuxtjs/tailwindcss": "^6.13.1",
     "@nuxt/icon": "^1.0.0",
+    "@nuxtjs/tailwindcss": "^6.13.1",
     "typescript": "^5.7.0"
   }
 }

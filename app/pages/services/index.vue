@@ -103,18 +103,58 @@ const categories = computed(() => [
     ],
   },
 ])
+
+// ── 検索・フィルタ ──────────────────────────────────────────────────
+const searchQuery = ref('')
+const selectedCategory = ref('all')
+
+const filteredCategories = computed(() => {
+  return categories.value
+    .map(cat => ({
+      ...cat,
+      services: cat.services.filter(svc => {
+        // カテゴリ一致確認
+        if (selectedCategory.value !== 'all' && cat.label !== selectedCategory.value) {
+          return false
+        }
+        // キーワード一致確認
+        if (!searchQuery.value.trim()) return true
+        return svc.label.toLowerCase().includes(searchQuery.value.toLowerCase())
+      })
+    }))
+    .filter(cat => cat.services.length > 0)
+})
 </script>
 
 <template>
   <div class="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
 
     <!-- ===== ページヘッダー ===== -->
-    <div>
-      <h1 class="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-2">
-        <Icon name="heroicons:squares-2x2" class="h-6 w-6 text-primary-600" />
-        サービスアプリ
-      </h1>
-      <p class="mt-1 text-sm text-gray-500">各サービスの案件データ一覧・管理</p>
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+      <div>
+        <h1 class="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <Icon name="heroicons:squares-2x2" class="h-6 w-6 text-primary-600" />
+          サービスアプリ
+        </h1>
+        <p class="mt-1 text-sm text-gray-500">各サービスの案件データ一覧・管理</p>
+      </div>
+
+      <!-- 検索・フィルタ -->
+      <div class="flex flex-col sm:flex-row gap-2 max-w-md w-full">
+        <div class="relative flex-1">
+          <Icon name="heroicons:magnifying-glass" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="アプリ名で検索..."
+            class="input-field pl-9 !py-1.5 text-xs"
+          />
+        </div>
+        <select v-model="selectedCategory" class="input-field !py-1.5 text-xs sm:w-32 bg-gray-50">
+          <option value="all">全カテゴリ</option>
+          <option v-for="cat in categories" :key="cat.label" :value="cat.label">{{ cat.label }}</option>
+        </select>
+      </div>
     </div>
 
     <!-- ===== サマリーカード ===== -->
@@ -163,7 +203,12 @@ const categories = computed(() => [
 
     <!-- ===== カテゴリ別サービスカード ===== -->
     <div class="space-y-6">
-      <div v-for="cat in categories" :key="cat.label">
+      <div v-if="filteredCategories.length === 0" class="card p-12 text-center">
+        <Icon name="heroicons:magnifying-glass" class="h-10 w-10 text-gray-200 mx-auto mb-2" />
+        <p class="text-gray-400">条件に一致するサービスが見つかりませんでした</p>
+      </div>
+
+      <div v-for="cat in filteredCategories" :key="cat.label">
         <!-- カテゴリヘッダー -->
         <div class="flex items-center gap-2 mb-3">
           <span

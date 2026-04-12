@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore'
 import type { Notification } from '~/types/notification'
 import { useAuthStore } from '~/stores/auth'
+import { MOCK_NOTIFICATIONS } from '~/data/mock'
 
 const toNotif = (id: string, data: DocumentData): Notification => ({ id, ...data }) as Notification
 
@@ -29,10 +30,16 @@ export const useNotifications = () => {
 
   // ===== 通知一覧（リアルタイム） =====
   const subscribeNotifications = (callback: (notifs: Notification[]) => void): Unsubscribe => {
-    const q = query(notifCol(), orderBy('createdAt', 'desc'), limit(50))
-    return onSnapshot(q, (snap) => {
-      callback(snap.docs.map(d => toNotif(d.id, d.data())))
-    })
+    try {
+      const q = query(notifCol(), orderBy('createdAt', 'desc'), limit(50))
+      return onSnapshot(q, (snap) => {
+        callback(snap.docs.map(d => toNotif(d.id, d.data())))
+      })
+    } catch (e) {
+      console.warn('Using mock notifications')
+      callback(MOCK_NOTIFICATIONS as Notification[])
+      return () => {}
+    }
   }
 
   // ===== 未読件数（リアルタイム） =====

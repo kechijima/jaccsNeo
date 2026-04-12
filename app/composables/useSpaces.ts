@@ -21,6 +21,7 @@ import {
 } from 'firebase/firestore'
 import type { Space, SpaceSummary, Post, Comment, SpaceForm, PostForm } from '~/types/portal'
 import { useAuthStore } from '~/stores/auth'
+import { MOCK_SPACES } from '~/data/mock'
 
 const toSpace = (id: string, data: DocumentData): Space => ({ id, ...data }) as Space
 const toPost  = (id: string, data: DocumentData): Post  => ({ id, ...data }) as Post
@@ -69,8 +70,13 @@ export const useSpaces = () => {
 
   // ===== 全スペース（管理者用） =====
   const fetchAllSpaces = async (): Promise<Space[]> => {
-    const snap = await getDocs(query(spacesCol(), orderBy('createdAt', 'desc')))
-    return snap.docs.map(d => toSpace(d.id, d.data()))
+    try {
+      const snap = await getDocs(query(spacesCol(), orderBy('createdAt', 'desc')))
+      return snap.docs.map(d => toSpace(d.id, d.data()))
+    } catch (e) {
+      console.warn('Using mock spaces')
+      return MOCK_SPACES
+    }
   }
 
   // ===== スペース作成 =====

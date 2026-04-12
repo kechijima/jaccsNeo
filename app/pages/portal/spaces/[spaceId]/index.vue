@@ -135,11 +135,10 @@ const saveEdit = () => {
           {{ user?.displayName?.charAt(0) ?? 'U' }}
         </div>
         <div class="flex-1 space-y-2">
-          <textarea
+          <RichTextEditor
             v-model="newPostContent"
-            rows="3"
             placeholder="投稿する..."
-            class="input-field resize-none"
+            class="min-h-[120px]"
           />
           <div class="flex items-center justify-end">
             <button
@@ -181,7 +180,10 @@ const saveEdit = () => {
 
           <!-- 本文（タップで詳細へ） -->
           <NuxtLink :to="`/portal/spaces/${spaceId}/posts/${post.id}`" class="block mt-2">
-            <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line hover:text-gray-900 transition-colors">{{ post.content }}</p>
+            <div
+              class="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none hover:text-gray-900 transition-colors"
+              v-html="post.content"
+            />
           </NuxtLink>
 
           <!-- アクションバー -->
@@ -284,10 +286,9 @@ const saveEdit = () => {
               <Icon name="heroicons:x-mark" class="h-5 w-5 text-gray-500" />
             </button>
           </div>
-          <textarea
+          <RichTextEditor
             v-model="editContent"
-            rows="6"
-            class="input-field resize-none text-sm"
+            class="min-h-[200px]"
           />
           <div class="flex gap-3">
             <button class="flex-1 btn-secondary" @click="editingPostId = null">キャンセル</button>

@@ -13,17 +13,18 @@ import {
 import type { Group, Kumiai } from '~/types/group'
 import type { GroupId } from '~/types/user'
 import { useAuthStore } from '~/stores/auth'
+import { MOCK_ADMIN_GROUPS } from '~/data/mock'
 
 const GROUP_NAMES: Record<GroupId, string> = {
-  reterace: 'リテラーチェ',
-  miraito:  'みらいと',
-  asset:    'アセット',
+  reterace: 'Reterace',
+  miraito: 'Miraito',
+  asset: 'Asset',
 }
 
 const GROUP_COLORS: Record<GroupId, string> = {
   reterace: 'reterace',
-  miraito:  'miraito',
-  asset:    'asset',
+  miraito: 'miraito',
+  asset: 'asset',
 }
 
 export const useGroups = () => {
@@ -34,23 +35,32 @@ export const useGroups = () => {
 
   // ===== 全グループ・組合取得 =====
   const fetchGroups = async (): Promise<Group[]> => {
-    const groupIds: GroupId[] = ['reterace', 'miraito', 'asset']
+    try {
+      const groupIds: GroupId[] = ['reterace', 'miraito', 'asset']
 
-    const groups = await Promise.all(groupIds.map(async (groupId) => {
-      const q = query(kumiaiCol(groupId), orderBy('displayOrder', 'asc'))
-      const snap = await getDocs(q)
-      const kumiai: Kumiai[] = snap.docs.map(d => ({ id: d.id, groupId, ...d.data() }) as Kumiai)
+      const groups = await Promise.all(groupIds.map(async (groupId) => {
+        const q = query(kumiaiCol(groupId), orderBy('displayOrder', 'asc'))
+        const snap = await getDocs(q)
+        const kumiai: Kumiai[] = snap.docs.map(d => ({ id: d.id, groupId, ...d.data() }) as Kumiai)
 
-      return {
-        id:          groupId,
-        name:        GROUP_NAMES[groupId],
-        color:       GROUP_COLORS[groupId],
-        kumiai,
-        memberCount: 0, // populated separately if needed
-      } as Group
-    }))
+        return {
+          id: groupId,
+          name: GROUP_NAMES[groupId],
+          color: GROUP_COLORS[groupId],
+          kumiai,
+          memberCount: 0, // populated separately if needed
+        } as Group
+      }))
 
-    return groups
+      return groups
+    } catch (e) {
+      console.warn('Using mock groups')
+      return MOCK_ADMIN_GROUPS.map(g => ({
+        ...g,
+        color: GROUP_COLORS[g.id as GroupId],
+        kumiai: g.kumiai.map((k: any) => ({ ...k, groupId: g.id, displayOrder: 0, createdAt: new Date(), updatedAt: new Date() }))
+      })) as Group[]
+    }
   }
 
   // ===== 組合一覧（グループ指定） =====

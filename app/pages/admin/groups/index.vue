@@ -91,7 +91,7 @@ const editingGroup = ref<string | null>(null)
     <!-- 専門チーム -->
     <div class="card overflow-hidden">
       <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-gray-50">
-        <h2 class="font-semibold text-gray-900">横串専門チーム（グループ横断）</h2>
+        <h2 class="font-semibold text-gray-900">専門チーム（グループ横断）</h2>
         <button class="text-xs text-primary-600 hover:underline">チームを追加</button>
       </div>
       <div class="divide-y divide-gray-50">

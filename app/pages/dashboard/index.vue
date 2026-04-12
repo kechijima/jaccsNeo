@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { MOCK_DASHBOARD_STATS, MOCK_RECENT_ACTIVITIES } from '~/data/mock'
 definePageMeta({ middleware: ['auth'] })
 
 const { user, displayName } = useCurrentUser()
@@ -13,10 +14,10 @@ const greeting = computed(() => {
 })
 
 const kpiCards = computed(() => [
-  { label: '今月の活動数',  value: '－',  unit: '件', icon: 'heroicons:clipboard-document-list', color: 'bg-blue-50 text-blue-700' },
-  { label: '今月の成約数',  value: '－',  unit: '件', icon: 'heroicons:trophy',                  color: 'bg-green-50 text-green-700' },
-  { label: '担当顧客数',    value: '－',  unit: '名', icon: 'heroicons:users',                   color: 'bg-purple-50 text-purple-700' },
-  { label: '紹介獲得数',    value: '－',  unit: '件', icon: 'heroicons:share',                   color: 'bg-amber-50 text-amber-700' },
+  { label: '今月の活動数',  value: MOCK_DASHBOARD_STATS.monthlyActivity,  unit: '件', icon: 'heroicons:clipboard-document-list', color: 'bg-blue-50 text-blue-700' },
+  { label: '今月の成約数',  value: MOCK_DASHBOARD_STATS.monthlyContracts, unit: '件', icon: 'heroicons:trophy',                  color: 'bg-green-50 text-green-700' },
+  { label: '担当顧客数',    value: MOCK_DASHBOARD_STATS.assignedCustomers, unit: '名', icon: 'heroicons:users',                   color: 'bg-purple-50 text-purple-700' },
+  { label: '紹介獲得数',    value: MOCK_DASHBOARD_STATS.referralsEarned,  unit: '件', icon: 'heroicons:share',                   color: 'bg-amber-50 text-amber-700' },
 ])
 
 const { fetchEvents } = useEvents()
@@ -24,8 +25,16 @@ const { fetchSpaces, fetchPosts } = useSpaces()
 const { fetchCustomers } = useCustomers()
 
 const scheduleItems = ref<Array<{ id: string; title: string; startAt: string; location?: string }>>([])
-const followUpItems = ref<Array<{ id: string; name: string; tel?: string; note: string }>>([])
 const portalPosts = ref<Array<{ id: string; spaceId: string; spaceName: string; authorName: string; content: string }>>([])
+
+// ── フォローアップ・活動履歴 ───────────────────────────────────────────
+const followUpItems = computed(() => {
+  return [
+    { id: 'c001', name: '田中 一郎', note: '生命保険の見直し提案中', deadline: '明日まで' },
+    { id: 'c002', name: '佐藤 佳代', note: '不動産査定書の送付待ち', deadline: '本日中' },
+  ]
+})
+const recentActivities = computed(() => MOCK_RECENT_ACTIVITIES)
 
 onMounted(async () => {
   const [events, spaces] = await Promise.all([
@@ -134,31 +143,60 @@ onMounted(async () => {
           <p class="text-sm text-gray-400">対応が必要な顧客はいません</p>
         </div>
 
-        <ul v-else class="space-y-2">
+        <ul v-else class="divide-y divide-gray-50">
           <li
             v-for="item in followUpItems"
-            :key="(item as any).id"
-            class="flex items-center gap-3 rounded-lg p-2.5 hover:bg-gray-50"
+            :key="item.id"
+            class="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
           >
-            <!-- Phase2で実装 -->
+            <div class="min-w-0">
+              <NuxtLink :to="`/customers/${item.id}`" class="text-sm font-semibold text-gray-900 hover:text-primary-700 hover:underline">
+                {{ item.name }}
+              </NuxtLink>
+              <p class="text-xs text-gray-400 mt-0.5 truncate">{{ item.note }}</p>
+            </div>
+            <span class="badge bg-amber-50 text-amber-600 text-[10px] shrink-0 font-bold px-1.5">{{ item.deadline }}</span>
           </li>
         </ul>
       </div>
 
-      <!-- ポータル新着 -->
+      <!-- 最近のアクティビティ -->
       <div class="card p-5">
         <div class="flex items-center justify-between mb-4">
           <h2 class="font-semibold text-gray-900 flex items-center gap-2">
-            <Icon name="heroicons:chat-bubble-left-right" class="h-5 w-5 text-primary-600" />
-            ポータル新着
+            <Icon name="heroicons:bolt" class="h-5 w-5 text-primary-600" />
+            最近のアクティビティ
           </h2>
-          <NuxtLink to="/portal" class="text-xs text-primary-600 hover:underline">ポータルへ</NuxtLink>
         </div>
 
-        <div v-if="portalPosts.length === 0" class="text-center py-8">
-          <Icon name="heroicons:chat-bubble-left-ellipsis" class="h-10 w-10 text-gray-300 mx-auto mb-2" />
-          <p class="text-sm text-gray-400">新着投稿はありません</p>
+        <div v-if="recentActivities.length === 0" class="text-center py-8">
+          <Icon name="heroicons:clock" class="h-10 w-10 text-gray-200 mx-auto mb-2" />
+          <p class="text-sm text-gray-400">履歴はありません</p>
         </div>
+        <ul v-else class="divide-y divide-gray-50">
+          <li
+            v-for="act in recentActivities"
+            :key="act.id"
+            class="py-3 first:pt-0 last:pb-0"
+          >
+            <div class="flex items-start gap-3">
+              <span
+                class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+                :class="act.type === 'contract' ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-500'"
+              >
+                <Icon :name="act.type === 'contract' ? 'heroicons:check-badge' : 'heroicons:chat-bubble-left'" class="h-4 w-4" />
+              </span>
+              <div class="min-w-0 flex-1">
+                <p class="text-sm text-gray-800 leading-snug">
+                  <span class="font-semibold">{{ act.user }}</span>さんが
+                  <span class="font-medium text-gray-900">{{ act.target }}</span>に
+                  {{ act.content }}
+                </p>
+                <p class="text-[10px] text-gray-400 mt-1">{{ act.createdAt.toDate().toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) }}</p>
+              </div>
+            </div>
+          </li>
+        </ul>
       </div>
 
       <!-- クイックリンク -->

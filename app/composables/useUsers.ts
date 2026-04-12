@@ -12,6 +12,7 @@ import {
 } from 'firebase/firestore'
 import type { AppUser, UserRole, SpecialTeam, GroupId } from '~/types/user'
 import { useAuthStore } from '~/stores/auth'
+import { MOCK_ADMIN_USERS } from '~/data/mock'
 
 const toUser = (id: string, data: DocumentData): AppUser => ({
   uid:          id,
@@ -35,9 +36,20 @@ export const useUsers = () => {
 
   // ===== 全ユーザー一覧 =====
   const fetchUsers = async (): Promise<AppUser[]> => {
-    const q = query(usersCol(), orderBy('displayName', 'asc'))
-    const snap = await getDocs(q)
-    return snap.docs.map(d => toUser(d.id, d.data()))
+    try {
+      const q = query(usersCol(), orderBy('displayName', 'asc'))
+      const snap = await getDocs(q)
+      return snap.docs.map(d => toUser(d.id, d.data()))
+    } catch (e) {
+      console.warn('Using mock users')
+      return (MOCK_ADMIN_USERS as any[]).map(u => ({
+        ...u,
+        isActive: true,
+        specialTeams: [],
+        createdAt: u.createdAt || new Date(),
+        updatedAt: u.createdAt || new Date()
+      })) as AppUser[]
+    }
   }
 
   // ===== グループ別ユーザー =====
