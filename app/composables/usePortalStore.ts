@@ -1,7 +1,4 @@
-/**
- * ポータル投稿のグローバル共有ストア
- * モックデータを元にリアクション・コメント・編集を管理する
- */
+import { ref, computed } from 'vue'
 import { MOCK_POSTS, MOCK_SPACES } from '~/data/mock'
 
 const spaceColorMap: Record<string, string> = {

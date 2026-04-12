@@ -200,6 +200,12 @@ export const MOCK_SERVICE_CASES: Record<string, Record<string, any[]>> = {
         expiryDate: '2055-09-14',
         date: '2025-06-01',
         notes: '定期保険3,000万+医療特約。受取人は配偶者。',
+        reports: [
+          { id: 'r1', authorUid: 'u001', authorName: '管理者 太郎', content: '初期面談完了。ライフプランニングに基づき保障額を算出。', createdAt: ts('2025-06-05T10:00:00') },
+          { id: 'r2', authorUid: 'u001', authorName: '管理者 太郎', content: 'ステータスを「検討中」に変更しました。', statusFrom: 'consulting', statusTo: 'considering', createdAt: ts('2025-06-15T14:00:00') },
+          { id: 'r3', authorUid: 'u001', authorName: '管理者 太郎', content: '申し込み手続き完了。告知事項問題なし。', createdAt: ts('2025-07-20T11:00:00') },
+          { id: 'r4', authorUid: 'u001', authorName: '管理者 太郎', content: 'ステータスを「成約」に変更しました。', statusFrom: 'considering', statusTo: 'contracted', createdAt: ts('2025-09-15T16:30:00') },
+        ],
         createdBy: 'mock-user-123',
         updatedBy: 'mock-user-123',
         createdAt: ts('2025-06-01'),

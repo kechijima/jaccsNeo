@@ -8,6 +8,7 @@ export type NotificationType =
   | 'meeting_created'
   | 'system'
   | 'customer_assigned'
+  | 'mention'
 
 export interface Notification {
   id: string

@@ -10,9 +10,10 @@ import {
   orderBy,
   limit,
   serverTimestamp,
+  arrayUnion,
   type DocumentData,
 } from 'firebase/firestore'
-import type { ServiceCase, ServiceCaseForm, ServiceType } from '~/types/service'
+import type { ServiceCase, ServiceCaseForm, ServiceType, ServiceStatus, ServiceProgressReport } from '~/types/service'
 import { useAuthStore } from '~/stores/auth'
 
 const toCase = (id: string, data: DocumentData): ServiceCase => ({
@@ -98,6 +99,52 @@ export const useServices = () => {
     await deleteDoc(doc($db, 'customers', customerId, 'services', serviceType, 'cases', caseId))
   }
 
+  // ===== ステータス・進捗報告更新 =====
+  const updateCaseStatus = async (customerId: string, serviceType: ServiceType, caseId: string, newStatus: ServiceStatus, oldStatus: ServiceStatus): Promise<void> => {
+    const report: Partial<ServiceProgressReport> = {
+      id:         `rep_${Date.now()}`,
+      authorUid:  authStore.user?.uid,
+      authorName: authStore.user?.displayName,
+      content:    `ステータスを「${newStatus}」に変更しました。`,
+      statusFrom: oldStatus,
+      statusTo:   newStatus,
+      createdAt:  serverTimestamp() as any,
+    }
+
+    try {
+      const ref = doc($db, 'customers', customerId, 'services', serviceType, 'cases', caseId)
+      await updateDoc(ref, {
+        status:    newStatus,
+        reports:   arrayUnion(report),
+        updatedBy: authStore.user?.uid,
+        updatedAt: serverTimestamp(),
+      })
+    } catch (e) {
+      console.warn('Mock: Status updated to', newStatus)
+    }
+  }
+
+  const addProgressReport = async (customerId: string, serviceType: ServiceType, caseId: string, content: string): Promise<void> => {
+    const report: Partial<ServiceProgressReport> = {
+      id:         `rep_${Date.now()}`,
+      authorUid:  authStore.user?.uid,
+      authorName: authStore.user?.displayName,
+      content,
+      createdAt:  serverTimestamp() as any,
+    }
+
+    try {
+      const ref = doc($db, 'customers', customerId, 'services', serviceType, 'cases', caseId)
+      await updateDoc(ref, {
+        reports:   arrayUnion(report),
+        updatedBy: authStore.user?.uid,
+        updatedAt: serverTimestamp(),
+      })
+    } catch (e) {
+      console.warn('Mock: Report added:', content)
+    }
+  }
+
   return {
     fetchCases,
     fetchAllServiceSummaries,
@@ -105,5 +152,7 @@ export const useServices = () => {
     createCase,
     updateCase,
     deleteCase,
+    updateCaseStatus,
+    addProgressReport,
   }
 }

@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { ref, computed, watch } from 'vue'
 import { MOCK_SPACES, MOCK_EVENTS } from '~/data/mock'
 import { usePortalStore } from '~/composables/usePortalStore'
+import { useCurrentUser } from '~/composables/useCurrentUser'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -180,7 +182,10 @@ const eventColorMap: Record<string, string> = {
 
               <!-- 本文（タップで詳細へ） -->
               <NuxtLink :to="`/portal/spaces/${post.spaceId}/posts/${post.id}`" class="block mt-2">
-                <p class="text-sm text-gray-700 leading-relaxed line-clamp-4 hover:text-gray-900 transition-colors">{{ post.content }}</p>
+                <div 
+                  class="text-sm text-gray-700 leading-relaxed line-clamp-4 hover:text-gray-900 transition-colors prose prose-sm max-w-none"
+                  v-html="post.content"
+                />
               </NuxtLink>
 
               <!-- アクションバー -->
@@ -344,11 +349,10 @@ const eventColorMap: Record<string, string> = {
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-500 mb-1.5">内容</label>
-            <textarea
+            <RichTextEditor
               v-model="composeContent"
-              rows="5"
               placeholder="投稿内容を入力してください..."
-              class="input-field resize-none text-sm"
+              class="min-h-[160px]"
             />
           </div>
           <div class="flex gap-3">

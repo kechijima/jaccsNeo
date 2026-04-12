@@ -9,6 +9,8 @@ import {
   where,
   onSnapshot,
   writeBatch,
+  addDoc,
+  serverTimestamp,
   type Unsubscribe,
   type DocumentData,
 } from 'firebase/firestore'
@@ -73,10 +75,25 @@ export const useNotifications = () => {
     await batch.commit()
   }
 
+  // ===== 通知送信 (他のユーザーへ) =====
+  const sendNotification = async (targetUid: string, data: { type: NotificationType; title: string; body: string; linkUrl?: string; relatedId?: string }): Promise<void> => {
+    try {
+      const col = collection($db, 'notifications', targetUid, 'items')
+      await addDoc(col, {
+        ...data,
+        isRead: false,
+        createdAt: serverTimestamp(),
+      })
+    } catch (e) {
+      console.warn('Mock: Notification sent to', targetUid, data)
+    }
+  }
+
   return {
     subscribeNotifications,
     subscribeUnreadCount,
     markAsRead,
     markAllAsRead,
+    sendNotification,
   }
 }

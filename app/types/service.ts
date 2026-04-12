@@ -53,6 +53,17 @@ export const STATUS_LABELS: Record<ServiceStatus, string> = {
   failed:      '不成立',
 }
 
+export interface ServiceProgressReport {
+  id: string
+  authorUid: string
+  authorName: string
+  content: string      // 報告内容（リッチテキスト）
+  statusFrom?: ServiceStatus
+  statusTo?: ServiceStatus
+  attachments?: ServiceAttachment[]
+  createdAt: Timestamp
+}
+
 export interface ServiceCase {
   id: string
   customerId: string
@@ -64,6 +75,7 @@ export interface ServiceCase {
   company?: string       // 会社名・保険会社
   notes?: string         // 備考
   attachments?: ServiceAttachment[]
+  reports?: ServiceProgressReport[] // 進捗報告
   createdBy: string
   updatedBy: string
   createdAt: Timestamp

@@ -4,13 +4,17 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   ssr: false,
 
-  css: ['~/assets/css/main.css'],
+  css: [
+    '~/assets/css/main.css',
+    'tippy.js/dist/tippy.css',
+  ],
 
   modules: [
     '@nuxtjs/tailwindcss',
     '@pinia/nuxt',
     '@vueuse/nuxt',
     '@nuxt/icon',
+    '@vite-pwa/nuxt',
   ],
 
   runtimeConfig: {
@@ -35,6 +39,42 @@ export default defineNuxtConfig({
       link: [
         { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
       ],
+    },
+  },
+
+  pwa: {
+    registerType: 'autoUpdate',
+    manifest: {
+      name: 'jaccsNeo',
+      short_name: 'jaccsNeo',
+      description: 'FP業務管理ツール',
+      theme_color: '#16a34a',
+      background_color: '#ffffff',
+      icons: [
+        {
+          src: '/icons/icon-192.png',
+          sizes: '192x192',
+          type: 'image/png',
+        },
+        {
+          src: '/icons/icon-512.png',
+          sizes: '512x512',
+          type: 'image/png',
+        },
+        {
+          src: '/icons/icon-512.png',
+          sizes: '512x512',
+          type: 'image/png',
+          purpose: 'any maskable',
+        },
+      ],
+    },
+    workbox: {
+      navigateFallback: '/',
+    },
+    devOptions: {
+      enabled: true,
+      type: 'module',
     },
   },
 })

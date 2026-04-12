@@ -1,8 +1,13 @@
 <script setup lang="ts">
-import { useEditor, EditorContent } from '@tiptap/vue-3'
+import { ref, onMounted, watch, onBeforeUnmount, computed } from 'vue'
+import { useEditor, EditorContent, VueRenderer } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
 import Underline from '@tiptap/extension-underline'
+import Mention from '@tiptap/extension-mention'
+import tippy from 'tippy.js'
+import MentionList from '~/components/MentionList.vue'
+import { useUsers } from '~/composables/useUsers'
 
 const props = defineProps<{
   modelValue: string
@@ -10,6 +15,13 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits(['update:modelValue', 'submit'])
+
+const { fetchUsers } = useUsers()
+const users = ref<any[]>([])
+
+onMounted(async () => {
+  users.value = await fetchUsers()
+})
 
 const editor = useEditor({
   content: props.modelValue,
@@ -22,6 +34,61 @@ const editor = useEditor({
       },
     }),
     Underline,
+    Mention.configure({
+      HTMLAttributes: {
+        class: 'mention bg-primary-50 text-primary-600 px-1 py-0.5 rounded font-medium',
+      },
+      suggestion: {
+        items: ({ query }) => {
+          return users.value
+            .filter(u => u.displayName.toLowerCase().includes(query.toLowerCase()))
+            .slice(0, 5)
+        },
+        render: () => {
+          let component: VueRenderer
+          let popup: any
+
+          return {
+            onStart: (props) => {
+              component = new VueRenderer(MentionList, {
+                props,
+                editor: props.editor,
+              })
+
+              if (!props.clientRect) return
+
+              popup = tippy('body', {
+                getReferenceClientRect: props.clientRect as any,
+                appendTo: () => document.body,
+                content: component.element,
+                showOnCreate: true,
+                interactive: true,
+                trigger: 'manual',
+                placement: 'bottom-start',
+              })
+            },
+            onUpdate(props) {
+              component.updateProps(props)
+              if (!props.clientRect) return
+              popup[0].setProps({
+                getReferenceClientRect: props.clientRect as any,
+              })
+            },
+            onKeyDown(props) {
+              if (props.event.key === 'Escape') {
+                popup[0].hide()
+                return true
+              }
+              return (component.ref as any)?.onKeyDown(props)
+            },
+            onExit() {
+              popup[0].destroy()
+              component.destroy()
+            },
+          }
+        },
+      },
+    }),
   ],
   editorProps: {
     attributes: {
