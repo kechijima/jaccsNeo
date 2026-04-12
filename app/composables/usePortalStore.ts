@@ -1,4 +1,7 @@
-import { ref, computed } from 'vue'
+/**
+ * ポータル投稿のグローバル共有ストア
+ * useState() を使ってNuxt 4のコンテキスト内で安全に状態を共有する
+ */
 import { MOCK_POSTS, MOCK_SPACES } from '~/data/mock'
 
 const spaceColorMap: Record<string, string> = {
@@ -36,10 +39,6 @@ export interface PostView {
   createdAt: Date
 }
 
-// モジュールレベル（SPA: ssr: false のため安全）
-let initialized = false
-const posts = ref<PostView[]>([])
-
 const buildPost = (p: any, space: any): PostView => ({
   id:            p.id,
   spaceId:       space.id,
@@ -60,7 +59,11 @@ const buildPost = (p: any, space: any): PostView => ({
 })
 
 export const usePortalStore = () => {
-  if (!initialized) {
+  // useState() でNuxtコンテキスト内に状態を保持（ref()のモジュールレベル呼び出しを排除）
+  const posts = useState<PostView[]>('portal:posts', () => [])
+  const initialized = useState<boolean>('portal:initialized', () => false)
+
+  if (!initialized.value) {
     const raw: PostView[] = []
     for (const space of MOCK_SPACES) {
       for (const p of (MOCK_POSTS[space.id] ?? [])) {
@@ -72,11 +75,15 @@ export const usePortalStore = () => {
       return b.createdAt.getTime() - a.createdAt.getTime()
     })
     posts.value = raw
-    initialized = true
+    initialized.value = true
   }
 
-  const getPostsBySpace = (spaceId: string) =>
-    computed(() => posts.value.filter(p => p.spaceId === spaceId))
+  // Ref<string> | string の両方を受け取れるよう unref() を使用
+  const getPostsBySpace = (spaceId: Ref<string> | string) =>
+    computed(() => posts.value.filter(p => p.spaceId === unref(spaceId)))
+
+  const getPost = (postId: Ref<string> | string) =>
+    computed(() => posts.value.find(p => p.id === unref(postId)) ?? null)
 
   const addPost = (spaceId: string, content: string, authorName: string, authorId: string) => {
     const space = MOCK_SPACES.find(s => s.id === spaceId)
@@ -143,9 +150,6 @@ export const usePortalStore = () => {
     const idx = posts.value.findIndex(p => p.id === postId)
     if (idx >= 0) posts.value.splice(idx, 1)
   }
-
-  const getPost = (postId: string) =>
-    computed(() => posts.value.find(p => p.id === postId) ?? null)
 
   return { posts, getPostsBySpace, getPost, addPost, toggleReaction, addComment, editPost, deletePost }
 }
