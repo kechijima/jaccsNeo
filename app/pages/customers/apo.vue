@@ -158,7 +158,7 @@ const fpOptions = MOCK_ADMIN_USERS.filter(u => u.uid !== 'mock-user-123')
       </div>
       <button class="btn-primary text-sm flex items-center gap-1.5" @click="handleExport">
         <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
-        アポCSV出力
+        フォロー表出力
       </button>
     </div>
 

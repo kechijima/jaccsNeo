@@ -130,7 +130,7 @@ const apoLabel = (c: Customer): { text: string; cls: string } | null => {
         <!-- アポCSV -->
         <button class="btn-secondary text-sm flex items-center gap-1.5" @click="handleExportApo">
           <Icon name="heroicons:calendar-days" class="h-4 w-4" />
-          アポCSV出力
+          フォロー表出力
         </button>
         <!-- 通常CSV -->
         <button class="btn-secondary text-sm flex items-center gap-1.5" @click="handleExportCsv">
