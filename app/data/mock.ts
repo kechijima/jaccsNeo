@@ -370,6 +370,129 @@ export const MOCK_POSTS: Record<string, Array<{
   s005: [], s006: [],
 }
 
+// ─── ダッシュボード統計 ───────────────────────────────────────────────────────
+export const MOCK_DASHBOARD_STATS = {
+  monthlyActivity:   38,
+  monthlyContracts:  5,
+  assignedCustomers: 20,
+  referralsEarned:   4,
+}
+
+export const MOCK_RECENT_ACTIVITIES = [
+  { id: 'a001', type: 'contract', user: '山田 一郎', target: '鈴木 太郎',  content: '生命保険を成約しました。',           createdAt: ts(-1) },
+  { id: 'a002', type: 'comment',  user: '佐藤 花子', target: '田中 花子',  content: '進捗報告を追加しました。',           createdAt: ts(-1) },
+  { id: 'a003', type: 'contract', user: '鈴木 二郎', target: '石田 悦子',  content: '不動産（賃貸）を成約しました。',     createdAt: ts(-2) },
+  { id: 'a004', type: 'comment',  user: '田中 三郎', target: '渡辺 健一',  content: 'アポ日時を更新しました。',           createdAt: ts(-3) },
+  { id: 'a005', type: 'contract', user: '西島 伸樹', target: '加藤 洋子',  content: '生命保険を成約しました。',           createdAt: ts(-5) },
+]
+
+// ─── サービス案件 ─────────────────────────────────────────────────────────────
+// MOCK_SERVICE_CASES[customerId][serviceType] = CaseRaw[]
+// 各案件は createdAt/updatedAt が .toDate() を持つ Timestamp-like オブジェクト
+
+type CaseRaw = {
+  id: string; status: string; date?: string; contractDate?: string
+  amount?: string; company?: string; notes?: string; updatedBy?: string
+  reports?: Array<{ id: string; authorName: string; content: string; statusFrom?: string; statusTo?: string; createdAt: ReturnType<typeof ts> }>
+  createdAt: ReturnType<typeof ts>; updatedAt: ReturnType<typeof ts>
+}
+
+export const MOCK_SERVICE_CASES: Record<string, Record<string, CaseRaw[]>> = {
+  c001: {
+    lifeInsurance: [
+      { id: 'sc001a', status: 'consulting', date: '2026-03-20', company: '明治安田生命', notes: '終身保険で検討中', updatedBy: '山田 一郎',
+        reports: [{ id: 'r1', authorName: '山田 一郎', content: '保険の内容を説明しました。前向きに検討いただいています。', createdAt: ts(-10) }],
+        createdAt: ts(-30), updatedAt: ts(-10) },
+    ],
+    communication: [
+      { id: 'sc001b', status: 'contracted', date: '2026-02-10', contractDate: '2026-02-15', amount: '月額4,980円', company: 'ソフトバンク', updatedBy: '山田 一郎',
+        createdAt: ts(-60), updatedAt: ts(-55) },
+    ],
+  },
+  c002: {
+    lifeInsurance: [
+      { id: 'sc002a', status: 'considering', date: '2026-04-05', company: '住友生命', notes: '医療保険を追加検討中', updatedBy: '佐藤 花子',
+        createdAt: ts(-20), updatedAt: ts(-8) },
+    ],
+    realEstateRental: [
+      { id: 'sc002b', status: 'consulting', date: '2026-04-01', notes: '現在の家賃交渉サポート中', updatedBy: '佐藤 花子',
+        createdAt: ts(-15), updatedAt: ts(-5) },
+    ],
+  },
+  c003: {
+    lifeInsurance: [
+      { id: 'sc003a', status: 'contracted', date: '2026-01-15', contractDate: '2026-02-01', amount: '月額18,500円', company: '日本生命', updatedBy: '山田 一郎',
+        reports: [{ id: 'r2', authorName: '山田 一郎', content: '成約。終身保険月額18,500円でご契約いただきました。', createdAt: ts(-70) }],
+        createdAt: ts(-90), updatedAt: ts(-70) },
+    ],
+    fireInsurance: [
+      { id: 'sc003b', status: 'contracted', date: '2026-02-20', contractDate: '2026-03-01', amount: '年額32,000円', company: '東京海上日動', updatedBy: '山田 一郎',
+        createdAt: ts(-50), updatedAt: ts(-40) },
+    ],
+  },
+  c007: {
+    lifeInsurance: [
+      { id: 'sc007a', status: 'contracted', date: '2026-01-20', contractDate: '2026-02-10', amount: '月額22,000円', company: '第一生命', updatedBy: '佐藤 花子',
+        createdAt: ts(-80), updatedAt: ts(-60) },
+    ],
+    realEstateSale: [
+      { id: 'sc007b', status: 'completed', date: '2026-02-01', contractDate: '2026-03-15', amount: '4,500万円', notes: 'マンション売却サポート完了', updatedBy: '佐藤 花子',
+        createdAt: ts(-70), updatedAt: ts(-28) },
+    ],
+  },
+  c008: {
+    lifeInsurance: [
+      { id: 'sc008a', status: 'contracted', date: '2025-11-10', contractDate: '2025-12-01', amount: '月額14,800円', company: '住友生命', updatedBy: '西島 伸樹',
+        createdAt: ts(-150), updatedAt: ts(-120) },
+    ],
+    inheritance: [
+      { id: 'sc008b', status: 'completed', date: '2026-01-15', contractDate: '2026-03-20', notes: '相続対策プラン策定・完了', updatedBy: '西島 伸樹',
+        createdAt: ts(-90), updatedAt: ts(-24) },
+    ],
+  },
+  c016: {
+    lifeInsurance: [
+      { id: 'sc016a', status: 'contracted', date: '2025-10-05', contractDate: '2025-11-01', amount: '月額16,200円', company: '明治安田生命', updatedBy: '山田 一郎',
+        createdAt: ts(-180), updatedAt: ts(-160) },
+    ],
+    fireInsurance: [
+      { id: 'sc016b', status: 'contracted', date: '2025-12-10', contractDate: '2026-01-01', amount: '年額28,000円', company: 'AIU保険', updatedBy: '山田 一郎',
+        createdAt: ts(-120), updatedAt: ts(-103) },
+    ],
+  },
+  c020: {
+    lifeInsurance: [
+      { id: 'sc020a', status: 'contracted', date: '2025-09-01', contractDate: '2025-10-01', amount: '月額35,000円', company: '大同生命', notes: '法人契約', updatedBy: '鈴木 二郎',
+        createdAt: ts(-220), updatedAt: ts(-200) },
+    ],
+  },
+}
+
+// getMockServiceSummaries: 顧客IDから「サービス種別 → 最新ステータス」マップを返す
+export function getMockServiceSummaries(customerId: string) {
+  const byType = MOCK_SERVICE_CASES[customerId] ?? {}
+  return Object.entries(byType).map(([serviceType, cases]) => {
+    const latest = [...cases].sort((a, b) => b.updatedAt.seconds - a.updatedAt.seconds)[0]
+    return {
+      serviceType,
+      latestStatus:    latest?.status ?? 'none',
+      latestUpdatedAt: latest?.updatedAt ?? null,
+    }
+  })
+}
+
+// getMockAllCasesForType: 全顧客からサービス種別の全案件を返す
+export function getMockAllCasesForType(serviceType: string) {
+  const result: Array<CaseRaw & { customerId: string; customerName: string; customerNameKana: string }> = []
+  for (const customer of MOCK_CUSTOMERS) {
+    const cases = (MOCK_SERVICE_CASES[customer.id] ?? {})[serviceType] ?? []
+    for (const c of cases) {
+      result.push({ ...c, customerId: customer.id, customerName: customer.name, customerNameKana: customer.nameKana ?? '' })
+    }
+  }
+  return result.sort((a, b) => b.updatedAt.seconds - a.updatedAt.seconds)
+}
+
 // ─── 管理：グループ ───────────────────────────────────────────────────────────
 export const MOCK_ADMIN_GROUPS = [
   {
