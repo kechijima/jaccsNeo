@@ -8,6 +8,8 @@ import Mention from '@tiptap/extension-mention'
 import tippy from 'tippy.js'
 import MentionList from '~/components/MentionList.vue'
 import { useUsers } from '~/composables/useUsers'
+import { MOCK_ADMIN_USERS } from '~/data/mock'
+import type { MentionItem } from '~/components/MentionList.vue'
 
 const props = defineProps<{
   modelValue: string
@@ -22,6 +24,33 @@ const users = ref<any[]>([])
 onMounted(async () => {
   users.value = await fetchUsers()
 })
+
+// メンション候補（全体・グループ・ユーザー）
+const buildMentionItems = (query: string): MentionItem[] => {
+  const q = query.toLowerCase()
+
+  const fixed: MentionItem[] = [
+    { type: 'all',   id: 'all',             label: '全体',    sublabel: '全員に通知' },
+    { type: 'group', id: 'group:reterace',  label: 'Reterace', sublabel: 'グループ全員', color: 'bg-indigo-500' },
+    { type: 'group', id: 'group:miraito',   label: 'Miraito',  sublabel: 'グループ全員', color: 'bg-sky-500' },
+    { type: 'group', id: 'group:asset',     label: 'Asset',    sublabel: 'グループ全員', color: 'bg-amber-500' },
+  ]
+
+  const userItems: MentionItem[] = (users.value.length ? users.value : MOCK_ADMIN_USERS).map(u => ({
+    type:     'user' as const,
+    id:       u.uid,
+    label:    u.displayName,
+    sublabel: [u.groupId ? { reterace: 'Reterace', miraito: 'Miraito', asset: 'Asset' }[u.groupId] ?? '' : '', u.position].filter(Boolean).join(' · '),
+    avatar:   u.displayName?.[0] ?? '?',
+  }))
+
+  return [...fixed, ...userItems]
+    .filter(item =>
+      item.label.toLowerCase().includes(q) ||
+      (item.sublabel ?? '').toLowerCase().includes(q)
+    )
+    .slice(0, 8)
+}
 
 const editor = useEditor({
   content: props.modelValue,
@@ -39,11 +68,7 @@ const editor = useEditor({
         class: 'mention bg-primary-50 text-primary-600 px-1 py-0.5 rounded font-medium',
       },
       suggestion: {
-        items: ({ query }) => {
-          return users.value
-            .filter(u => u.displayName.toLowerCase().includes(query.toLowerCase()))
-            .slice(0, 5)
-        },
+        items: ({ query }) => buildMentionItems(query),
         render: () => {
           let component: VueRenderer
           let popup: any

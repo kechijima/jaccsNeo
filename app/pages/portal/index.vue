@@ -3,11 +3,13 @@ import { ref, computed, watch } from 'vue'
 import { MOCK_SPACES, MOCK_EVENTS } from '~/data/mock'
 import { usePortalStore } from '~/composables/usePortalStore'
 import { useCurrentUser } from '~/composables/useCurrentUser'
+import { useNotifications } from '~/composables/useNotifications'
 
 definePageMeta({ middleware: ['auth'] })
 
 const { user } = useCurrentUser()
 const store = usePortalStore()
+const { sendMentionNotifications } = useNotifications()
 
 // ── 検索・フィルター ──────────────────────────────────────────────────
 const searchQuery  = ref('')
@@ -76,12 +78,21 @@ const handleCompose = async () => {
   if (!composeContent.value.trim()) return
   composeSubmitting.value = true
   await new Promise(r => setTimeout(r, 300))
-  store.addPost(
+  const postId = store.addPost(
     composeSpaceId.value,
     composeContent.value,
     user.value?.displayName ?? 'テストユーザー',
     user.value?.uid ?? 'mock-user-123',
   )
+  if (postId) {
+    await sendMentionNotifications(
+      composeContent.value,
+      user.value?.displayName ?? 'テストユーザー',
+      composeSpaceId.value,
+      postId,
+      'post',
+    )
+  }
   composeContent.value = ''
   showCompose.value = false
   composeSubmitting.value = false

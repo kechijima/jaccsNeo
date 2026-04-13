@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { MOCK_SPACES } from '~/data/mock'
 import { usePortalStore } from '~/composables/usePortalStore'
+import { useNotifications } from '~/composables/useNotifications'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -8,6 +9,7 @@ const route = useRoute()
 const spaceId = computed(() => route.params.spaceId as string)
 const { user } = useCurrentUser()
 const store = usePortalStore()
+const { sendMentionNotifications } = useNotifications()
 
 // ── スペース情報 ──────────────────────────────────────────────────────
 const space = computed(() => {
@@ -35,12 +37,21 @@ const handlePostSubmit = async () => {
   if (!newPostContent.value.trim()) return
   submitting.value = true
   await new Promise(r => setTimeout(r, 300))
-  store.addPost(
+  const postId = store.addPost(
     spaceId.value,
     newPostContent.value,
     user.value?.displayName ?? 'テストユーザー',
     user.value?.uid ?? 'mock-user-123',
   )
+  if (postId) {
+    await sendMentionNotifications(
+      newPostContent.value,
+      user.value?.displayName ?? 'テストユーザー',
+      spaceId.value,
+      postId,
+      'post',
+    )
+  }
   newPostContent.value = ''
   submitting.value = false
 }

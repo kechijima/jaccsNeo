@@ -157,6 +157,38 @@ export function exportCustomerFullToCsv(customers: Customer[]): string {
   return [header, ...rows].join('\r\n')
 }
 
+// ===================================================
+// アポ情報 CSVエクスポート（サポート者確認用）
+// ===================================================
+
+/** アポCSV専用列定義 */
+const APO_COLUMNS = [
+  { label: '氏名',          get: (c: Customer) => c.name },
+  { label: 'フリガナ',      get: (c: Customer) => c.nameKana ?? '' },
+  { label: 'TEL',           get: (c: Customer) => c.tel ?? '' },
+  { label: '担当FP',        get: (c: Customer) => c.assignedFpName ?? '' },
+  { label: '関係性',        get: (c: Customer) => c.relationship ?? '' },
+  { label: '段数',          get: (c: Customer) => c.stage ?? '' },
+  { label: 'ワン状況',      get: (c: Customer) => c.one ?? '' },
+  { label: '状況（ワン）',  get: (c: Customer) => c.status1 ?? '' },
+  { label: 'ワンアポ日時',  get: (c: Customer) => c.appointment1?.date ?? '' },
+  { label: 'ワンアポ場所',  get: (c: Customer) => c.appointment1?.place ?? '' },
+  { label: 'ワンアポメモ',  get: (c: Customer) => c.appointment1?.note ?? '' },
+  { label: 'ツー状況',      get: (c: Customer) => c.two ?? '' },
+  { label: '状況（ツー）',  get: (c: Customer) => c.status2 ?? '' },
+  { label: 'ツーアポ日時',  get: (c: Customer) => c.appointment2?.date ?? '' },
+  { label: 'ツーアポ場所',  get: (c: Customer) => c.appointment2?.place ?? '' },
+  { label: 'ツーアポメモ',  get: (c: Customer) => c.appointment2?.note ?? '' },
+]
+
+export function exportApoToCsv(customers: Customer[]): string {
+  const header = APO_COLUMNS.map(c => `"${c.label}"`).join(',')
+  const rows = customers.map(customer =>
+    APO_COLUMNS.map(col => `"${col.get(customer).replace(/"/g, '""')}"`).join(','),
+  )
+  return [header, ...rows].join('\r\n')
+}
+
 /**
  * BOMつきUTF-8でダウンロードトリガー
  */
