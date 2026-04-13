@@ -311,6 +311,65 @@ export const MOCK_FP_DETAILS = [
   },
 ]
 
+// ─── ポータル投稿 ─────────────────────────────────────────────────────────────
+// usePortalStore が MOCK_POSTS[spaceId] を参照する
+// 各投稿は createdAt.toDate() が呼べる Timestamp-like オブジェクトが必要
+export const MOCK_POSTS: Record<string, Array<{
+  id: string; authorId: string; authorName: string; content: string
+  reactions?: Record<string, number>; commentCount?: number
+  isPinned?: boolean; createdAt: ReturnType<typeof ts>
+}>> = {
+  s001: [
+    {
+      id: 'p001', authorId: 'user-001', authorName: '西島 伸樹',
+      content: '<p>4月の全体目標を共有します。今月は新規獲得に注力し、チーム全体で<strong>25件</strong>を目指しましょう！各FPの皆さん、頑張りましょう💪</p>',
+      reactions: { '👍': 5, '🔥': 3 }, commentCount: 2, isPinned: true, createdAt: ts(-3),
+    },
+    {
+      id: 'p003', authorId: 'user-002', authorName: '山田 一郎',
+      content: '<p>今週の活動報告です。新規面談3件、アポ確定2件でした。来週もよろしくお願いします。</p>',
+      reactions: { '👍': 2 }, commentCount: 1, createdAt: ts(-5),
+    },
+    {
+      id: 'p005', authorId: 'mock-user-123', authorName: 'テストユーザー',
+      content: '<p>新規顧客獲得に向けて、紹介依頼のアプローチを強化しています。皆さんの工夫も教えてください！</p>',
+      reactions: { '👏': 4, '❤️': 2 }, commentCount: 3, createdAt: ts(-8),
+    },
+  ],
+  s002: [
+    {
+      id: 'p002', authorId: 'user-002', authorName: '山田 一郎',
+      content: '<p>Reterace 今週のミーティング議事録です。次回は4月17日（木）16時〜。Zoomリンクは別途共有します。</p>',
+      reactions: { '👍': 3 }, commentCount: 0, isPinned: true, createdAt: ts(-2),
+    },
+    {
+      id: 'p007', authorId: 'user-001', authorName: '西島 伸樹',
+      content: '<p>先月の成績まとめ：Reterace全体で成約12件。素晴らしい結果です！来月もこの勢いで行きましょう。</p>',
+      reactions: { '🎉': 6, '👍': 4 }, commentCount: 2, createdAt: ts(-10),
+    },
+  ],
+  s003: [
+    {
+      id: 'p004', authorId: 'user-003', authorName: '佐藤 花子',
+      content: '<p>Miraito メンバーへ。先日の勉強会の資料をアップしました。ご確認ください。来月の勉強会は5月8日（金）を予定しています。</p>',
+      reactions: { '👍': 4, '😊': 2 }, commentCount: 1, createdAt: ts(-4),
+    },
+    {
+      id: 'p006', authorId: 'user-005', authorName: '田中 三郎',
+      content: '<p>紹介案件が2件入りました！丁寧に対応していきます。メンバーの皆さんからの紹介もお待ちしています。</p>',
+      reactions: { '🎉': 3 }, commentCount: 0, createdAt: ts(-6),
+    },
+  ],
+  s004: [
+    {
+      id: 'p008', authorId: 'user-004', authorName: '鈴木 二郎',
+      content: '<p>Asset チームの皆さん、今月も相続・資産形成案件に注力しましょう。セミナー開催を検討中です。</p>',
+      reactions: { '👍': 2 }, commentCount: 0, createdAt: ts(-7),
+    },
+  ],
+  s005: [], s006: [],
+}
+
 // ─── 管理：グループ ───────────────────────────────────────────────────────────
 export const MOCK_ADMIN_GROUPS = [
   {
