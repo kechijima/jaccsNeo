@@ -58,6 +58,7 @@ export interface Reminder {
 
 export interface Appointment {
   place?: string
+  date?: string   // "YYYY-MM-DD HH:mm" 形式
   note?: string
 }
 
