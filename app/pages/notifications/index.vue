@@ -32,10 +32,10 @@ const displayed = computed(() =>
 
 const unreadCount = computed(() => notifications.value.filter(n => !n.isRead).length)
 
-// 既読にする
-const markRead = (id: string) => {
-  const n = notifications.value.find(n => n.id === id)
-  if (n && !n.isRead) n.isRead = true
+// 通知タップ：既読にして該当ページへ遷移
+const handleTap = (n: typeof notifications.value[0]) => {
+  if (!n.isRead) n.isRead = true
+  if (n.linkUrl) navigateTo(n.linkUrl)
 }
 
 // 全て既読
@@ -115,14 +115,15 @@ const formatDate = (ts: any): string => {
         </p>
       </div>
 
-      <component
-        :is="n.linkUrl ? 'NuxtLink' : 'div'"
+      <div
         v-for="n in displayed"
         :key="n.id"
-        :to="n.linkUrl ?? undefined"
-        class="flex items-start gap-4 px-5 py-4 transition hover:bg-gray-50 cursor-pointer"
-        :class="!n.isRead ? 'bg-blue-50/40' : ''"
-        @click="markRead(n.id)"
+        class="flex items-start gap-4 px-5 py-4 transition hover:bg-gray-50"
+        :class="[
+          !n.isRead ? 'bg-blue-50/40' : '',
+          n.linkUrl ? 'cursor-pointer' : 'cursor-default',
+        ]"
+        @click="handleTap(n)"
       >
         <!-- アイコン -->
         <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full" :class="n.iconColor">
@@ -141,7 +142,7 @@ const formatDate = (ts: any): string => {
           <div v-if="!n.isRead" class="h-2.5 w-2.5 rounded-full bg-primary-500" />
           <div v-else class="h-2.5 w-2.5" />
         </div>
-      </component>
+      </div>
     </div>
 
   </div>
