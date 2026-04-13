@@ -9,16 +9,61 @@ definePageMeta({ middleware: ['auth'] })
 const { user } = useCurrentUser()
 const store = usePortalStore()
 
-// ── 検索 ──────────────────────────────────────────────────────────────
-const searchQuery = ref('')
+// ── 検索・フィルター ──────────────────────────────────────────────────
+const searchQuery  = ref('')
+const filterSpaceId = ref('')    // '' = すべて
+const filterDateFrom = ref('')   // YYYY-MM-DD
+const filterDateTo   = ref('')   // YYYY-MM-DD
+const showFilter   = ref(false)
+
+const activeFilterCount = computed(() =>
+  [filterSpaceId.value, filterDateFrom.value, filterDateTo.value].filter(Boolean).length
+)
+
+const resetFilters = () => {
+  searchQuery.value   = ''
+  filterSpaceId.value  = ''
+  filterDateFrom.value = ''
+  filterDateTo.value   = ''
+}
+
+const isFiltering = computed(() =>
+  searchQuery.value.trim() !== '' || activeFilterCount.value > 0
+)
+
 const filteredPosts = computed(() => {
+  let list = store.posts.value
+
+  // キーワード
   const q = searchQuery.value.trim().toLowerCase()
-  if (!q) return store.posts.value
-  return store.posts.value.filter(p =>
-    p.content.toLowerCase().includes(q) ||
-    p.authorName.toLowerCase().includes(q) ||
-    p.spaceName.toLowerCase().includes(q),
-  )
+  if (q) {
+    list = list.filter(p =>
+      p.content.toLowerCase().includes(q) ||
+      p.authorName.toLowerCase().includes(q) ||
+      p.spaceName.toLowerCase().includes(q),
+    )
+  }
+
+  // スペース
+  if (filterSpaceId.value) {
+    list = list.filter(p => p.spaceId === filterSpaceId.value)
+  }
+
+  // 期間（開始）
+  if (filterDateFrom.value) {
+    const from = new Date(filterDateFrom.value)
+    from.setHours(0, 0, 0, 0)
+    list = list.filter(p => p.createdAt >= from)
+  }
+
+  // 期間（終了）
+  if (filterDateTo.value) {
+    const to = new Date(filterDateTo.value)
+    to.setHours(23, 59, 59, 999)
+    list = list.filter(p => p.createdAt <= to)
+  }
+
+  return list
 })
 
 // ── 投稿モーダル ──────────────────────────────────────────────────────
@@ -115,22 +160,98 @@ const eventColorMap: Record<string, string> = {
       </NuxtLink>
     </div>
 
-    <!-- 検索バー -->
-    <div class="relative">
-      <Icon name="heroicons:magnifying-glass" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-      <input
-        v-model="searchQuery"
-        type="search"
-        placeholder="投稿・著者・スペースを検索..."
-        class="input-field pl-9"
-      />
-      <button
-        v-if="searchQuery"
-        class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-        @click="searchQuery = ''"
+    <!-- 検索バー + フィルタートグル -->
+    <div class="space-y-2">
+      <div class="flex items-center gap-2">
+        <div class="relative flex-1">
+          <Icon name="heroicons:magnifying-glass" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            v-model="searchQuery"
+            type="search"
+            placeholder="投稿・著者・スペースを検索..."
+            class="input-field pl-9"
+          />
+          <button
+            v-if="searchQuery"
+            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            @click="searchQuery = ''"
+          >
+            <Icon name="heroicons:x-mark" class="h-4 w-4" />
+          </button>
+        </div>
+        <!-- フィルターボタン -->
+        <button
+          class="relative flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition shrink-0"
+          :class="activeFilterCount > 0
+            ? 'border-primary-400 bg-primary-50 text-primary-700'
+            : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'"
+          @click="showFilter = !showFilter"
+        >
+          <Icon name="heroicons:funnel" class="h-4 w-4" />
+          絞り込み
+          <span
+            v-if="activeFilterCount > 0"
+            class="flex h-4 w-4 items-center justify-center rounded-full bg-primary-500 text-[10px] text-white font-bold"
+          >{{ activeFilterCount }}</span>
+        </button>
+        <!-- リセット -->
+        <button
+          v-if="isFiltering"
+          class="text-xs text-gray-400 hover:text-red-500 transition flex items-center gap-0.5 shrink-0"
+          @click="resetFilters"
+        >
+          <Icon name="heroicons:x-mark" class="h-3.5 w-3.5" />リセット
+        </button>
+      </div>
+
+      <!-- フィルターパネル -->
+      <Transition
+        enter-active-class="transition duration-150"
+        enter-from-class="opacity-0 -translate-y-2"
+        enter-to-class="opacity-100 translate-y-0"
+        leave-active-class="transition duration-100"
+        leave-from-class="opacity-100 translate-y-0"
+        leave-to-class="opacity-0 -translate-y-2"
       >
-        <Icon name="heroicons:x-mark" class="h-4 w-4" />
-      </button>
+        <div v-if="showFilter" class="card p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <!-- スペース -->
+          <div class="space-y-1">
+            <label class="text-xs font-medium text-gray-500">スペース</label>
+            <select v-model="filterSpaceId" class="input-field text-sm py-1.5">
+              <option value="">すべてのスペース</option>
+              <option v-for="s in MOCK_SPACES" :key="s.id" :value="s.id">{{ s.name }}</option>
+            </select>
+          </div>
+          <!-- 開始日 -->
+          <div class="space-y-1">
+            <label class="text-xs font-medium text-gray-500">期間（開始）</label>
+            <input v-model="filterDateFrom" type="date" class="input-field text-sm py-1.5" />
+          </div>
+          <!-- 終了日 -->
+          <div class="space-y-1">
+            <label class="text-xs font-medium text-gray-500">期間（終了）</label>
+            <input v-model="filterDateTo" type="date" class="input-field text-sm py-1.5" />
+          </div>
+        </div>
+      </Transition>
+
+      <!-- アクティブフィルタータグ + 件数 -->
+      <div v-if="isFiltering" class="flex flex-wrap items-center gap-2">
+        <!-- 件数バッジ -->
+        <span class="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
+          <Icon name="heroicons:document-text" class="h-3.5 w-3.5" />
+          {{ filteredPosts.length }}件
+        </span>
+        <span v-if="filterSpaceId" class="inline-flex items-center gap-1 rounded-full bg-primary-100 px-3 py-1 text-xs text-primary-700 font-medium">
+          {{ MOCK_SPACES.find(s => s.id === filterSpaceId)?.name }}
+          <button @click="filterSpaceId = ''"><Icon name="heroicons:x-mark" class="h-3 w-3" /></button>
+        </span>
+        <span v-if="filterDateFrom || filterDateTo" class="inline-flex items-center gap-1 rounded-full bg-primary-100 px-3 py-1 text-xs text-primary-700 font-medium">
+          <Icon name="heroicons:calendar" class="h-3 w-3" />
+          {{ filterDateFrom || '…' }} 〜 {{ filterDateTo || '…' }}
+          <button @click="filterDateFrom = ''; filterDateTo = ''"><Icon name="heroicons:x-mark" class="h-3 w-3" /></button>
+        </span>
+      </div>
     </div>
 
     <div class="grid md:grid-cols-3 gap-5">
@@ -154,9 +275,10 @@ const eventColorMap: Record<string, string> = {
         </div>
 
         <!-- 検索結果なし -->
-        <div v-if="searchQuery && filteredPosts.length === 0" class="card p-10 text-center">
+        <div v-if="isFiltering && filteredPosts.length === 0" class="card p-10 text-center">
           <Icon name="heroicons:magnifying-glass" class="h-10 w-10 text-gray-200 mx-auto mb-2" />
-          <p class="text-sm text-gray-400">「{{ searchQuery }}」に一致する投稿がありません</p>
+          <p class="text-sm text-gray-400">条件に一致する投稿がありません</p>
+          <button class="mt-2 text-xs text-primary-600 hover:underline" @click="resetFilters">条件をリセット</button>
         </div>
 
         <!-- フィード -->
