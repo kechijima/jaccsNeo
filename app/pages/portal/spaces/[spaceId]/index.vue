@@ -114,30 +114,6 @@ const getGroupLabel = (groupId?: string) => {
 <template>
   <div class="flex h-full min-h-screen bg-gray-100">
 
-    <!-- 左サイドバー：メンバー -->
-    <aside class="w-44 shrink-0 bg-white border-r border-gray-200 p-3 space-y-3 hidden lg:block">
-      <div class="flex items-center justify-between">
-        <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">メンバー</span>
-        <span class="text-xs text-gray-400">{{ space.memberCount }}名</span>
-      </div>
-      <div class="grid grid-cols-3 gap-1.5">
-        <div
-          v-for="u in MOCK_ADMIN_USERS"
-          :key="u.uid"
-          class="flex flex-col items-center gap-0.5"
-          :title="u.displayName"
-        >
-          <div
-            class="h-10 w-10 rounded-full flex items-center justify-center text-white text-sm font-semibold"
-            :class="getGroupColor(u.groupId)"
-          >
-            {{ u.displayName.charAt(0) }}
-          </div>
-          <span class="text-[10px] text-gray-500 leading-tight text-center line-clamp-1 w-full">{{ u.lastName }}</span>
-        </div>
-      </div>
-    </aside>
-
     <!-- メインコンテンツ -->
     <main class="flex-1 min-w-0 flex flex-col">
 
@@ -363,24 +339,26 @@ const getGroupLabel = (groupId?: string) => {
     </main>
 
     <!-- 右サイドバー：ピープル -->
-    <aside class="w-48 shrink-0 bg-white border-l border-gray-200 p-3 space-y-3 hidden xl:block">
-      <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">ピープル</span>
-      <div class="space-y-2">
+    <aside class="w-48 shrink-0 bg-white border-l border-gray-200 p-3 space-y-3 hidden lg:block">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">メンバー</span>
+        <span class="text-xs text-gray-400">{{ space.memberCount }}名</span>
+      </div>
+      <!-- アバターグリッド -->
+      <div class="grid grid-cols-3 gap-1.5">
         <div
           v-for="u in MOCK_ADMIN_USERS"
           :key="u.uid"
-          class="flex items-center gap-2"
+          class="flex flex-col items-center gap-0.5"
+          :title="u.displayName"
         >
           <div
-            class="h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-semibold shrink-0"
+            class="h-10 w-10 rounded-full flex items-center justify-center text-white text-sm font-semibold"
             :class="getGroupColor(u.groupId)"
           >
             {{ u.displayName.charAt(0) }}
           </div>
-          <div class="min-w-0">
-            <p class="text-xs font-medium text-gray-800 truncate">{{ u.displayName }}</p>
-            <p class="text-[10px] text-gray-400 truncate">{{ getGroupLabel(u.groupId) }}</p>
-          </div>
+          <span class="text-[10px] text-gray-500 leading-tight text-center line-clamp-1 w-full">{{ u.lastName }}</span>
         </div>
       </div>
     </aside>

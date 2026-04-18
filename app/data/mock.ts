@@ -77,7 +77,7 @@ export const MOCK_NOTIFICATIONS = [
 // ─── スペース ─────────────────────────────────────────────────────────────────
 export const MOCK_SPACES = [
   { id: 's001', name: '全体スペース',           type: 'all',     description: '全メンバーへの共有・連絡',  memberCount: 24, admins: ['user-001', 'mock-user-123'], isPinned: true,  isArchived: false, headerImage: '' },
-  { id: 's002', name: 'Reteraceグループ活動報告', type: 'group',   description: 'Reteraceグループ専用スペース', memberCount: 8,  admins: ['user-001'],                   isPinned: true,  isArchived: false, headerImage: '' },
+  { id: 's002', name: 'Reteraceグループ活動報告', type: 'group',   description: 'Reteraceグループ専用スペース', memberCount: 8,  admins: ['user-001'],                   isPinned: true,  isArchived: false, headerImage: '/images/reterace-header.jpg' },
   { id: 's003', name: 'Miraitoグループ活動報告',  type: 'group',   description: 'Miraitoグループ専用スペース', memberCount: 7,  admins: ['user-003'],                   isPinned: false, isArchived: false, headerImage: '' },
   { id: 's004', name: 'Assetグループ活動報告',    type: 'group',   description: 'Assetグループ専用スペース',  memberCount: 6,  admins: ['user-004'],                   isPinned: false, isArchived: false, headerImage: '' },
   { id: 's005', name: '第1組合',                 type: 'kumiai',  description: '第1組合のスペース',          memberCount: 12, admins: ['user-002'],                   isPinned: false, isArchived: false, headerImage: '' },
@@ -372,17 +372,11 @@ export const MOCK_POSTS: Record<string, Array<{
     {
       id: 'p002', authorId: 'user-001', authorName: '西島 伸樹',
       isPinned: true, reactions: { '👍': 6, '🔥': 4 }, commentCount: 2, createdAt: ts(-1),
-      content: `<p><strong>【Reteraceグループ 活動報告スペース 運営方針】</strong></p>
-<p>Reteraceメンバーの皆さん、こんにちは。西島です。</p>
-<p><strong>【このスペースの目的】</strong></p>
-<p>日々の商売活動をありのままアウトプットしていき、レベルの高い人とのギャップを埋めていくことを目的としています。<br>恥ずかしがらずに、正直に現状を書いてください。失敗も含めてシェアすることで、チーム全体が成長できます。</p>
+      content: `<p><img src="/images/reterace-banner.jpg" alt="90日後 いちばんの自分へ" style="width:100%;max-width:360px;border-radius:12px;display:block;margin:0 auto 16px;" /></p>
+<p><strong>【目的】</strong></p>
+<p>日々の商売活動をありのままアウトプットしていき、レベルの高い人とのギャップを埋めていく</p>
 <p><strong>【推奨記載内容】</strong></p>
-<p>・今月の目標と今週のコミット<br>・今週の実績（アポ件数・成約・紹介など）<br>・うまくいったこと・うまくいかなかったこと<br>・来週のアクション計画</p>
-<p><strong>【投稿のルール】</strong></p>
-<p>① 毎週金曜日までに週次報告を投稿する<br>② 他メンバーの投稿には必ずリアクションまたはコメントで応答する<br>③ 数字は正直に記載する（良い時も悪い時も）<br>④ 困ったことがあれば遠慮なく投稿する</p>
-<p><strong>【グループ今月の目標】</strong></p>
-<p>・ワンアポ合計：<strong>15件</strong><br>・成約合計：<strong>4件</strong><br>・紹介獲得：<strong>6件</strong></p>
-<p>お互いを高め合い、Reteraceを最強のチームにしていきましょう！</p>`,
+<p>今月の目標と今週のコミット</p>`,
     },
     {
       id: 'p007', authorId: 'user-002', authorName: '山田 一郎',
