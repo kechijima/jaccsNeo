@@ -119,17 +119,17 @@ const getGroupLabel = (groupId?: string) => {
 
       <!-- ヘッダー画像バナー -->
       <div
-        class="relative w-full h-32 overflow-hidden"
-        :class="space.headerImage ? '' : 'bg-gradient-to-r from-indigo-500 via-indigo-400 to-sky-400'"
+        class="relative w-full overflow-hidden bg-gradient-to-r from-indigo-500 via-indigo-400 to-sky-400"
+        style="height: 128px;"
       >
         <img
           v-if="space.headerImage"
           :src="space.headerImage"
           alt=""
-          class="w-full h-full object-cover"
+          class="absolute inset-0 w-full h-full object-cover"
         />
         <!-- スペース名オーバーレイ -->
-        <div class="absolute inset-0 bg-black/30 flex items-end px-4 pb-3">
+        <div class="absolute inset-0 flex items-end px-4 pb-3" style="background: rgba(0,0,0,0.35)">
           <div class="flex items-end justify-between w-full">
             <div>
               <h1 class="text-lg font-bold text-white drop-shadow">{{ space.name }}</h1>
