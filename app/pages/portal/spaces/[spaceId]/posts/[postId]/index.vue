@@ -127,7 +127,7 @@ const deletePost = () => {
             </div>
 
             <!-- 本文 -->
-            <p class="mt-3 text-sm text-gray-800 leading-relaxed whitespace-pre-line">{{ post.content }}</p>
+            <div class="mt-3 text-sm text-gray-800 leading-relaxed prose prose-sm max-w-none" v-html="post.content" />
           </div>
         </div>
 
