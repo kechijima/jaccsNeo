@@ -14,7 +14,7 @@ const { sendMentionNotifications } = useNotifications()
 // ── スペース情報 ──────────────────────────────────────────────────────
 const space = computed(() => {
   const s = MOCK_SPACES.find(sp => sp.id === spaceId.value)
-  if (!s) return { id: '', name: '', description: '', memberCount: 0, isAdmin: false, isPinned: false, type: '' }
+  if (!s) return { id: '', name: '', description: '', memberCount: 0, isAdmin: false, isPinned: false, type: '', headerImage: '' }
   return {
     id:          s.id,
     name:        s.name,
@@ -23,6 +23,7 @@ const space = computed(() => {
     isAdmin:     (s.admins ?? []).includes('mock-user-123'),
     isPinned:    s.isPinned,
     type:        s.type,
+    headerImage: s.headerImage ?? '',
   }
 })
 
@@ -140,33 +141,51 @@ const getGroupLabel = (groupId?: string) => {
     <!-- メインコンテンツ -->
     <main class="flex-1 min-w-0 flex flex-col">
 
-      <!-- スペースヘッダー -->
-      <div class="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3">
-        <NuxtLink to="/portal" class="text-gray-400 hover:text-gray-600 transition">
-          <Icon name="heroicons:arrow-left" class="h-4 w-4" />
-        </NuxtLink>
-        <div class="flex-1 min-w-0">
-          <h1 class="text-base font-bold text-gray-900 truncate">{{ space.name }}</h1>
-          <p v-if="space.description" class="text-xs text-gray-400 truncate">{{ space.description }}</p>
+      <!-- ヘッダー画像バナー -->
+      <div
+        class="relative w-full h-32 overflow-hidden"
+        :class="space.headerImage ? '' : 'bg-gradient-to-r from-indigo-500 via-indigo-400 to-sky-400'"
+      >
+        <img
+          v-if="space.headerImage"
+          :src="space.headerImage"
+          alt=""
+          class="w-full h-full object-cover"
+        />
+        <!-- スペース名オーバーレイ -->
+        <div class="absolute inset-0 bg-black/30 flex items-end px-4 pb-3">
+          <div class="flex items-end justify-between w-full">
+            <div>
+              <h1 class="text-lg font-bold text-white drop-shadow">{{ space.name }}</h1>
+              <p v-if="space.description" class="text-xs text-white/80 mt-0.5">{{ space.description }}</p>
+            </div>
+            <div class="flex items-center gap-2 shrink-0 pb-0.5">
+              <NuxtLink to="/portal" class="text-white/80 hover:text-white transition">
+                <Icon name="heroicons:arrow-left" class="h-4 w-4" />
+              </NuxtLink>
+              <NuxtLink
+                v-if="space.isAdmin"
+                :to="`/portal/spaces/${spaceId}/settings`"
+                class="p-1.5 rounded-full bg-white/20 hover:bg-white/30 transition text-white"
+              >
+                <Icon name="heroicons:cog-6-tooth" class="h-4 w-4" />
+              </NuxtLink>
+            </div>
+          </div>
         </div>
-        <div class="flex items-center gap-2 shrink-0">
-          <button
-            class="text-xs px-3 py-1.5 rounded border transition font-medium"
-            :class="isFollowing
-              ? 'border-gray-300 text-gray-600 hover:bg-gray-50'
-              : 'border-primary-500 text-primary-600 bg-primary-50 hover:bg-primary-100'"
-            @click="isFollowing = !isFollowing"
-          >
-            {{ isFollowing ? 'フォロー中' : 'フォローする' }}
-          </button>
-          <NuxtLink
-            v-if="space.isAdmin"
-            :to="`/portal/spaces/${spaceId}/settings`"
-            class="p-1.5 rounded hover:bg-gray-100 transition text-gray-400"
-          >
-            <Icon name="heroicons:cog-6-tooth" class="h-4 w-4" />
-          </NuxtLink>
-        </div>
+      </div>
+
+      <!-- フォローボタン行 -->
+      <div class="bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-end gap-2">
+        <button
+          class="text-xs px-3 py-1.5 rounded border transition font-medium"
+          :class="isFollowing
+            ? 'border-gray-300 text-gray-600 hover:bg-gray-50'
+            : 'border-primary-500 text-primary-600 bg-primary-50 hover:bg-primary-100'"
+          @click="isFollowing = !isFollowing"
+        >
+          {{ isFollowing ? 'フォローを解除' : 'フォローする' }}
+        </button>
       </div>
 
       <!-- フィード -->

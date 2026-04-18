@@ -76,12 +76,12 @@ export const MOCK_NOTIFICATIONS = [
 
 // ─── スペース ─────────────────────────────────────────────────────────────────
 export const MOCK_SPACES = [
-  { id: 's001', name: '全体スペース',      type: 'all',     description: '全メンバーへの共有・連絡',  memberCount: 24, admins: ['user-001', 'mock-user-123'], isPinned: true,  isArchived: false },
-  { id: 's002', name: 'Reterace',          type: 'group',   description: 'Reraceグループ専用',       memberCount: 8,  admins: ['user-001'],                   isPinned: true,  isArchived: false },
-  { id: 's003', name: 'Miraito',           type: 'group',   description: 'Miraitoグループ専用',      memberCount: 7,  admins: ['user-003'],                   isPinned: false, isArchived: false },
-  { id: 's004', name: 'Asset',             type: 'group',   description: 'Assetグループ専用',        memberCount: 6,  admins: ['user-004'],                   isPinned: false, isArchived: false },
-  { id: 's005', name: '第1組合',           type: 'kumiai',  description: '第1組合のスペース',        memberCount: 12, admins: ['user-002'],                   isPinned: false, isArchived: false },
-  { id: 's006', name: 'FP研修スペース',   type: 'special',  description: '研修・勉強会の情報共有',   memberCount: 24, admins: ['user-001'],                   isPinned: false, isArchived: false },
+  { id: 's001', name: '全体スペース',           type: 'all',     description: '全メンバーへの共有・連絡',  memberCount: 24, admins: ['user-001', 'mock-user-123'], isPinned: true,  isArchived: false, headerImage: '' },
+  { id: 's002', name: 'Reteraceグループ活動報告', type: 'group',   description: 'Reteraceグループ専用スペース', memberCount: 8,  admins: ['user-001'],                   isPinned: true,  isArchived: false, headerImage: '' },
+  { id: 's003', name: 'Miraitoグループ活動報告',  type: 'group',   description: 'Miraitoグループ専用スペース', memberCount: 7,  admins: ['user-003'],                   isPinned: false, isArchived: false, headerImage: '' },
+  { id: 's004', name: 'Assetグループ活動報告',    type: 'group',   description: 'Assetグループ専用スペース',  memberCount: 6,  admins: ['user-004'],                   isPinned: false, isArchived: false, headerImage: '' },
+  { id: 's005', name: '第1組合',                 type: 'kumiai',  description: '第1組合のスペース',          memberCount: 12, admins: ['user-002'],                   isPinned: false, isArchived: false, headerImage: '' },
+  { id: 's006', name: 'FP研修スペース',          type: 'special', description: '研修・勉強会の情報共有',     memberCount: 24, admins: ['user-001'],                   isPinned: false, isArchived: false, headerImage: '' },
 ]
 
 // ─── イベント ─────────────────────────────────────────────────────────────────
@@ -322,49 +322,147 @@ export const MOCK_POSTS: Record<string, Array<{
   s001: [
     {
       id: 'p001', authorId: 'user-001', authorName: '西島 伸樹',
-      content: '<p>4月の全体目標を共有します。今月は新規獲得に注力し、チーム全体で<strong>25件</strong>を目指しましょう！各FPの皆さん、頑張りましょう💪</p>',
-      reactions: { '👍': 5, '🔥': 3 }, commentCount: 2, isPinned: true, createdAt: ts(-3),
+      isPinned: true, reactions: { '👍': 8, '🔥': 5 }, commentCount: 3, createdAt: ts(-1),
+      content: `<p><strong>【4月度 全体方針・目標共有】</strong></p>
+<p>メンバーの皆さん、お疲れ様です。4月の全体方針を共有します。</p>
+<p><strong>【今月の全体目標】</strong></p>
+<p>・新規ワンアポ獲得：チーム合計 <strong>30件</strong><br>・ツーアポ転換率：60%以上<br>・成約件数：チーム合計 <strong>8件</strong></p>
+<p><strong>【重点施策】</strong></p>
+<p>① 紹介依頼の徹底<br>　既存のお客様・組合員へのご紹介依頼を積極的に実施してください。<br>　特に成約後のお客様は紹介率が高いため、フォローアップ時に一声かけましょう。</p>
+<p>② アポ質の向上<br>　ワンアポ前に必ず事前リサーチを行い、お客様の状況・ニーズを把握した上で臨んでください。<br>　面談後は必ずCRMに記録し、次のアクションを明確にしておくこと。</p>
+<p>③ 勉強会・ロープレへの積極参加<br>　毎週水曜日のロープレは強制参加ではありませんが、成績上位者は全員参加しています。<br>　スキルアップの絶好の機会ですので、ぜひ活用してください。</p>
+<p><strong>【連絡事項】</strong></p>
+<p>・4月18日（金）17時より、月次全体ミーティングを開催します（Zoom）<br>・来週から新しいCRMの入力フォームに切り替わります。操作マニュアルは別途共有します<br>・5月の研修日程が決まりました。詳細はイベントページをご確認ください</p>
+<p>今月もチーム一丸となって頑張りましょう！何か質問があればいつでも声をかけてください。</p>`,
     },
     {
       id: 'p003', authorId: 'user-002', authorName: '山田 一郎',
-      content: '<p>今週の活動報告です。新規面談3件、アポ確定2件でした。来週もよろしくお願いします。</p>',
-      reactions: { '👍': 2 }, commentCount: 1, createdAt: ts(-5),
+      reactions: { '👍': 4, '👏': 2 }, commentCount: 2, createdAt: ts(-3),
+      content: `<p><strong>【週次活動報告】4月14日（月）〜 4月18日（金）</strong></p>
+<p>山田一郎です。今週の活動を報告します。</p>
+<p><strong>【今月の目標】</strong></p>
+<p>・ワンアポ獲得：5件<br>・ツーアポ転換：3件<br>・成約：2件</p>
+<p><strong>【今週のコミット】</strong></p>
+<p>・月曜：既存客フォロー連絡10件<br>・火曜：鈴木様とワンアポ実施（結果：ツーアポ確定）<br>・水曜：ロープレ参加 + 新規リスト整理<br>・木曜：田中様・木村様と面談<br>・金曜：週次レポート作成 + 来週のアポ調整</p>
+<p><strong>【今週の実績】</strong></p>
+<p>・新規コンタクト：8件<br>・ワンアポ実施：<strong>3件</strong>（鈴木様・田中様・木村様）<br>・ツーアポ確定：<strong>2件</strong>（鈴木様 → 4/22確定、木村様 → 4/24確定）<br>・成約：<strong>1件</strong>（前週ツーアポの石川様 生命保険成約）<br>・紹介獲得：1件（石川様からのご紹介）</p>
+<p><strong>【来週のアクション】</strong></p>
+<p>・鈴木様ツーアポ（4/22）：プラン資料を火曜までに準備<br>・木村様ツーアポ（4/24）：相続プラン中心で提案予定<br>・新規リストへのアプローチ：最低5件コンタクト<br>・石川様ご紹介の渡辺様へ連絡（来週中）</p>
+<p>今週は成約1件＋ツーアポ2件と好調でした。来週もこの流れを維持できるよう全力で取り組みます！</p>`,
     },
     {
       id: 'p005', authorId: 'mock-user-123', authorName: 'テストユーザー',
-      content: '<p>新規顧客獲得に向けて、紹介依頼のアプローチを強化しています。皆さんの工夫も教えてください！</p>',
-      reactions: { '👏': 4, '❤️': 2 }, commentCount: 3, createdAt: ts(-8),
+      reactions: { '👏': 3, '❤️': 2, '😊': 1 }, commentCount: 4, createdAt: ts(-5),
+      content: `<p><strong>【週次活動報告】4月7日（月）〜 4月11日（金）</strong></p>
+<p>テストユーザーです。今週の活動を報告します。</p>
+<p><strong>【今月の目標】</strong></p>
+<p>・ワンアポ獲得：4件<br>・ツーアポ転換：2件<br>・成約：1件</p>
+<p><strong>【今週のコミット】</strong></p>
+<p>・月曜：組合員リストへの電話アプローチ（15件予定）<br>・火曜：山田様とワンアポ実施<br>・水曜：ロープレ参加（新商品の説明練習）<br>・木曜：既存客フォロー連絡<br>・金曜：来月のセミナー準備</p>
+<p><strong>【今週の実績】</strong></p>
+<p>・新規コンタクト：<strong>12件</strong>（目標15件に対し未達、来週挽回）<br>・ワンアポ実施：<strong>2件</strong>（山田様・加藤様）<br>・ツーアポ確定：<strong>1件</strong>（山田様 → 4/18確定）<br>・成約：0件<br>・紹介獲得：0件</p>
+<p><strong>【振り返り・気づき】</strong></p>
+<p>今週は新規コンタクトが目標に届きませんでした。<br>電話で繋がれない方が多く、時間帯の工夫が必要だと感じています。<br>先週の西島部長のアドバイスを参考に、夕方（17〜19時）のコンタクトを増やしていきます。</p>
+<p>また、山田様のワンアポでは商品説明に時間をかけすぎてしまい、お客様のニーズを深掘りする時間が不足しました。<br>来週のロープレでヒアリング力を磨いていきます。</p>
+<p><strong>【来週のアクション】</strong></p>
+<p>・山田様ツーアポ（4/18）：ニーズに合わせたプラン提案準備<br>・夕方のコンタクト強化：17〜19時に5件以上<br>・紹介依頼：既存客3名に対して実施<br>・ロープレ参加：水曜必ず出席</p>`,
     },
   ],
   s002: [
     {
-      id: 'p002', authorId: 'user-002', authorName: '山田 一郎',
-      content: '<p>Reterace 今週のミーティング議事録です。次回は4月17日（木）16時〜。Zoomリンクは別途共有します。</p>',
-      reactions: { '👍': 3 }, commentCount: 0, isPinned: true, createdAt: ts(-2),
+      id: 'p002', authorId: 'user-001', authorName: '西島 伸樹',
+      isPinned: true, reactions: { '👍': 6, '🔥': 4 }, commentCount: 2, createdAt: ts(-1),
+      content: `<p><strong>【Reteraceグループ 活動報告スペース 運営方針】</strong></p>
+<p>Reteraceメンバーの皆さん、こんにちは。西島です。</p>
+<p><strong>【このスペースの目的】</strong></p>
+<p>日々の商売活動をありのままアウトプットしていき、レベルの高い人とのギャップを埋めていくことを目的としています。<br>恥ずかしがらずに、正直に現状を書いてください。失敗も含めてシェアすることで、チーム全体が成長できます。</p>
+<p><strong>【推奨記載内容】</strong></p>
+<p>・今月の目標と今週のコミット<br>・今週の実績（アポ件数・成約・紹介など）<br>・うまくいったこと・うまくいかなかったこと<br>・来週のアクション計画</p>
+<p><strong>【投稿のルール】</strong></p>
+<p>① 毎週金曜日までに週次報告を投稿する<br>② 他メンバーの投稿には必ずリアクションまたはコメントで応答する<br>③ 数字は正直に記載する（良い時も悪い時も）<br>④ 困ったことがあれば遠慮なく投稿する</p>
+<p><strong>【グループ今月の目標】</strong></p>
+<p>・ワンアポ合計：<strong>15件</strong><br>・成約合計：<strong>4件</strong><br>・紹介獲得：<strong>6件</strong></p>
+<p>お互いを高め合い、Reteraceを最強のチームにしていきましょう！</p>`,
     },
     {
-      id: 'p007', authorId: 'user-001', authorName: '西島 伸樹',
-      content: '<p>先月の成績まとめ：Reterace全体で成約12件。素晴らしい結果です！来月もこの勢いで行きましょう。</p>',
-      reactions: { '🎉': 6, '👍': 4 }, commentCount: 2, createdAt: ts(-10),
+      id: 'p007', authorId: 'user-002', authorName: '山田 一郎',
+      reactions: { '🎉': 5, '👍': 4, '👏': 3 }, commentCount: 3, createdAt: ts(-3),
+      content: `<p><strong>【週次活動報告】4月14日（月）〜 4月18日（金）</strong></p>
+<p>山田一郎です。今週の報告です。</p>
+<p><strong>【今月の目標】</strong></p>
+<p>・ワンアポ：5件（現在 3件 ✅）<br>・ツーアポ転換：3件（現在 2件）<br>・成約：2件（現在 1件）</p>
+<p><strong>【今週のコミット達成度】</strong></p>
+<p>・既存客フォロー：10件 → 実績 <strong>12件 ✅</strong><br>・ワンアポ実施：2件 → 実績 <strong>3件 ✅</strong><br>・ロープレ参加：○<br>・CRM入力：毎日実施 ✅</p>
+<p><strong>【今週の気づき・学び】</strong></p>
+<p>鈴木様とのワンアポで、最初の10分間でしっかりラポールを築いたことで、後半のヒアリングがスムーズでした。<br>「なぜ保険を見直したいか」を深掘りしたところ、お子さんの大学進学が3年後という具体的な動機が出てきて、提案の方向性が明確になりました。</p>
+<p>一方、田中様のアポでは商品説明に入るのが早すぎたと反省。もう少しニーズを掘り下げてからプレゼンすべきでした。<br>次回のツーアポでは改善します。</p>
+<p><strong>【来週のアクション】</strong></p>
+<p>・鈴木様ツーアポ（4/22）：終身保険プラン3パターン準備<br>・木村様ツーアポ（4/24）：相続・二次相続対策メイン<br>・田中様フォロー：資料送付後に電話確認<br>・新規アプローチ：5件以上コンタクト</p>`,
+    },
+    {
+      id: 'p009', authorId: 'mock-user-123', authorName: 'テストユーザー',
+      reactions: { '👍': 3, '😊': 2 }, commentCount: 1, createdAt: ts(-6),
+      content: `<p><strong>【週次活動報告】4月7日（月）〜 4月11日（金）</strong></p>
+<p>テストユーザーです。今週の報告します。正直に書きます。</p>
+<p><strong>【今月の目標】</strong></p>
+<p>・ワンアポ：4件（現在 1件）<br>・ツーアポ転換：2件（現在 0件）<br>・成約：1件（現在 0件）</p>
+<p><strong>【今週の実績】</strong></p>
+<p>・新規コンタクト：8件（目標10件に届かず）<br>・ワンアポ実施：<strong>1件</strong>（佐々木様）<br>・ツーアポ：0件<br>・成約：0件<br>・紹介：0件</p>
+<p><strong>【正直な振り返り】</strong></p>
+<p>今週は数字が出ませんでした。電話をかけるのに気持ちが乗らない日があり、コンタクト件数が伸びませんでした。</p>
+<p>佐々木様とのアポは手ごたえがあったものの、「少し考えたい」との回答でした。次回のフォローが重要です。</p>
+<p>西島部長のアドバイスにあった「断られることを恐れずにコンタクトし続ける」という姿勢をもっと意識します。</p>
+<p><strong>【来週のアクション・コミット】</strong></p>
+<p>・コンタクト：毎日3件以上（週15件目標）<br>・佐々木様フォロー：月曜に電話してツーアポ確定させる<br>・ロープレ：水曜必ず参加<br>・成功者に話を聞く：山田さんにアポの取り方を教わる<br>来週は必ず結果を出します！</p>`,
     },
   ],
   s003: [
     {
       id: 'p004', authorId: 'user-003', authorName: '佐藤 花子',
-      content: '<p>Miraito メンバーへ。先日の勉強会の資料をアップしました。ご確認ください。来月の勉強会は5月8日（金）を予定しています。</p>',
-      reactions: { '👍': 4, '😊': 2 }, commentCount: 1, createdAt: ts(-4),
+      reactions: { '👍': 5, '😊': 3, '👏': 2 }, commentCount: 2, createdAt: ts(-2),
+      content: `<p><strong>【週次活動報告】4月14日（月）〜 4月18日（金）</strong></p>
+<p>佐藤花子です。今週の活動報告です。</p>
+<p><strong>【今月の目標】</strong></p>
+<p>・ワンアポ獲得：4件（現在 3件 ✅）<br>・ツーアポ転換：2件（現在 2件 ✅）<br>・成約：1件（現在 0件）<br>・紹介獲得：2件（現在 1件）</p>
+<p><strong>【今週のコミット達成度】</strong></p>
+<p>・既存客連絡：8件 → 実績 <strong>9件 ✅</strong><br>・ワンアポ実施：2件 → 実績 <strong>2件 ✅</strong><br>・勉強会参加：1件 ✅<br>・ロープレ：○</p>
+<p><strong>【今週の気づき】</strong></p>
+<p>中島様とのアポで、お子さんの教育費の話から自然に医療保険の見直しへ繋げることができました。<br>「将来の不安」を具体的なエピソードで引き出すヒアリングが今週はうまくできたと思います。</p>
+<p>また、田中様（既存客）からご紹介をいただけました。信頼関係構築の大切さを改めて実感しています。<br>ご紹介いただいた渡辺様とは来週アポを組む予定です。</p>
+<p><strong>【来週のアクション】</strong></p>
+<p>・中島様ツーアポ（4/15）：提案資料の最終確認<br>・渡辺様（ご紹介）：来週中にアポ設定<br>・既存客フォロー：5件連絡<br>・5月のセミナー準備：参加者リスト作成</p>`,
     },
     {
       id: 'p006', authorId: 'user-005', authorName: '田中 三郎',
-      content: '<p>紹介案件が2件入りました！丁寧に対応していきます。メンバーの皆さんからの紹介もお待ちしています。</p>',
-      reactions: { '🎉': 3 }, commentCount: 0, createdAt: ts(-6),
+      reactions: { '🎉': 4, '👍': 3 }, commentCount: 2, createdAt: ts(-5),
+      content: `<p><strong>【週次活動報告】4月7日（月）〜 4月11日（金）</strong></p>
+<p>田中三郎です。今週の報告をします。</p>
+<p><strong>【今月の目標】</strong></p>
+<p>・ワンアポ獲得：5件（現在 2件）<br>・ツーアポ転換：3件（現在 1件）<br>・成約：2件（現在 0件）</p>
+<p><strong>【今週の実績】</strong></p>
+<p>・新規コンタクト：<strong>14件</strong>（目標10件を上回ることができました）<br>・ワンアポ実施：<strong>2件</strong>（松本様・高橋様）<br>・ツーアポ確定：<strong>1件</strong>（松本様 → 4/18確定）<br>・成約：0件<br>・紹介獲得：<strong>2件</strong>（嬉しいです！）</p>
+<p><strong>【紹介案件について】</strong></p>
+<p>組合員の山本様から2件ご紹介をいただきました。先月から丁寧にフォローを続けてきた結果が出てきた感じです。<br>紹介をいただくには「定期的な連絡」と「成約後のフォロー」が大切だと改めて感じています。</p>
+<p><strong>【来週のアクション】</strong></p>
+<p>・松本様ツーアポ（4/18）：資産形成プランの提案<br>・ご紹介の増田様・藤原様：来週中にコンタクト<br>・高橋様フォロー：資料送付後に電話<br>・新規コンタクト：引き続き10件以上<br>・ロープレ参加：水曜</p>
+<p>来週こそ成約を出せるよう頑張ります！</p>`,
     },
   ],
   s004: [
     {
       id: 'p008', authorId: 'user-004', authorName: '鈴木 二郎',
-      content: '<p>Asset チームの皆さん、今月も相続・資産形成案件に注力しましょう。セミナー開催を検討中です。</p>',
-      reactions: { '👍': 2 }, commentCount: 0, createdAt: ts(-7),
+      reactions: { '👍': 4, '🔥': 2 }, commentCount: 1, createdAt: ts(-2),
+      content: `<p><strong>【週次活動報告】4月14日（月）〜 4月18日（金）</strong></p>
+<p>鈴木二郎です。今週の報告です。</p>
+<p><strong>【今月の目標】</strong></p>
+<p>・ワンアポ獲得：4件（現在 2件）<br>・ツーアポ転換：2件（現在 1件）<br>・成約：2件（現在 1件 ✅一部達成）<br>・相続・資産案件：1件以上（現在 1件 ✅）</p>
+<p><strong>【今週のコミット達成度】</strong></p>
+<p>・既存客フォロー：7件 → 実績 <strong>8件 ✅</strong><br>・ワンアポ実施：2件 → 実績 <strong>2件 ✅</strong><br>・相続セミナー資料作成：作成完了 ✅</p>
+<p><strong>【今週の成果・気づき】</strong></p>
+<p>今週のハイライトは伊藤様との相続プランニングです。<br>ご両親の資産状況を丁寧に整理した上で、一次相続・二次相続を見据えた総合的な提案ができ、<br>「こんなに細かく考えてもらえるとは思っていなかった」との言葉をいただきました。</p>
+<p>Assetグループとして、相続・資産形成に特化した専門性を磨いていくことがチームの強みになると実感しています。<br>来月のセミナー（「知らないと損する相続対策」）の準備も順調です。</p>
+<p><strong>【来週のアクション】</strong></p>
+<p>・伊藤様ツーアポ（4/20）：二次相続対策プランの最終提案<br>・セミナー集客：Assetメンバーで参加者20名目標<br>・新規コンタクト：4件<br>・相続案件リストの整理</p>`,
     },
   ],
   s005: [], s006: [],

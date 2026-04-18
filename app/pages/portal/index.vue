@@ -162,7 +162,7 @@ const eventColorMap: Record<string, string> = {
     <!-- ヘッダー -->
     <div class="flex items-start justify-between gap-3">
       <div>
-        <h1 class="text-xl font-bold text-gray-900">ポータル</h1>
+        <h1 class="text-xl font-bold text-gray-900">活動報告・告知</h1>
         <p class="text-sm text-gray-500 mt-0.5">スペースへの投稿・活動報告</p>
       </div>
       <NuxtLink to="/portal/spaces" class="btn-secondary text-sm flex items-center gap-1.5">

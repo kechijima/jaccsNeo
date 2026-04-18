@@ -1,65 +1,52 @@
 <script setup lang="ts">
+import { MOCK_SPACES } from '~/data/mock'
+
 definePageMeta({ middleware: ['auth'] })
 
 const route = useRoute()
 const spaceId = computed(() => route.params.spaceId as string)
 
-const { fetchSpace, updateSpace, archiveSpace } = useSpaces()
-
-const loading = ref(false)
 const error = ref('')
 const saving = ref(false)
+const saved = ref(false)
+
+const spaceData = computed(() => MOCK_SPACES.find(s => s.id === spaceId.value))
 
 const form = ref({
-  name: '',
+  name:        '',
   description: '',
-  type: 'kumiai',
-  isArchived: false,
+  type:        'kumiai',
+  headerImage: '',
 })
 
-onMounted(async () => {
-  loading.value = true
-  try {
-    const space = await fetchSpace(spaceId.value)
-    if (space) {
-      form.value = {
-        name:        space.name,
-        description: space.description ?? '',
-        type:        space.type,
-        isArchived:  space.isArchived,
-      }
+watchEffect(() => {
+  const s = spaceData.value
+  if (s) {
+    form.value = {
+      name:        s.name,
+      description: s.description ?? '',
+      type:        s.type,
+      headerImage: s.headerImage ?? '',
     }
-  } catch (e: any) {
-    error.value = e.message ?? 'スペース情報の取得に失敗しました'
-  } finally {
-    loading.value = false
   }
 })
 
 const handleSave = async () => {
   saving.value = true
   error.value = ''
-  try {
-    await updateSpace(spaceId.value, {
-      name:        form.value.name,
-      description: form.value.description || undefined,
-      type:        form.value.type as any,
-    })
-  } catch (e: any) {
-    error.value = e.message ?? '保存に失敗しました'
-  } finally {
-    saving.value = false
+  saved.value = false
+  await new Promise(r => setTimeout(r, 400))
+  // モックデータを直接更新（実際はFirestore updateを呼ぶ）
+  const s = MOCK_SPACES.find(sp => sp.id === spaceId.value)
+  if (s) {
+    s.name = form.value.name
+    s.description = form.value.description
+    s.type = form.value.type as any
+    s.headerImage = form.value.headerImage
   }
-}
-
-const handleArchive = async () => {
-  if (!confirm('このスペースをアーカイブしますか？')) return
-  try {
-    await archiveSpace(spaceId.value, true)
-    await navigateTo('/portal/spaces')
-  } catch (e: any) {
-    error.value = e.message ?? 'アーカイブに失敗しました'
-  }
+  saving.value = false
+  saved.value = true
+  setTimeout(() => { saved.value = false }, 3000)
 }
 </script>
 
@@ -68,7 +55,7 @@ const handleArchive = async () => {
 
     <!-- パンくず -->
     <div class="flex items-center gap-2 text-sm text-gray-400">
-      <NuxtLink to="/portal">ポータル</NuxtLink>
+      <NuxtLink to="/portal">活動報告・告知</NuxtLink>
       <Icon name="heroicons:chevron-right" class="h-3 w-3" />
       <NuxtLink :to="`/portal/spaces/${spaceId}`">{{ form.name }}</NuxtLink>
       <Icon name="heroicons:chevron-right" class="h-3 w-3" />
@@ -76,6 +63,16 @@ const handleArchive = async () => {
     </div>
 
     <h1 class="text-xl font-bold text-gray-900">スペース設定</h1>
+
+    <!-- 保存完了メッセージ -->
+    <div v-if="saved" class="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-700">
+      <Icon name="heroicons:check-circle" class="h-4 w-4 shrink-0" />
+      設定を保存しました
+    </div>
+    <div v-if="error" class="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
+      <Icon name="heroicons:exclamation-circle" class="h-4 w-4 shrink-0" />
+      {{ error }}
+    </div>
 
     <!-- 基本設定 -->
     <form class="card p-6 space-y-5" @submit.prevent="handleSave">
@@ -104,6 +101,20 @@ const handleArchive = async () => {
         </select>
       </div>
 
+      <!-- ヘッダー画像 -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">ヘッダー画像URL</label>
+        <input v-model="form.headerImage" type="url" class="input-field" placeholder="https://example.com/image.jpg" />
+        <p class="text-xs text-gray-400 mt-1">スペースページの上部に表示されるカバー画像のURLを入力してください</p>
+        <!-- プレビュー -->
+        <div v-if="form.headerImage" class="mt-2 rounded-lg overflow-hidden h-24 border border-gray-200">
+          <img :src="form.headerImage" alt="ヘッダープレビュー" class="w-full h-full object-cover" />
+        </div>
+        <div v-else class="mt-2 rounded-lg h-24 border border-gray-200 bg-gradient-to-r from-indigo-500 via-indigo-400 to-sky-400 flex items-center justify-center">
+          <span class="text-xs text-white/70">画像未設定（グラデーション表示）</span>
+        </div>
+      </div>
+
       <div class="flex justify-end">
         <button type="submit" class="btn-primary" :disabled="saving">
           <Icon v-if="saving" name="heroicons:arrow-path" class="h-4 w-4 animate-spin mr-1" />
@@ -111,21 +122,6 @@ const handleArchive = async () => {
         </button>
       </div>
     </form>
-
-    <!-- 危険な操作 -->
-    <div class="card p-5 border border-red-200">
-      <h2 class="font-semibold text-red-700 mb-3 flex items-center gap-2">
-        <Icon name="heroicons:exclamation-triangle" class="h-5 w-5" />
-        危険な操作
-      </h2>
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm font-medium text-gray-800">スペースをアーカイブ</p>
-          <p class="text-xs text-gray-500 mt-0.5">アーカイブ後は新しい投稿ができなくなります</p>
-        </div>
-        <button class="btn-danger text-sm" @click="handleArchive">アーカイブ</button>
-      </div>
-    </div>
 
   </div>
 </template>

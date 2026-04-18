@@ -10,7 +10,7 @@ const navItems = [
   { label: 'ダッシュボード', icon: 'heroicons:home',                   to: '/dashboard' },
   { label: '顧客管理',       icon: 'heroicons:users',                  to: '/customers' },
   { label: 'サービス',       icon: 'heroicons:squares-2x2',            to: '/services' },
-  { label: 'ポータル',       icon: 'heroicons:chat-bubble-left-right', to: '/portal' },
+  { label: '活動報告・告知', icon: 'heroicons:chat-bubble-left-right', to: '/portal' },
   { label: 'イベント',       icon: 'heroicons:calendar-days',          to: '/events' },
   { label: 'チーム',         icon: 'heroicons:chart-bar',              to: '/team' },
 ]
