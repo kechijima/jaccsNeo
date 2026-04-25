@@ -134,9 +134,9 @@ const filteredCategories = computed(() => {
       <div>
         <h1 class="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-2">
           <Icon name="heroicons:squares-2x2" class="h-6 w-6 text-primary-600" />
-          サービスアプリ
+          アプリ
         </h1>
-        <p class="mt-1 text-sm text-gray-500">各サービスの案件データ一覧・管理</p>
+        <p class="mt-1 text-sm text-gray-500">各アプリの案件データ一覧・管理</p>
       </div>
 
       <!-- 検索・フィルタ -->

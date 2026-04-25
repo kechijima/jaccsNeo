@@ -118,9 +118,17 @@ export const useCustomers = () => {
     return toCustomer(snap.id, data)
   }
 
+  const withTimeout = <T>(promise: Promise<T>, ms = 15000): Promise<T> =>
+    Promise.race([
+      promise,
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('通信がタイムアウトしました。接続を確認してください。')), ms),
+      ),
+    ])
+
   // ===== 新規作成 =====
   const createCustomer = async (form: CustomerForm): Promise<string> => {
-    const ref = await addDoc(colRef(), {
+    const ref = await withTimeout(addDoc(colRef(), {
       ...form,
       assignedFpId:   form.assignedFpId   ?? authStore.user?.uid,
       assignedFpName: form.assignedFpName ?? authStore.user?.displayName,
@@ -128,18 +136,18 @@ export const useCustomers = () => {
       updatedBy: authStore.user?.uid,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
-    })
+    }))
     return ref.id
   }
 
   // ===== 更新 =====
   const updateCustomer = async (id: string, form: Partial<CustomerForm>): Promise<void> => {
     const ref = doc($db, 'customers', id)
-    await updateDoc(ref, {
+    await withTimeout(updateDoc(ref, {
       ...form,
       updatedBy: authStore.user?.uid,
       updatedAt: serverTimestamp(),
-    })
+    }))
   }
 
   // ===== 削除（system_adminのみ） =====

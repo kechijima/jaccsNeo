@@ -3,6 +3,13 @@ definePageMeta({ middleware: ['auth', 'admin'] })
 
 const adminMenus = [
   {
+    to: '/admin/apps',
+    icon: 'heroicons:squares-2x2',
+    label: 'アプリ管理',
+    description: 'アプリのフォーム設計・フィールド設定・権限管理',
+    color: 'text-primary-600 bg-primary-50',
+  },
+  {
     to: '/admin/users',
     icon: 'heroicons:users',
     label: 'ユーザー管理',
