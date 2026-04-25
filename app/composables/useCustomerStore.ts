@@ -4,8 +4,8 @@ import type { Customer, CustomerForm } from '~/types/customer'
 export const useCustomerStore = () => {
   const customers = useState<Customer[]>('customers:list', () => [...MOCK_CUSTOMERS])
 
-  const getById = (id: string) =>
-    computed(() => customers.value.find(c => c.id === id) ?? null)
+  const getById = (id: Ref<string> | string) =>
+    computed(() => customers.value.find(c => c.id === unref(id)) ?? null)
 
   const create = (form: CustomerForm, userId: string, userName: string): string => {
     const id  = `c-local-${Date.now()}`
