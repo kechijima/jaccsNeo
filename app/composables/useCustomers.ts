@@ -1,191 +1,81 @@
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  query,
-  where,
-  orderBy,
-  limit,
-  startAfter,
-  serverTimestamp,
-  type QueryDocumentSnapshot,
-  type DocumentData,
-} from 'firebase/firestore'
 import type { Customer, CustomerSummary, CustomerForm } from '~/types/customer'
 import { useAuthStore } from '~/stores/auth'
 
-const PAGE_SIZE = 50
-
-const toSummary = (id: string, data: DocumentData): CustomerSummary => ({
-  id,
-  kintoneId:     data.kintoneId,
-  type:          data.type ?? 'individual',
-  name:          data.name ?? '',
-  nameKana:      data.nameKana,
-  tel:           data.tel,
-  email:         data.email,
-  address:       data.address,
-  assignedFpName: data.assignedFpName,
-  relationship:  data.relationship,
-  stage:         data.stage,
-  status1:       data.status1,
-  updatedAt:     data.updatedAt,
-})
-
-const toCustomer = (id: string, data: DocumentData): Customer => ({
-  id,
-  ...data,
-}) as Customer
-
 export const useCustomers = () => {
-  const { $db } = useNuxtApp()
+  const store     = useCustomerStore()
   const authStore = useAuthStore()
 
-  const colRef = () => collection($db, 'customers')
+  const toSummary = (c: Customer): CustomerSummary => ({
+    id:             c.id,
+    kintoneId:      c.kintoneId,
+    type:           c.type ?? 'individual',
+    name:           c.name ?? '',
+    nameKana:       c.nameKana,
+    tel:            c.tel,
+    email:          c.email,
+    address:        c.address,
+    assignedFpName: c.assignedFpName,
+    relationship:   c.relationship,
+    stage:          c.stage,
+    status1:        c.status1,
+    updatedAt:      c.updatedAt,
+  })
 
-  // ===== 一覧取得（ページネーション） =====
-  const fetchCustomers = async (opts?: {
-    searchName?: string
-    assignedFpId?: string
-    lastDoc?: QueryDocumentSnapshot
-  }) => {
-    const constraints: any[] = []
+  // ===== 一覧取得 =====
+  const fetchCustomers = async (opts?: { searchName?: string; assignedFpId?: string }) => {
+    let list = store.customers.value
 
-    // ロールに応じてフィルタ
-    if (authStore.isEm2Above || authStore.isBoard || authStore.isSystemAdmin) {
-      // 全件閲覧可（グループでさらに絞る場合は追加）
-      if (opts?.assignedFpId) {
-        constraints.push(where('assignedFpId', '==', opts.assignedFpId))
-      }
-    } else {
-      // 一般・専門チーム：自分の担当顧客のみ
-      constraints.push(where('assignedFpId', '==', authStore.user?.uid))
+    if (!authStore.isEm2Above && !authStore.isBoard && !authStore.isSystemAdmin) {
+      list = list.filter(c => c.assignedFpId === (authStore.user?.uid ?? 'mock-user-123'))
+    } else if (opts?.assignedFpId) {
+      list = list.filter(c => c.assignedFpId === opts.assignedFpId)
     }
 
-    constraints.push(orderBy('updatedAt', 'desc'))
-    constraints.push(limit(PAGE_SIZE))
-
-    if (opts?.lastDoc) {
-      constraints.push(startAfter(opts.lastDoc))
+    if (opts?.searchName) {
+      const q = opts.searchName.toLowerCase()
+      list = list.filter(c => c.name.toLowerCase().includes(q))
     }
 
-    const q = query(colRef(), ...constraints)
-    const snap = await getDocs(q)
-
-    const customers: CustomerSummary[] = snap.docs.map(d => toSummary(d.id, d.data()))
-    const lastVisible = snap.docs[snap.docs.length - 1] ?? null
-
-    return { customers, lastVisible, hasMore: snap.docs.length === PAGE_SIZE }
+    return { customers: list.map(toSummary), lastVisible: null, hasMore: false }
   }
 
-  // ===== 名前検索（前方一致） =====
+  // ===== 名前検索 =====
   const searchByName = async (nameQuery: string) => {
-    const end = nameQuery + '\uf8ff'
-    const constraints: any[] = [
-      where('name', '>=', nameQuery),
-      where('name', '<=', end),
-      orderBy('name'),
-      limit(20),
-    ]
-
-    // 権限フィルタ
-    if (!authStore.isEm2Above && !authStore.isBoard && !authStore.isSystemAdmin) {
-      constraints.unshift(where('assignedFpId', '==', authStore.user?.uid))
-    }
-
-    const q = query(colRef(), ...constraints)
-    const snap = await getDocs(q)
-    return snap.docs.map(d => toSummary(d.id, d.data()))
+    const q = nameQuery.toLowerCase()
+    return store.customers.value
+      .filter(c => c.name.toLowerCase().includes(q))
+      .slice(0, 20)
+      .map(toSummary)
   }
 
   // ===== 1件取得 =====
   const fetchCustomer = async (id: string): Promise<Customer | null> => {
-    const ref = doc($db, 'customers', id)
-    const snap = await getDoc(ref)
-    if (!snap.exists()) return null
-
-    const data = snap.data()
-
-    // 権限チェック：一般は自分の担当のみ
-    if (!authStore.isEm2Above && !authStore.isBoard && !authStore.isSystemAdmin) {
-      if (data.assignedFpId !== authStore.user?.uid) return null
-    }
-
-    return toCustomer(snap.id, data)
+    return store.customers.value.find(c => c.id === id) ?? null
   }
-
-  const withTimeout = <T>(promise: Promise<T>, ms = 15000): Promise<T> =>
-    Promise.race([
-      promise,
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('通信がタイムアウトしました。接続を確認してください。')), ms),
-      ),
-    ])
 
   // ===== 新規作成 =====
   const createCustomer = async (form: CustomerForm): Promise<string> => {
-    const ref = await withTimeout(addDoc(colRef(), {
-      ...form,
-      assignedFpId:   form.assignedFpId   ?? authStore.user?.uid,
-      assignedFpName: form.assignedFpName ?? authStore.user?.displayName,
-      createdBy: authStore.user?.uid,
-      updatedBy: authStore.user?.uid,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    }))
-    return ref.id
+    return store.create(
+      form,
+      authStore.user?.uid ?? 'mock-user-123',
+      authStore.user?.displayName ?? 'テストユーザー',
+    )
   }
 
   // ===== 更新 =====
   const updateCustomer = async (id: string, form: Partial<CustomerForm>): Promise<void> => {
-    const ref = doc($db, 'customers', id)
-    await withTimeout(updateDoc(ref, {
-      ...form,
-      updatedBy: authStore.user?.uid,
-      updatedAt: serverTimestamp(),
-    }))
+    store.update(id, form)
   }
 
-  // ===== 削除（system_adminのみ） =====
+  // ===== 削除 =====
   const deleteCustomer = async (id: string): Promise<void> => {
-    if (!authStore.isSystemAdmin) throw new Error('権限がありません')
-    await deleteDoc(doc($db, 'customers', id))
+    store.remove(id)
   }
 
   // ===== バルクインポート =====
   const bulkImport = async (customers: CustomerForm[]): Promise<{ success: number; errors: string[] }> => {
-    const errors: string[] = []
-    let success = 0
-
-    // Firestoreは1回500件制限のため分割
-    const chunks = []
-    for (let i = 0; i < customers.length; i += 400) {
-      chunks.push(customers.slice(i, i + 400))
-    }
-
-    for (const chunk of chunks) {
-      const promises = chunk.map(async (c, idx) => {
-        try {
-          await addDoc(colRef(), {
-            ...c,
-            createdBy: authStore.user?.uid,
-            updatedBy: authStore.user?.uid,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          })
-          success++
-        } catch (e: any) {
-          errors.push(`行${idx + 1}: ${e.message}`)
-        }
-      })
-      await Promise.all(promises)
-    }
-
-    return { success, errors }
+    customers.forEach(c => store.create(c, authStore.user?.uid ?? '', authStore.user?.displayName ?? ''))
+    return { success: customers.length, errors: [] }
   }
 
   return {

@@ -1,18 +1,19 @@
 <script setup lang="ts">
-import { MOCK_CUSTOMERS } from '~/data/mock'
-
 definePageMeta({ middleware: ['auth'] })
 
 const route = useRoute()
 
-const id = computed(() => route.params.id as string)
-
-const customer = computed(() => MOCK_CUSTOMERS.find(c => c.id === id.value) ?? null)
+const id       = computed(() => route.params.id as string)
+const { getById } = useCustomerStore()
+const customer = getById(id)
 const error    = computed(() => !customer.value ? '顧客が見つかりません' : '')
 
-// ===== 削除（モック：トースト表示のみ） =====
+// ===== 削除 =====
+const { remove } = useCustomerStore()
 const handleDelete = () => {
-  alert('モックのため削除できません')
+  if (!confirm('この顧客を削除しますか？')) return
+  remove(id.value)
+  navigateTo('/customers')
 }
 
 // ===== フォーマット =====

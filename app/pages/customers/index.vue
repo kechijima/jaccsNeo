@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { MOCK_CUSTOMERS } from '~/data/mock'
 import { exportCustomersToCsv, exportApoToCsv, downloadCsv } from '~/utils/csvCustomer'
 import type { Customer } from '~/types/customer'
 
@@ -13,7 +12,7 @@ const filterStatus  = ref('')    // 状況
 const filterStage   = ref('')    // 段数
 const showFilter    = ref(false)
 
-const customers = ref<Customer[]>([...MOCK_CUSTOMERS])
+const { customers } = useCustomerStore()
 
 const activeFilterCount = computed(() =>
   [filterType.value, filterRel.value, filterStatus.value, filterStage.value].filter(Boolean).length
@@ -32,13 +31,13 @@ const resetFilters = () => {
 
 // ── フィルター選択肢 ──────────────────────────────────────────────────────────
 const relationships = computed(() =>
-  [...new Set(MOCK_CUSTOMERS.map(c => c.relationship).filter(Boolean))] as string[]
+  [...new Set(customers.value.map(c => c.relationship).filter(Boolean))] as string[]
 )
 const statuses = computed(() =>
-  [...new Set(MOCK_CUSTOMERS.map(c => c.status1).filter(Boolean))] as string[]
+  [...new Set(customers.value.map(c => c.status1).filter(Boolean))] as string[]
 )
 const stages = computed(() =>
-  [...new Set(MOCK_CUSTOMERS.map(c => c.stage).filter(Boolean))].sort() as string[]
+  [...new Set(customers.value.map(c => c.stage).filter(Boolean))].sort() as string[]
 )
 
 // ── フィルタリング ────────────────────────────────────────────────────────────
