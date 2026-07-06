@@ -7,12 +7,13 @@ const authStore = useAuthStore()
 const route = useRoute()
 
 const navItems = [
-  { label: 'ダッシュボード', icon: 'heroicons:home',                   to: '/dashboard' },
-  { label: '顧客管理',       icon: 'heroicons:users',                  to: '/customers' },
-  { label: 'アプリ',         icon: 'heroicons:squares-2x2',            to: '/services' },
-  { label: '活動報告・告知', icon: 'heroicons:chat-bubble-left-right', to: '/portal' },
-  { label: 'イベント',       icon: 'heroicons:calendar-days',          to: '/events' },
-  { label: 'チーム',         icon: 'heroicons:chart-bar',              to: '/team' },
+  { label: 'ダッシュボード',   icon: 'heroicons:home',                   to: '/dashboard' },
+  { label: '顧客管理',         icon: 'heroicons:users',                  to: '/customers' },
+  { label: 'パーソナルデータ', icon: 'heroicons:identification',         to: '/personal-data' },
+  { label: 'アプリ',           icon: 'heroicons:squares-2x2',            to: '/services' },
+  { label: '掲示板',           icon: 'heroicons:chat-bubble-left-right', to: '/portal' },
+  { label: 'イベント',         icon: 'heroicons:calendar-days',          to: '/events' },
+  { label: 'チーム',           icon: 'heroicons:chart-bar',              to: '/team' },
 ]
 
 const isActive = (to: string) => route.path.startsWith(to)
@@ -68,6 +69,18 @@ const groupLabel = computed(() => {
         >
           <Icon :name="item.icon" class="h-5 w-5 shrink-0" />
           {{ item.label }}
+        </NuxtLink>
+
+        <!-- マイページ -->
+        <NuxtLink
+          to="/mypage"
+          class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
+          :class="isActive('/mypage')
+            ? 'bg-primary-50 text-primary-700'
+            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'"
+        >
+          <Icon name="heroicons:user-circle" class="h-5 w-5 shrink-0" />
+          マイページ
         </NuxtLink>
 
         <!-- 通知 -->
