@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useAuthStore } from '~/stores/auth'
+import { MOCK_NOTIFICATIONS } from '~/data/mock'
 
 const { logout } = useAuth()
 const { displayName, user } = useCurrentUser()
@@ -16,12 +17,21 @@ const navItems = [
   { label: 'チーム',           icon: 'heroicons:chart-bar',              to: '/team' },
 ]
 
+// SPボトムナビ用（項目数を絞り、短いラベルで表示崩れを防ぐ）
+const mobileNavItems = [
+  { label: 'ホーム',   icon: 'heroicons:home',                   to: '/dashboard' },
+  { label: '顧客',     icon: 'heroicons:users',                  to: '/customers' },
+  { label: 'データ',   icon: 'heroicons:identification',         to: '/personal-data' },
+  { label: 'アプリ',   icon: 'heroicons:squares-2x2',            to: '/services' },
+  { label: '掲示板',   icon: 'heroicons:chat-bubble-left-right', to: '/portal' },
+]
+
 const isActive = (to: string) => route.path.startsWith(to)
 
 const isMobileMenuOpen = ref(false)
 
-// 通知（Phase4で実装・今はダミー）
-const notificationCount = ref(0)
+// 通知（モック: ダッシュボードの未読数と揃える）
+const notificationCount = computed(() => MOCK_NOTIFICATIONS.filter(n => !n.isRead).length)
 
 const groupColorClass = computed(() => {
   switch (user.value?.groupId) {
@@ -191,7 +201,7 @@ const groupLabel = computed(() => {
     <nav class="md:hidden fixed bottom-0 inset-x-0 z-50 bg-white border-t border-gray-200">
       <div class="flex items-stretch">
         <NuxtLink
-          v-for="item in navItems"
+          v-for="item in mobileNavItems"
           :key="item.to"
           :to="item.to"
           class="flex flex-1 flex-col items-center justify-center gap-0.5 py-2.5 text-xs font-medium transition"

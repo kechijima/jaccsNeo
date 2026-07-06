@@ -18,12 +18,6 @@ const greeting = computed(() => {
 })
 
 // ── お知らせ ───────────────────────────────────────────────────────────────
-const notifications = computed(() =>
-  MOCK_NOTIFICATIONS
-    .filter(n => !n.isRead)
-    .slice(0, 5)
-)
-
 const allNotifications = computed(() => MOCK_NOTIFICATIONS.slice(0, 5))
 
 const notifTypeLabel = (type: string) => {
@@ -76,6 +70,12 @@ const spaceColorMap: Record<string, string> = {
 }
 
 const spacePosts = computed(() => portalStore.posts.value.slice(0, 5))
+
+// HTMLタグを除去して80文字に切り詰める（80文字以下なら「...」を付けない）
+const excerpt = (html: string) => {
+  const text = html.replace(/<[^>]*>/g, '')
+  return text.length > 80 ? text.slice(0, 80) + '...' : text
+}
 const pinnedSpaces = computed(() =>
   MOCK_SPACES.filter(s => s.isPinned).map(s => ({
     ...s,
@@ -280,7 +280,7 @@ const unreadNotifCount = computed(() => MOCK_NOTIFICATIONS.filter(n => !n.isRead
                 <span class="text-xs font-semibold text-gray-800">{{ post.authorName }}</span>
                 <span class="badge text-[10px]" :class="post.spaceColor">{{ post.spaceName }}</span>
               </div>
-              <div class="text-xs text-gray-500 line-clamp-2 leading-relaxed" v-html="post.content.replace(/<[^>]*>/g, '').slice(0, 80) + '...'" />
+              <p class="text-xs text-gray-500 line-clamp-2 leading-relaxed">{{ excerpt(post.content) }}</p>
             </NuxtLink>
           </div>
           <div v-if="spacePosts.length === 0" class="flex flex-col items-center justify-center py-8">

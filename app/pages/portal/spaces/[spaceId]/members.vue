@@ -77,7 +77,7 @@ const handleToggleAdmin = async (uid: string, currentRole: string) => {
 
     <!-- パンくず -->
     <div class="flex items-center gap-2 text-sm text-gray-400">
-      <NuxtLink to="/portal">ポータル</NuxtLink>
+      <NuxtLink to="/portal">掲示板</NuxtLink>
       <Icon name="heroicons:chevron-right" class="h-3 w-3" />
       <NuxtLink :to="`/portal/spaces/${spaceId}`">{{ spaceName }}</NuxtLink>
       <Icon name="heroicons:chevron-right" class="h-3 w-3" />

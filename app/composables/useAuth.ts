@@ -9,6 +9,9 @@ import { doc, getDoc } from 'firebase/firestore'
 import { useAuthStore } from '~/stores/auth'
 import type { AppUser } from '~/types/user'
 
+// モックセッションの保存キー（リロードしてもログイン状態を維持する）
+const MOCK_SESSION_KEY = 'jaccsneo:mock-session'
+
 export const useAuth = () => {
   const authStore = useAuthStore()
   const router = useRouter()
@@ -36,11 +39,42 @@ export const useAuth = () => {
     }
   }
 
+  // localStorage からモックセッションを復元
+  const restoreMockSession = (): AppUser | null => {
+    if (!import.meta.client) return null
+    try {
+      const saved = localStorage.getItem(MOCK_SESSION_KEY)
+      if (!saved) return null
+      const user = JSON.parse(saved) as AppUser
+      user.createdAt = new Date(user.createdAt)
+      user.updatedAt = new Date(user.updatedAt)
+      return user
+    } catch {
+      localStorage.removeItem(MOCK_SESSION_KEY)
+      return null
+    }
+  }
+
   // 認証状態の監視（アプリ起動時に一度だけ呼ぶ）
   const initAuth = () => {
+    // モックセッションがあれば即復元（リロードでログインが切れないように）
+    const mockSession = restoreMockSession()
+    if (mockSession) {
+      authStore.setUser(mockSession)
+      authStore.setInitialized(true)
+      return Promise.resolve()
+    }
+
     const { $auth } = useNuxtApp()
     return new Promise<void>((resolve) => {
+      // Firebaseに接続できない場合でもスプラッシュ画面で固まらないようにタイムアウトを設ける
+      const timeout = setTimeout(() => {
+        authStore.setInitialized(true)
+        resolve()
+      }, 3000)
+
       onAuthStateChanged($auth, async (firebaseUser) => {
+        clearTimeout(timeout)
         if (firebaseUser) {
           const user = await fetchUserDoc(firebaseUser)
           authStore.setUser(user)
@@ -68,6 +102,10 @@ export const useAuth = () => {
         updatedAt: new Date(),
       }
       authStore.setUser(mockUser)
+      // セッションを保存してリロード後もログイン状態を維持する
+      if (import.meta.client) {
+        localStorage.setItem(MOCK_SESSION_KEY, JSON.stringify(mockUser))
+      }
       await router.push('/dashboard')
     } finally {
       authStore.setLoading(false)
@@ -76,8 +114,17 @@ export const useAuth = () => {
 
   // ログアウト
   const logout = async () => {
-    const { $auth } = useNuxtApp()
-    await signOut($auth)
+    // モックセッションを破棄
+    if (import.meta.client) {
+      localStorage.removeItem(MOCK_SESSION_KEY)
+    }
+    // Firebaseサインアウトは失敗してもログアウト処理を続行する
+    try {
+      const { $auth } = useNuxtApp()
+      await signOut($auth)
+    } catch {
+      // Firebase未接続でも無視
+    }
     authStore.setUser(null)
     await router.push('/login')
   }

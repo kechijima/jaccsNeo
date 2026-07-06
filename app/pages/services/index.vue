@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { MOCK_SERVICE_CASES, MOCK_CUSTOMERS } from '~/data/mock'
+import { MOCK_SERVICE_CASES } from '~/data/mock'
 import { SERVICE_LABELS } from '~/types/service'
+import { useCustomerStore } from '~/composables/useCustomerStore'
 
 definePageMeta({ middleware: ['auth'] })
+
+const { customers } = useCustomerStore()
 
 // ── カウント計算 ──────────────────────────────────────────────────────
 const getCount = (type: string) =>
@@ -192,7 +195,7 @@ const filteredCategories = computed(() => {
       <div class="card p-4 col-span-1">
         <p class="text-xs text-gray-500 font-medium">登録顧客数</p>
         <p class="mt-1 text-2xl font-bold text-gray-900">
-          {{ MOCK_CUSTOMERS.length }}<span class="text-sm font-normal text-gray-500 ml-1">名</span>
+          {{ customers.length }}<span class="text-sm font-normal text-gray-500 ml-1">名</span>
         </p>
         <div class="mt-2 flex items-center gap-1 text-xs text-gray-400">
           <Icon name="heroicons:user-group" class="h-3.5 w-3.5" />

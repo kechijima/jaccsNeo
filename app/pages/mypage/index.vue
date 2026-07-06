@@ -64,7 +64,8 @@ onMounted(() => {
   form.position = u.position ?? ''
   form.groupId = u.groupId ?? ''
   form.birthday = u.birthday ?? ''
-  form.kumiaiJoinDate = u.kumiaiJoinDate ?? ''
+  // type="month" の input は YYYY-MM 形式のみ受け付けるため切り詰める
+  form.kumiaiJoinDate = (u.kumiaiJoinDate ?? '').slice(0, 7)
   form.selfIntro = u.selfIntro ?? ''
 })
 

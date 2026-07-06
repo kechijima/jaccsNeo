@@ -56,7 +56,7 @@ const filteredSpaces = computed(() => {
     <div class="flex items-start justify-between gap-3">
       <div>
         <div class="flex items-center gap-2 mb-1 text-sm text-gray-400">
-          <NuxtLink to="/portal">ポータル</NuxtLink>
+          <NuxtLink to="/portal">掲示板</NuxtLink>
           <Icon name="heroicons:chevron-right" class="h-3 w-3" />
           <span class="text-gray-600">スペース一覧</span>
         </div>
