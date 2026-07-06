@@ -134,17 +134,17 @@ const statusClass = (status: string) => {
 
     <!-- パンくず -->
     <div class="flex items-center gap-2 text-sm text-gray-400">
-      <NuxtLink to="/customers">顧客管理</NuxtLink>
+      <NuxtLink to="/personal-data">パーソナルデータ</NuxtLink>
       <Icon name="heroicons:chevron-right" class="h-3 w-3" />
       <NuxtLink :to="`/customers/${customerId}`">{{ customerName }}</NuxtLink>
       <Icon name="heroicons:chevron-right" class="h-3 w-3" />
-      <span class="text-gray-600">サービス対応状況</span>
+      <span class="text-gray-600">アプリ連携</span>
     </div>
 
     <!-- ヘッダー -->
     <div class="flex items-start justify-between gap-3 flex-wrap">
       <div>
-        <h1 class="text-xl font-bold text-gray-900">サービス対応状況</h1>
+        <h1 class="text-xl font-bold text-gray-900">アプリ連携</h1>
         <p class="text-sm text-gray-500 mt-0.5">
           {{ customerName }} さん ／
           <span class="text-primary-600 font-medium">対応あり {{ withContentCount }}件</span>

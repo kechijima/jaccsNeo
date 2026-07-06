@@ -13,7 +13,7 @@ const { remove } = useCustomerStore()
 const handleDelete = () => {
   if (!confirm('この顧客を削除しますか？')) return
   remove(id.value)
-  navigateTo('/customers')
+  navigateTo('/personal-data')
 }
 
 // ===== フォーマット =====
@@ -54,7 +54,7 @@ const activeServices = computed(() => {
     <div v-if="error" class="card p-8 text-center">
       <Icon name="heroicons:exclamation-circle" class="h-12 w-12 text-red-400 mx-auto mb-3" />
       <p class="text-gray-600">{{ error }}</p>
-      <NuxtLink to="/customers" class="mt-4 inline-block btn-secondary text-sm">一覧に戻る</NuxtLink>
+      <NuxtLink to="/personal-data" class="mt-4 inline-block btn-secondary text-sm">一覧に戻る</NuxtLink>
     </div>
 
     <template v-else-if="customer">
@@ -63,8 +63,8 @@ const activeServices = computed(() => {
       <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div>
           <div class="flex items-center gap-2 mb-1">
-            <NuxtLink to="/customers" class="text-sm text-gray-400 hover:text-gray-600">
-              ← 顧客一覧
+            <NuxtLink to="/personal-data" class="text-sm text-gray-400 hover:text-gray-600">
+              ← パーソナルデータ一覧
             </NuxtLink>
           </div>
           <h1 class="text-2xl font-bold text-gray-900">{{ customer.name }}</h1>
@@ -101,8 +101,8 @@ const activeServices = computed(() => {
         <div class="flex items-center gap-3">
           <Icon name="heroicons:briefcase" class="h-6 w-6 text-primary-600" />
           <div>
-            <p class="font-semibold text-primary-800">サービス案件を管理</p>
-            <p class="text-xs text-primary-500 mt-0.5">保険・不動産・転職など全案件を確認・追加できます</p>
+            <p class="font-semibold text-primary-800">アプリと連動</p>
+            <p class="text-xs text-primary-500 mt-0.5">保険・不動産・転職など全アプリの対応状況を確認・追加できます</p>
           </div>
         </div>
         <Icon name="heroicons:chevron-right" class="h-5 w-5 text-primary-400 group-hover:translate-x-0.5 transition-transform" />

@@ -378,7 +378,7 @@ const updateFamilyMember = (idx: number, key: keyof FamilyMember, value: string)
 
     <!-- ===== 送信ボタン ===== -->
     <div class="flex items-center justify-end gap-3 pb-8">
-      <NuxtLink to="/customers" class="btn-secondary">キャンセル</NuxtLink>
+      <NuxtLink to="/personal-data" class="btn-secondary">キャンセル</NuxtLink>
       <button type="submit" class="btn-primary" :disabled="loading">
         <Icon v-if="loading" name="heroicons:arrow-path" class="h-4 w-4 animate-spin" />
         {{ loading ? '保存中...' : '保存する' }}

@@ -1,22 +1,101 @@
 <script setup lang="ts">
 import { useCustomerStore } from '~/composables/useCustomerStore'
 import { exportApoToCsv, downloadCsv } from '~/utils/csvCustomer'
+import type { Customer } from '~/types/customer'
 
 definePageMeta({ middleware: ['auth'] })
 
 const store = useCustomerStore()
 const router = useRouter()
 
-// ── フォロー表出力 ────────────────────────────────────────────────────────
-const handleExportApo = () => {
-  const csv = exportApoToCsv(filtered.value)
-  const label = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '')
-  downloadCsv(csv, `apo_report_${label}.csv`)
+// ── 絞り込み条件（項目を選択 → 条件を入力） ─────────────────────────────
+type Operator = 'contains' | 'notContains' | 'equals' | 'notEmpty' | 'empty'
+
+interface FieldOption {
+  key: string
+  label: string
+  type: 'text' | 'select'
+  options?: { value: string; label: string }[]
+  getValue: (c: Customer) => string
 }
 
-// ── 検索・フィルタ ────────────────────────────────────────────────────────
+const FIELD_OPTIONS: FieldOption[] = [
+  { key: 'name',           label: '氏名',         type: 'text',   getValue: c => c.name ?? '' },
+  { key: 'nameKana',       label: 'フリガナ',     type: 'text',   getValue: c => c.nameKana ?? '' },
+  {
+    key: 'type', label: '個人/法人区分', type: 'select',
+    options: [{ value: 'individual', label: '個人' }, { value: 'corporate', label: '法人' }],
+    getValue: c => c.type ?? '',
+  },
+  {
+    key: 'gender', label: '性別', type: 'select',
+    options: [{ value: '男', label: '男' }, { value: '女', label: '女' }],
+    getValue: c => c.gender ?? '',
+  },
+  { key: 'tel',            label: 'TEL',          type: 'text',   getValue: c => c.tel ?? '' },
+  { key: 'email',          label: 'メールアドレス', type: 'text', getValue: c => c.email ?? '' },
+  { key: 'address',        label: '住所',         type: 'text',   getValue: c => c.address ?? '' },
+  { key: 'employer',       label: '勤務先',       type: 'text',   getValue: c => c.employer ?? '' },
+  { key: 'relationship',   label: '関係性',       type: 'text',   getValue: c => c.relationship ?? '' },
+  { key: 'stage',          label: '段数',         type: 'text',   getValue: c => c.stage ?? '' },
+  { key: 'referralSource', label: '紹介元',       type: 'text',   getValue: c => c.referralSource ?? '' },
+  { key: 'status1',        label: '状況（ワン）', type: 'text',   getValue: c => c.status1 ?? '' },
+  { key: 'status2',        label: '状況（ツー）', type: 'text',   getValue: c => c.status2 ?? '' },
+  { key: 'assignedFpName', label: '担当 未来設計士', type: 'text', getValue: c => c.assignedFpName ?? '' },
+  { key: 'companyName',    label: '法人名',       type: 'text',   getValue: c => c.companyName ?? '' },
+  { key: 'industry',       label: '業種',         type: 'text',   getValue: c => c.industry ?? '' },
+]
+
+const OPERATOR_OPTIONS: { value: Operator; label: string }[] = [
+  { value: 'contains',    label: '次のいずれかを含む' },
+  { value: 'notContains', label: '含まない' },
+  { value: 'equals',      label: '等しい' },
+  { value: 'notEmpty',    label: '空でない' },
+  { value: 'empty',       label: '空' },
+]
+
+interface ConditionRow {
+  field: string
+  operator: Operator
+  value: string
+}
+
+const makeCondition = (): ConditionRow => ({ field: FIELD_OPTIONS[0].key, operator: 'contains', value: '' })
+
+const showFilter  = ref(false)
+const matchMode   = ref<'and' | 'or'>('and')
+const conditions  = ref<ConditionRow[]>([])
+
+const addCondition = () => {
+  if (conditions.value.length >= 5) return
+  conditions.value.push(makeCondition())
+}
+const removeCondition = (idx: number) => conditions.value.splice(idx, 1)
+const clearConditions = () => { conditions.value = []; matchMode.value = 'and' }
+
+const fieldOf = (key: string) => FIELD_OPTIONS.find(f => f.key === key)!
+
+const matchCondition = (c: Customer, cond: ConditionRow): boolean => {
+  const field = fieldOf(cond.field)
+  const actual = field.getValue(c).toLowerCase()
+  const expected = cond.value.trim().toLowerCase()
+  switch (cond.operator) {
+    case 'notEmpty': return actual !== ''
+    case 'empty':    return actual === ''
+    case 'equals':   return actual === expected
+    case 'notContains': return expected === '' || !actual.includes(expected)
+    case 'contains':
+    default:         return expected === '' || actual.includes(expected)
+  }
+}
+
+// ── 検索・区分フィルタ ──────────────────────────────────────────────────
 const searchQuery = ref('')
 const filterType  = ref<'all' | 'individual' | 'corporate'>('all')
+
+const activeConditionCount = computed(() =>
+  conditions.value.filter(c => c.operator === 'notEmpty' || c.operator === 'empty' || c.value.trim() !== '').length
+)
 
 const filtered = computed(() => {
   let list = store.customers.value
@@ -32,8 +111,58 @@ const filtered = computed(() => {
       c.email?.toLowerCase().includes(q),
     )
   }
+
+  const activeConditions = conditions.value.filter(
+    c => c.operator === 'notEmpty' || c.operator === 'empty' || c.value.trim() !== '',
+  )
+  if (activeConditions.length > 0) {
+    list = list.filter(c => {
+      const results = activeConditions.map(cond => matchCondition(c, cond))
+      return matchMode.value === 'and' ? results.every(Boolean) : results.some(Boolean)
+    })
+  }
+
   return list
 })
+
+// ── ページネーション（大量データのため描画件数を制限） ────────────────
+const pageSize = ref(50)
+const currentPage = ref(1)
+
+const totalPages = computed(() => Math.max(1, Math.ceil(filtered.value.length / pageSize.value)))
+
+const pagedList = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  return filtered.value.slice(start, start + pageSize.value)
+})
+
+const pageRangeLabel = computed(() => {
+  if (filtered.value.length === 0) return '0件'
+  const start = (currentPage.value - 1) * pageSize.value + 1
+  const end = Math.min(currentPage.value * pageSize.value, filtered.value.length)
+  return `${start}〜${end}件 / 全${filtered.value.length}件`
+})
+
+// 絞り込み条件が変わったら1ページ目に戻す
+watch([searchQuery, filterType, conditions, matchMode, pageSize], () => {
+  currentPage.value = 1
+}, { deep: true })
+
+// データ件数が減ってページ範囲外になった場合は末尾ページへ調整
+watch(totalPages, (tp) => {
+  if (currentPage.value > tp) currentPage.value = tp
+})
+
+const goToPage = (p: number) => {
+  currentPage.value = Math.min(Math.max(1, p), totalPages.value)
+}
+
+// ── フォロー表出力（絞り込み結果全件を出力） ────────────────────────────
+const handleExportApo = () => {
+  const csv = exportApoToCsv(filtered.value)
+  const label = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '')
+  downloadCsv(csv, `apo_report_${label}.csv`)
+}
 
 // ── CSV インポートモーダル ─────────────────────────────────────────────────
 const showImportModal = ref(false)
@@ -124,7 +253,7 @@ const statusColor = (s: string) => {
       </div>
     </div>
 
-    <!-- ===== 検索・フィルタ ===== -->
+    <!-- ===== 検索・区分フィルタ ===== -->
     <div class="flex flex-col sm:flex-row gap-2">
       <div class="relative flex-1">
         <Icon name="heroicons:magnifying-glass" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -145,8 +274,105 @@ const statusColor = (s: string) => {
             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
           @click="filterType = btn.key as any"
         >{{ btn.label }}</button>
+        <!-- 詳細条件トグル -->
+        <button
+          class="relative flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition shrink-0"
+          :class="activeConditionCount > 0
+            ? 'border-primary-400 bg-primary-50 text-primary-700'
+            : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'"
+          @click="showFilter = !showFilter"
+        >
+          <Icon name="heroicons:adjustments-horizontal" class="h-4 w-4" />
+          詳細条件
+          <span
+            v-if="activeConditionCount > 0"
+            class="flex h-4 w-4 items-center justify-center rounded-full bg-primary-500 text-[10px] text-white font-bold"
+          >{{ activeConditionCount }}</span>
+        </button>
       </div>
     </div>
+
+    <!-- ===== 詳細条件パネル（項目を選択して条件を入れる） ===== -->
+    <Transition
+      enter-active-class="transition duration-150"
+      enter-from-class="opacity-0 -translate-y-2"
+      enter-to-class="opacity-100 translate-y-0"
+      leave-active-class="transition duration-100"
+      leave-from-class="opacity-100 translate-y-0"
+      leave-to-class="opacity-0 -translate-y-2"
+    >
+      <div v-if="showFilter" class="card p-4 space-y-3">
+        <p class="text-xs font-semibold text-gray-500">条件</p>
+
+        <div v-if="conditions.length === 0" class="text-sm text-gray-400 py-2">
+          条件がありません。「＋条件を追加」から項目を選択して条件を設定してください。
+        </div>
+
+        <div
+          v-for="(cond, idx) in conditions"
+          :key="idx"
+          class="flex flex-wrap items-center gap-2"
+        >
+          <!-- 項目選択 -->
+          <select v-model="cond.field" class="input-field text-sm py-1.5 w-auto min-w-[140px]">
+            <option v-for="f in FIELD_OPTIONS" :key="f.key" :value="f.key">{{ f.label }}</option>
+          </select>
+          <!-- 演算子選択 -->
+          <select v-model="cond.operator" class="input-field text-sm py-1.5 w-auto min-w-[140px]">
+            <option v-for="op in OPERATOR_OPTIONS" :key="op.value" :value="op.value">{{ op.label }}</option>
+          </select>
+          <!-- 値入力（空/空でない の場合は不要） -->
+          <template v-if="cond.operator !== 'notEmpty' && cond.operator !== 'empty'">
+            <select
+              v-if="fieldOf(cond.field).type === 'select'"
+              v-model="cond.value"
+              class="input-field text-sm py-1.5 w-auto min-w-[120px]"
+            >
+              <option value="">選択してください</option>
+              <option v-for="opt in fieldOf(cond.field).options" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+            </select>
+            <input
+              v-else
+              v-model="cond.value"
+              type="text"
+              placeholder="値を入力..."
+              class="input-field text-sm py-1.5 flex-1 min-w-[140px]"
+            />
+          </template>
+          <button
+            class="text-gray-400 hover:text-red-500 transition shrink-0"
+            @click="removeCondition(idx)"
+          >
+            <Icon name="heroicons:minus-circle" class="h-5 w-5" />
+          </button>
+        </div>
+
+        <button
+          v-if="conditions.length < 5"
+          class="text-sm text-primary-600 hover:underline flex items-center gap-1"
+          @click="addCondition"
+        >
+          <Icon name="heroicons:plus" class="h-4 w-4" />
+          条件を追加
+        </button>
+
+        <div v-if="conditions.length > 0" class="flex items-center justify-between pt-2 border-t border-gray-100">
+          <div class="flex items-center gap-4">
+            <label class="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
+              <input type="radio" value="and" v-model="matchMode" class="text-primary-600" />
+              すべての条件を満たす
+            </label>
+            <label class="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
+              <input type="radio" value="or" v-model="matchMode" class="text-primary-600" />
+              いずれかの条件を満たす
+            </label>
+          </div>
+          <button class="text-xs text-gray-400 hover:text-red-500 transition" @click="clearConditions">
+            すべてクリア
+          </button>
+        </div>
+      </div>
+    </Transition>
 
     <!-- ===== テーブル（PC） ===== -->
     <div class="hidden md:block card overflow-hidden">
@@ -166,7 +392,7 @@ const statusColor = (s: string) => {
           </thead>
           <tbody class="divide-y divide-gray-50">
             <tr
-              v-for="c in filtered"
+              v-for="c in pagedList"
               :key="c.id"
               class="hover:bg-gray-50 transition-colors cursor-pointer"
               @click="router.push(`/customers/${c.id}`)"
@@ -218,7 +444,7 @@ const statusColor = (s: string) => {
     <!-- ===== カード一覧（SP） ===== -->
     <div class="md:hidden space-y-3">
       <div
-        v-for="c in filtered"
+        v-for="c in pagedList"
         :key="c.id"
         class="card p-4"
       >
@@ -247,10 +473,54 @@ const statusColor = (s: string) => {
           詳細を見る →
         </NuxtLink>
       </div>
+      <div v-if="filtered.length === 0" class="card p-12 text-center">
+        <Icon name="heroicons:magnifying-glass" class="h-10 w-10 text-gray-200 mx-auto mb-2" />
+        <p class="text-gray-400 text-sm">該当するデータが見つかりませんでした</p>
+      </div>
     </div>
 
-    <!-- フッター件数 -->
-    <p class="text-xs text-gray-400 text-right">{{ filtered.length }} / {{ store.customers.value.length }} 件表示中</p>
+    <!-- ===== ページネーション ===== -->
+    <div v-if="filtered.length > 0" class="flex flex-col sm:flex-row items-center justify-between gap-3">
+      <p class="text-xs text-gray-400">{{ pageRangeLabel }}</p>
+      <div class="flex items-center gap-1">
+        <button
+          class="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition"
+          :disabled="currentPage <= 1"
+          @click="goToPage(1)"
+        >
+          <Icon name="heroicons:chevron-double-left" class="h-4 w-4" />
+        </button>
+        <button
+          class="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition"
+          :disabled="currentPage <= 1"
+          @click="goToPage(currentPage - 1)"
+        >
+          <Icon name="heroicons:chevron-left" class="h-4 w-4" />
+        </button>
+        <span class="px-3 text-sm text-gray-600 font-medium whitespace-nowrap">
+          {{ currentPage }} / {{ totalPages }} ページ
+        </span>
+        <button
+          class="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition"
+          :disabled="currentPage >= totalPages"
+          @click="goToPage(currentPage + 1)"
+        >
+          <Icon name="heroicons:chevron-right" class="h-4 w-4" />
+        </button>
+        <button
+          class="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition"
+          :disabled="currentPage >= totalPages"
+          @click="goToPage(totalPages)"
+        >
+          <Icon name="heroicons:chevron-double-right" class="h-4 w-4" />
+        </button>
+        <select v-model.number="pageSize" class="input-field text-xs py-1.5 ml-2 w-auto">
+          <option :value="25">25件/ページ</option>
+          <option :value="50">50件/ページ</option>
+          <option :value="100">100件/ページ</option>
+        </select>
+      </div>
+    </div>
 
     <!-- ===== CSVインポートモーダル ===== -->
     <Teleport to="body">

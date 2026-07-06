@@ -281,9 +281,9 @@ const runSeed = async () => {
         <Icon v-else name="heroicons:arrow-up-tray" class="h-4 w-4" />
         {{ loading ? '投入中...' : done ? '投入済み' : 'サンプルデータを投入する' }}
       </button>
-      <NuxtLink v-if="done" to="/customers" class="btn-secondary flex items-center gap-2">
+      <NuxtLink v-if="done" to="/personal-data" class="btn-secondary flex items-center gap-2">
         <Icon name="heroicons:users" class="h-4 w-4" />
-        顧客一覧で確認
+        パーソナルデータで確認
       </NuxtLink>
     </div>
 

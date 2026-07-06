@@ -309,7 +309,7 @@ const unreadNotifCount = computed(() => MOCK_NOTIFICATIONS.filter(n => !n.isRead
           <Icon name="heroicons:user-plus" class="h-5 w-5 text-primary-600 shrink-0" />
           顧客登録
         </NuxtLink>
-        <NuxtLink to="/customers" class="flex items-center gap-2 rounded-lg border border-gray-200 p-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-primary-300 transition">
+        <NuxtLink to="/personal-data" class="flex items-center gap-2 rounded-lg border border-gray-200 p-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-primary-300 transition">
           <Icon name="heroicons:magnifying-glass" class="h-5 w-5 text-primary-600 shrink-0" />
           顧客検索
         </NuxtLink>

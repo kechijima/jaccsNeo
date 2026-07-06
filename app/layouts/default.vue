@@ -9,7 +9,6 @@ const route = useRoute()
 
 const navItems = [
   { label: 'ダッシュボード',   icon: 'heroicons:home',                   to: '/dashboard' },
-  { label: '顧客管理',         icon: 'heroicons:users',                  to: '/customers' },
   { label: 'パーソナルデータ', icon: 'heroicons:identification',         to: '/personal-data' },
   { label: 'アプリ',           icon: 'heroicons:squares-2x2',            to: '/services' },
   { label: '掲示板',           icon: 'heroicons:chat-bubble-left-right', to: '/portal' },
@@ -20,10 +19,10 @@ const navItems = [
 // SPボトムナビ用（項目数を絞り、短いラベルで表示崩れを防ぐ）
 const mobileNavItems = [
   { label: 'ホーム',   icon: 'heroicons:home',                   to: '/dashboard' },
-  { label: '顧客',     icon: 'heroicons:users',                  to: '/customers' },
   { label: 'データ',   icon: 'heroicons:identification',         to: '/personal-data' },
   { label: 'アプリ',   icon: 'heroicons:squares-2x2',            to: '/services' },
   { label: '掲示板',   icon: 'heroicons:chat-bubble-left-right', to: '/portal' },
+  { label: 'イベント', icon: 'heroicons:calendar-days',          to: '/events' },
 ]
 
 const isActive = (to: string) => route.path.startsWith(to)

@@ -90,7 +90,7 @@ onMounted(async () => {
 
     <!-- パンくず -->
     <div class="flex items-center gap-2 text-sm text-gray-400">
-      <NuxtLink to="/customers">顧客管理</NuxtLink>
+      <NuxtLink to="/personal-data">パーソナルデータ</NuxtLink>
       <Icon name="heroicons:chevron-right" class="h-3 w-3" />
       <NuxtLink :to="`/customers/${customerId}`">{{ customerName }}</NuxtLink>
       <Icon name="heroicons:chevron-right" class="h-3 w-3" />
