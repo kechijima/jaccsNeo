@@ -1,8 +1,9 @@
-import { MOCK_CUSTOMERS } from '~/data/mock'
+import { CSV_CUSTOMERS } from '~/data/customersData'
 import type { Customer, CustomerForm } from '~/types/customer'
 
 export const useCustomerStore = () => {
-  const customers = useState<Customer[]>('customers:list', () => [...MOCK_CUSTOMERS])
+  // kintone CSVから取り込んだ実データで初期化（モックデータは廃止）
+  const customers = useState<Customer[]>('customers:list', () => [...CSV_CUSTOMERS])
 
   const getById = (id: Ref<string> | string) =>
     computed(() => customers.value.find(c => c.id === unref(id)) ?? null)

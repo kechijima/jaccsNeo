@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { MOCK_CUSTOMERS, MOCK_ADMIN_USERS } from '~/data/mock'
 import { exportApoToCsv, downloadCsv } from '~/utils/csvCustomer'
+import { useCustomerStore } from '~/composables/useCustomerStore'
 import type { Customer } from '~/types/customer'
 
 definePageMeta({ middleware: ['auth'] })
 
+const { customers } = useCustomerStore()
+
 const now = new Date()
 const nextWeek = new Date(now.getTime() + 7 * 86400000)
-const twoWeeks = new Date(now.getTime() + 14 * 86400000)
 
 const parse = (dateStr?: string) => (dateStr ? new Date(dateStr) : null)
 
@@ -17,7 +18,7 @@ const filterState  = ref('')  // 'future' | 'adjusting' | 'done'
 
 // ── アポ対象顧客（appointment1 or appointment2 を持つ、またはアポ調整中） ────
 const apoCustomers = computed<Customer[]>(() => {
-  return MOCK_CUSTOMERS.filter(c =>
+  return customers.value.filter(c =>
     c.appointment1?.place ||
     c.appointment2?.place ||
     c.status1 === 'アポ調整中',
@@ -55,20 +56,18 @@ const summary = computed(() => {
   return { total: all.length, future: future.length, adjusting: adjusting.length, done: done.length, thisWeek: thisWeek.length, laterThan: laterThan.length }
 })
 
-// ── FP別集計 ─────────────────────────────────────────────────────────────────
+// ── 担当者別集計（CSVデータの担当者名でグルーピング） ────────────────────────
 const fpStats = computed(() => {
   const fpMap: Record<string, { name: string; future: number; adjusting: number; done: number; total: number }> = {}
 
-  for (const fp of MOCK_ADMIN_USERS.filter(u => u.uid !== 'mock-user-123')) {
-    fpMap[fp.uid] = { name: fp.displayName, future: 0, adjusting: 0, done: 0, total: 0 }
-  }
-
   for (const c of apoCustomers.value) {
-    const fpId = (c as any).assignedFpId
-    if (!fpId || !fpMap[fpId]) continue
+    const fpName = c.assignedFpName || '担当未設定'
+    if (!fpMap[fpName]) {
+      fpMap[fpName] = { name: fpName, future: 0, adjusting: 0, done: 0, total: 0 }
+    }
     const cls = classify(c)
-    fpMap[fpId][cls]++
-    fpMap[fpId].total++
+    fpMap[fpName][cls]++
+    fpMap[fpName].total++
   }
 
   return Object.values(fpMap)
@@ -82,7 +81,7 @@ const maxFpTotal = computed(() => Math.max(...fpStats.value.map(f => f.total), 1
 const filteredList = computed<Customer[]>(() => {
   let list = apoCustomers.value
 
-  if (filterFp.value)    list = list.filter(c => (c as any).assignedFpId === filterFp.value)
+  if (filterFp.value)    list = list.filter(c => (c.assignedFpName || '担当未設定') === filterFp.value)
   if (filterState.value) list = list.filter(c => classify(c) === filterState.value)
 
   // 日付順にソート（確定分は近い順、調整中は末尾）
@@ -136,7 +135,10 @@ const stateBadge = (c: Customer) => {
   return                          { text: '実施済み',  cls: 'bg-gray-100 text-gray-500' }
 }
 
-const fpOptions = MOCK_ADMIN_USERS.filter(u => u.uid !== 'mock-user-123')
+// 担当者の選択肢（アポ対象顧客の担当者名から動的に生成）
+const fpOptions = computed(() =>
+  [...new Set(apoCustomers.value.map(c => c.assignedFpName || '担当未設定'))].sort()
+)
 </script>
 
 <template>
@@ -146,8 +148,8 @@ const fpOptions = MOCK_ADMIN_USERS.filter(u => u.uid !== 'mock-user-123')
     <div class="flex items-start justify-between gap-3 flex-wrap">
       <div>
         <div class="flex items-center gap-2">
-          <NuxtLink to="/customers" class="text-sm text-gray-400 hover:text-gray-600 flex items-center gap-1">
-            <Icon name="heroicons:chevron-left" class="h-4 w-4" />顧客管理
+          <NuxtLink to="/personal-data" class="text-sm text-gray-400 hover:text-gray-600 flex items-center gap-1">
+            <Icon name="heroicons:chevron-left" class="h-4 w-4" />パーソナルデータ
           </NuxtLink>
         </div>
         <h1 class="text-xl font-bold text-gray-900 mt-1 flex items-center gap-2">
@@ -251,8 +253,8 @@ const fpOptions = MOCK_ADMIN_USERS.filter(u => u.uid !== 'mock-user-123')
         <div class="flex items-center gap-2 ml-auto flex-wrap">
           <!-- FP フィルター -->
           <select v-model="filterFp" class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-primary-300">
-            <option value="">全FP</option>
-            <option v-for="fp in fpOptions" :key="fp.uid" :value="fp.uid">{{ fp.displayName }}</option>
+            <option value="">全担当者</option>
+            <option v-for="fp in fpOptions" :key="fp" :value="fp">{{ fp }}</option>
           </select>
           <!-- 状態フィルター -->
           <select v-model="filterState" class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-primary-300">

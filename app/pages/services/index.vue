@@ -1,28 +1,23 @@
 <script setup lang="ts">
-import { MOCK_SERVICE_CASES } from '~/data/mock'
 import { SERVICE_LABELS } from '~/types/service'
 import { useCustomerStore } from '~/composables/useCustomerStore'
+import { useAppServices } from '~/composables/useAppServices'
 
 definePageMeta({ middleware: ['auth'] })
 
 const { customers } = useCustomerStore()
+const { countForType } = useAppServices()
 
-// ── カウント計算 ──────────────────────────────────────────────────────
-const getCount = (type: string) =>
-  Object.values(MOCK_SERVICE_CASES).reduce((sum, s) => sum + ((s as any)[type]?.length ?? 0), 0)
+// ── カウント計算（パーソナルデータのサービス項目から集計） ──────────────
+const getCount = (type: string) => countForType(type)
 
 // ── サマリー ──────────────────────────────────────────────────────────
 const totalCases = computed(() =>
-  Object.values(MOCK_SERVICE_CASES).reduce(
-    (sum, s) => sum + Object.values(s).reduce((a, arr) => a + arr.length, 0),
-    0,
-  ),
+  customers.value.reduce((sum, c) => sum + Object.keys(c.services ?? {}).length, 0),
 )
 
 const customersWithCases = computed(() =>
-  Object.keys(MOCK_SERVICE_CASES).filter(id =>
-    Object.values(MOCK_SERVICE_CASES[id] ?? {}).some(arr => arr.length > 0),
-  ).length,
+  customers.value.filter(c => Object.keys(c.services ?? {}).length > 0).length,
 )
 
 // ── カテゴリ定義 ──────────────────────────────────────────────────────

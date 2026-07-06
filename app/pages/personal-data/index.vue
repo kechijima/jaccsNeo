@@ -1,10 +1,18 @@
 <script setup lang="ts">
 import { useCustomerStore } from '~/composables/useCustomerStore'
+import { exportApoToCsv, downloadCsv } from '~/utils/csvCustomer'
 
 definePageMeta({ middleware: ['auth'] })
 
 const store = useCustomerStore()
 const router = useRouter()
+
+// ── フォロー表出力 ────────────────────────────────────────────────────────
+const handleExportApo = () => {
+  const csv = exportApoToCsv(filtered.value)
+  const label = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '')
+  downloadCsv(csv, `apo_report_${label}.csv`)
+}
 
 // ── 検索・フィルタ ────────────────────────────────────────────────────────
 const searchQuery = ref('')
@@ -71,7 +79,17 @@ const statusColor = (s: string) => {
         </h1>
         <p class="mt-1 text-sm text-gray-500">顧客の詳細情報管理・CSV連携</p>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 flex-wrap">
+        <!-- アポ分析 -->
+        <NuxtLink to="/personal-data/apo" class="btn-secondary text-sm flex items-center gap-1.5">
+          <Icon name="heroicons:chart-bar" class="h-4 w-4" />
+          アポ分析
+        </NuxtLink>
+        <!-- フォロー表出力 -->
+        <button class="btn-secondary text-sm flex items-center gap-1.5" @click="handleExportApo">
+          <Icon name="heroicons:calendar-days" class="h-4 w-4" />
+          フォロー表出力
+        </button>
         <button
           class="btn-secondary text-sm flex items-center gap-1.5"
           @click="showImportModal = true"
@@ -165,7 +183,7 @@ const statusColor = (s: string) => {
               </td>
               <td class="px-4 py-3 whitespace-nowrap">
                 <span v-if="c.status1" class="badge text-xs" :class="statusColor(c.status1)">
-                  {{ c.status1 }}
+                  {{ c.status1.length > 20 ? c.status1.slice(0, 20) + '...' : c.status1 }}
                 </span>
                 <span v-else class="text-xs text-gray-300">—</span>
               </td>
@@ -210,7 +228,7 @@ const statusColor = (s: string) => {
             <p class="text-xs text-gray-400 mt-0.5">{{ c.nameKana }}</p>
           </div>
           <div class="flex items-center gap-1.5">
-            <span v-if="c.status1" class="badge text-xs" :class="statusColor(c.status1)">{{ c.status1 }}</span>
+            <span v-if="c.status1" class="badge text-xs" :class="statusColor(c.status1)">{{ c.status1.length > 15 ? c.status1.slice(0, 15) + '...' : c.status1 }}</span>
             <span
               class="badge text-xs"
               :class="c.type === 'corporate' ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-blue-700'"

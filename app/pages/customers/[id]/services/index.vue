@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { SERVICE_LABELS, STATUS_LABELS } from '~/types/service'
-import type { ServiceStatus } from '~/types/service'
-import { MOCK_CUSTOMERS, getMockServiceSummaries } from '~/data/mock'
+import { SERVICE_LABELS } from '~/types/service'
+import { useCustomerStore } from '~/composables/useCustomerStore'
+import { useAppServices } from '~/composables/useAppServices'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -9,7 +9,9 @@ const route = useRoute()
 const customerId = computed(() => route.params.id as string)
 const { canEditCustomer } = usePermission()
 
-const customer = computed(() => MOCK_CUSTOMERS.find(c => c.id === customerId.value))
+const { getById } = useCustomerStore()
+const { resolveKey } = useAppServices()
+const customer = getById(customerId)
 const customerName = computed(() => customer.value?.name ?? '')
 
 // ── カテゴリ定義 ──────────────────────────────────────────────────────
@@ -72,45 +74,36 @@ const CATEGORY_DEFS = [
 
 // ── フィルター状態 ────────────────────────────────────────────────────
 const selectedCategory = ref('')       // '' = すべて
-const filterStatus     = ref('')       // '' = すべて
 const onlyWithContent  = ref(false)    // 対応ありのみ
 
 const resetFilters = () => {
   selectedCategory.value = ''
-  filterStatus.value     = ''
   onlyWithContent.value  = false
 }
 
 const isFiltering = computed(() =>
-  selectedCategory.value !== '' || filterStatus.value !== '' || onlyWithContent.value
+  selectedCategory.value !== '' || onlyWithContent.value
 )
 
-// ── サービス行ビルド ──────────────────────────────────────────────────
-const buildService = (summaryMap: Map<string, any>, svcKey: string) => {
-  const summary = summaryMap.get(svcKey)
-  const status  = summary?.latestStatus ?? 'none'
-  const statusLabel = status !== 'none'
-    ? (STATUS_LABELS[status as ServiceStatus] ?? '対応なし')
+// ── サービス行ビルド（パーソナルデータのservices値から導出） ──────────
+const buildService = (svcKey: string) => {
+  const value = (customer.value?.services as any)?.[resolveKey(svcKey)] ?? ''
+  const status = value ? 'active' : 'none'
+  const statusLabel = value
+    ? (value.length > 30 ? value.slice(0, 30) + '...' : value)
     : '対応なし'
-  const date = summary?.latestUpdatedAt
-    ? summary.latestUpdatedAt.toDate().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit' })
-    : ''
-  return { key: svcKey, label: SERVICE_LABELS[svcKey] ?? svcKey, status, statusLabel, date }
+  return { key: svcKey, label: SERVICE_LABELS[svcKey] ?? svcKey, status, statusLabel, date: '' }
 }
 
 // ── フィルタリング済みカテゴリ一覧 ────────────────────────────────────
 const filteredCategories = computed(() => {
-  const summaries   = getMockServiceSummaries(customerId.value)
-  const summaryMap  = new Map(summaries.map(s => [s.serviceType, s]))
-
   return CATEGORY_DEFS
     .filter(cat => !selectedCategory.value || cat.key === selectedCategory.value)
     .map(cat => {
       const services = cat.services
-        .map(k => buildService(summaryMap, k))
+        .map(k => buildService(k))
         .filter(svc => {
           if (onlyWithContent.value && svc.status === 'none') return false
-          if (filterStatus.value && svc.status !== filterStatus.value) return false
           return true
         })
       return { ...cat, services }
@@ -125,25 +118,14 @@ const totalCount = computed(() =>
 const filteredCount = computed(() =>
   filteredCategories.value.reduce((n, cat) => n + cat.services.length, 0)
 )
-const withContentCount = computed(() => {
-  const summaries  = getMockServiceSummaries(customerId.value)
-  const summaryMap = new Map(summaries.map(s => [s.serviceType, s]))
-  return CATEGORY_DEFS.flatMap(cat => cat.services).filter(k => {
-    const s = summaryMap.get(k)
-    return s?.latestStatus && s.latestStatus !== 'none'
-  }).length
-})
+const withContentCount = computed(() =>
+  CATEGORY_DEFS.flatMap(cat => cat.services)
+    .filter(k => (customer.value?.services as any)?.[resolveKey(k)]).length
+)
 
 // ── バッジスタイル ────────────────────────────────────────────────────
 const statusClass = (status: string) => {
-  switch (status) {
-    case 'contracted': return 'bg-green-100 text-green-700'
-    case 'completed':  return 'bg-blue-100 text-blue-700'
-    case 'considering':return 'bg-amber-100 text-amber-700'
-    case 'consulting': return 'bg-sky-100 text-sky-700'
-    case 'failed':     return 'bg-red-100 text-red-600'
-    default:           return 'bg-gray-100 text-gray-500'
-  }
+  return status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
 }
 </script>
 
@@ -199,14 +181,8 @@ const statusClass = (status: string) => {
         </button>
       </div>
 
-      <!-- ステータス + 対応ありトグル -->
+      <!-- 対応ありトグル -->
       <div class="flex flex-wrap items-center gap-3">
-        <!-- ステータス選択 -->
-        <select v-model="filterStatus" class="input-field text-sm py-1.5 w-auto">
-          <option value="">ステータス: すべて</option>
-          <option v-for="(label, key) in STATUS_LABELS" :key="key" :value="key">{{ label }}</option>
-        </select>
-
         <!-- 対応ありのみトグル -->
         <label class="flex items-center gap-2 cursor-pointer">
           <div

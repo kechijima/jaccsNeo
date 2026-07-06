@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { getMockAllCasesForType } from '~/data/mock'
-import { SERVICE_LABELS, STATUS_LABELS } from '~/types/service'
+import { SERVICE_LABELS } from '~/types/service'
+import { useAppServices } from '~/composables/useAppServices'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -8,62 +8,31 @@ const route = useRoute()
 const serviceType = computed(() => route.params.serviceType as string)
 const serviceLabel = computed(() => SERVICE_LABELS[serviceType.value] ?? serviceType.value)
 
-// ── 全案件取得 ────────────────────────────────────────────────────────
-const allCases = computed(() => getMockAllCasesForType(serviceType.value))
+// ── パーソナルデータから対応顧客を取得 ────────────────────────────────
+const { getCasesForType } = useAppServices()
+const allCases = computed(() => getCasesForType(serviceType.value))
 
-// ── フィルタータブ ─────────────────────────────────────────────────────
-const activeTab = ref<string>('all')
-const tabs = [
-  { key: 'all',        label: 'すべて' },
-  { key: 'consulting', label: '相談中' },
-  { key: 'considering',label: '検討中' },
-  { key: 'contracted', label: '成約' },
-  { key: 'completed',  label: '完了' },
-  { key: 'failed',     label: '不成立' },
-]
+// ── 検索 ──────────────────────────────────────────────────────────────
+const searchQuery = ref('')
 
-const filteredCases = computed(() =>
-  activeTab.value === 'all'
-    ? allCases.value
-    : allCases.value.filter(c => c.status === activeTab.value),
-)
+const filteredCases = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  if (!q) return allCases.value
+  return allCases.value.filter(c =>
+    c.customerName.toLowerCase().includes(q) ||
+    c.customerNameKana.toLowerCase().includes(q) ||
+    c.status.toLowerCase().includes(q),
+  )
+})
 
-// ── 統計 ──────────────────────────────────────────────────────────────
-const stats = computed(() => ({
-  total:      allCases.value.length,
-  contracted: allCases.value.filter(c => c.status === 'contracted').length,
-  consulting: allCases.value.filter(c => c.status === 'consulting').length,
-}))
-
-// ── 生命保険フラグ ────────────────────────────────────────────────────
-const isLifeInsurance = computed(() => serviceType.value === 'lifeInsurance')
-
-// ── ステータスバッジ ──────────────────────────────────────────────────
+// ── ステータスの色（値のパターンで判定） ──────────────────────────────
 const statusClass = (status: string) => {
-  switch (status) {
-    case 'contracted':  return 'bg-green-100 text-green-700'
-    case 'completed':   return 'bg-blue-100 text-blue-700'
-    case 'considering': return 'bg-amber-100 text-amber-700'
-    case 'consulting':  return 'bg-sky-100 text-sky-700'
-    case 'failed':      return 'bg-red-100 text-red-600'
-    default:            return 'bg-gray-100 text-gray-500'
-  }
+  if (/成約|○|済/.test(status)) return 'bg-green-100 text-green-700'
+  if (/検討/.test(status))       return 'bg-amber-100 text-amber-700'
+  if (/相談|確認/.test(status))  return 'bg-sky-100 text-sky-700'
+  if (/不成立|見送/.test(status)) return 'bg-red-100 text-red-600'
+  return 'bg-gray-100 text-gray-600'
 }
-
-// ── 日付フォーマット ──────────────────────────────────────────────────
-const fmt = (val: any) => {
-  if (!val) return '—'
-  if (typeof val === 'string') return val.replace(/-/g, '/')
-  const d = val?.toDate?.() ?? (val instanceof Date ? val : null)
-  if (!d) return '—'
-  return d.toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' })
-}
-
-// ── タブのカウント ────────────────────────────────────────────────────
-const tabCount = (key: string) =>
-  key === 'all'
-    ? allCases.value.length
-    : allCases.value.filter(c => c.status === key).length
 </script>
 
 <template>
@@ -84,89 +53,31 @@ const tabCount = (key: string) =>
           {{ serviceLabel }}
         </h1>
         <p class="mt-1 text-sm text-gray-500">
-          全顧客対象 — {{ stats.total }} 件の案件
+          パーソナルデータ連動 — {{ allCases.length }} 件の対応顧客
         </p>
       </div>
-      <!-- 新規案件作成（顧客選択が先なのでdisabled表示） -->
-      <div class="relative group">
-        <button
-          disabled
-          class="btn-primary text-sm flex items-center gap-1.5 opacity-50 cursor-not-allowed"
-        >
-          <Icon name="heroicons:plus" class="h-4 w-4" />
-          新規案件作成
-        </button>
-        <!-- ツールチップ -->
-        <div
-          class="absolute right-0 top-full mt-1.5 z-10 hidden group-hover:block
-                 bg-gray-800 text-white text-xs rounded-lg px-3 py-1.5 whitespace-nowrap shadow-lg"
-        >
-          先に顧客を選択してください
-          <NuxtLink to="/customers" class="ml-1 underline text-blue-300">顧客一覧</NuxtLink>
-        </div>
-      </div>
+      <NuxtLink to="/personal-data" class="btn-secondary text-sm flex items-center gap-1.5">
+        <Icon name="heroicons:identification" class="h-4 w-4" />
+        パーソナルデータへ
+      </NuxtLink>
     </div>
 
-    <!-- ===== 統計カード ===== -->
-    <div class="grid grid-cols-3 gap-3">
-      <div class="card p-4">
-        <p class="text-xs text-gray-500 font-medium">件数</p>
-        <p class="mt-1 text-2xl font-bold text-gray-900">
-          {{ stats.total }}<span class="text-sm font-normal text-gray-400 ml-1">件</span>
-        </p>
-        <div class="mt-1.5 flex items-center gap-1 text-xs text-gray-400">
-          <Icon name="heroicons:clipboard-document-list" class="h-3.5 w-3.5" />
-          全ステータス
-        </div>
-      </div>
-      <div class="card p-4">
-        <p class="text-xs text-gray-500 font-medium">成約数</p>
-        <p class="mt-1 text-2xl font-bold text-green-600">
-          {{ stats.contracted }}<span class="text-sm font-normal text-gray-400 ml-1">件</span>
-        </p>
-        <div class="mt-1.5 flex items-center gap-1 text-xs text-gray-400">
-          <Icon name="heroicons:check-badge" class="h-3.5 w-3.5 text-green-400" />
-          contracted
-        </div>
-      </div>
-      <div class="card p-4">
-        <p class="text-xs text-gray-500 font-medium">相談中</p>
-        <p class="mt-1 text-2xl font-bold text-sky-600">
-          {{ stats.consulting }}<span class="text-sm font-normal text-gray-400 ml-1">件</span>
-        </p>
-        <div class="mt-1.5 flex items-center gap-1 text-xs text-gray-400">
-          <Icon name="heroicons:chat-bubble-left-right" class="h-3.5 w-3.5 text-sky-400" />
-          consulting
-        </div>
-      </div>
-    </div>
-
-    <!-- ===== フィルタータブ ===== -->
-    <div class="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-hide">
-      <button
-        v-for="tab in tabs"
-        :key="tab.key"
-        class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors"
-        :class="activeTab === tab.key
-          ? 'bg-primary-600 text-white shadow-sm'
-          : 'text-gray-500 hover:bg-gray-100'"
-        @click="activeTab = tab.key"
-      >
-        {{ tab.label }}
-        <span
-          class="text-xs rounded-full px-1.5 py-0.5 font-normal"
-          :class="activeTab === tab.key ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'"
-        >
-          {{ tabCount(tab.key) }}
-        </span>
-      </button>
+    <!-- ===== 検索 ===== -->
+    <div class="relative max-w-md">
+      <Icon name="heroicons:magnifying-glass" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+      <input
+        v-model="searchQuery"
+        type="text"
+        placeholder="顧客名・フリガナ・対応状況で検索..."
+        class="input-field pl-9 text-sm"
+      />
     </div>
 
     <!-- ===== データなし ===== -->
     <div v-if="filteredCases.length === 0" class="card p-12 text-center">
       <Icon name="heroicons:document-magnifying-glass" class="h-12 w-12 text-gray-200 mx-auto mb-3" />
-      <p class="text-gray-400 font-medium">該当する案件がありません</p>
-      <p class="text-sm text-gray-300 mt-1">フィルターを変更してください</p>
+      <p class="text-gray-400 font-medium">該当する顧客がありません</p>
+      <p class="text-sm text-gray-300 mt-1">パーソナルデータでこのサービスに値が入力されている顧客が表示されます</p>
     </div>
 
     <!-- ===== テーブル（PC） ===== -->
@@ -176,17 +87,8 @@ const tabCount = (key: string) =>
           <thead>
             <tr class="border-b border-gray-100 bg-gray-50">
               <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">顧客名</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">ステータス</th>
-              <th v-if="isLifeInsurance" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">保険種別</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                {{ isLifeInsurance ? '保険会社' : '会社名' }}
-              </th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                {{ isLifeInsurance ? '月額保険料' : '金額' }}
-              </th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">対応日</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">成約日</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[160px]">備考</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[200px]">対応状況</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">担当</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">詳細</th>
             </tr>
           </thead>
@@ -206,35 +108,21 @@ const tabCount = (key: string) =>
                 </NuxtLink>
                 <p class="text-xs text-gray-400 mt-0.5">{{ c.customerNameKana }}</p>
               </td>
-              <!-- ステータス -->
-              <td class="px-4 py-3 whitespace-nowrap">
-                <span class="badge text-xs" :class="statusClass(c.status)">
-                  {{ STATUS_LABELS[c.status as keyof typeof STATUS_LABELS] ?? c.status }}
+              <!-- 対応状況 -->
+              <td class="px-4 py-3">
+                <span class="badge text-xs whitespace-pre-line" :class="statusClass(c.status)">
+                  {{ c.status.length > 60 ? c.status.slice(0, 60) + '...' : c.status }}
                 </span>
               </td>
-              <!-- 保険種別（生命保険のみ） -->
-              <td v-if="isLifeInsurance" class="px-4 py-3 text-gray-600 whitespace-nowrap">
-                {{ c.insuranceType ?? '—' }}
-              </td>
-              <!-- 会社名 / 保険会社 -->
-              <td class="px-4 py-3 text-gray-600 whitespace-nowrap">{{ c.company ?? '—' }}</td>
-              <!-- 金額 / 月額保険料 -->
-              <td class="px-4 py-3 text-gray-600 whitespace-nowrap">{{ c.amount ?? '—' }}</td>
-              <!-- 対応日 -->
-              <td class="px-4 py-3 text-gray-500 whitespace-nowrap">{{ fmt(c.date) }}</td>
-              <!-- 成約日 -->
-              <td class="px-4 py-3 text-gray-500 whitespace-nowrap">{{ fmt(c.contractDate) }}</td>
-              <!-- 備考 -->
-              <td class="px-4 py-3 text-gray-400 max-w-[200px]">
-                <span class="line-clamp-1 text-xs">{{ c.notes ?? '—' }}</span>
-              </td>
+              <!-- 担当 -->
+              <td class="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{{ c.assignedFpName || '—' }}</td>
               <!-- 詳細リンク -->
               <td class="px-4 py-3 whitespace-nowrap">
                 <NuxtLink
-                  :to="`/customers/${c.customerId}/services/${serviceType}/${c.id}`"
+                  :to="`/customers/${c.customerId}`"
                   class="inline-flex items-center gap-0.5 text-xs text-primary-600 hover:underline"
                 >
-                  詳細
+                  顧客詳細
                   <Icon name="heroicons:arrow-top-right-on-square" class="h-3 w-3" />
                 </NuxtLink>
               </td>
@@ -251,7 +139,6 @@ const tabCount = (key: string) =>
         :key="c.id"
         class="card p-4 space-y-3"
       >
-        <!-- 顧客名 + ステータス -->
         <div class="flex items-start justify-between gap-3">
           <div>
             <NuxtLink
@@ -262,49 +149,19 @@ const tabCount = (key: string) =>
             </NuxtLink>
             <p class="text-xs text-gray-400 mt-0.5">{{ c.customerNameKana }}</p>
           </div>
-          <span class="badge text-xs shrink-0" :class="statusClass(c.status)">
-            {{ STATUS_LABELS[c.status as keyof typeof STATUS_LABELS] ?? c.status }}
-          </span>
         </div>
 
-        <!-- 詳細情報 -->
-        <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-gray-600">
-          <template v-if="isLifeInsurance && c.insuranceType">
-            <div>
-              <span class="text-gray-400">保険種別</span>
-              <p class="font-medium mt-0.5">{{ c.insuranceType }}</p>
-            </div>
-          </template>
-          <div v-if="c.company">
-            <span class="text-gray-400">{{ isLifeInsurance ? '保険会社' : '会社名' }}</span>
-            <p class="font-medium mt-0.5">{{ c.company }}</p>
-          </div>
-          <div v-if="c.amount">
-            <span class="text-gray-400">{{ isLifeInsurance ? '月額保険料' : '金額' }}</span>
-            <p class="font-medium mt-0.5">{{ c.amount }}</p>
-          </div>
-          <div v-if="c.date">
-            <span class="text-gray-400">対応日</span>
-            <p class="font-medium mt-0.5">{{ fmt(c.date) }}</p>
-          </div>
-          <div v-if="c.contractDate">
-            <span class="text-gray-400">成約日</span>
-            <p class="font-medium mt-0.5">{{ fmt(c.contractDate) }}</p>
-          </div>
-        </div>
-
-        <!-- 備考 -->
-        <p v-if="c.notes" class="text-xs text-gray-400 line-clamp-2 border-t border-gray-50 pt-2">
-          {{ c.notes }}
+        <p class="text-xs rounded-lg p-2" :class="statusClass(c.status)">
+          {{ c.status.length > 120 ? c.status.slice(0, 120) + '...' : c.status }}
         </p>
 
-        <!-- 詳細リンク -->
-        <div class="flex justify-end pt-1 border-t border-gray-50">
+        <div class="flex items-center justify-between pt-1 border-t border-gray-50">
+          <span class="text-xs text-gray-400">{{ c.assignedFpName || '—' }}</span>
           <NuxtLink
-            :to="`/customers/${c.customerId}/services/${serviceType}/${c.id}`"
+            :to="`/customers/${c.customerId}`"
             class="inline-flex items-center gap-1 text-xs text-primary-600 font-medium hover:underline"
           >
-            案件詳細を見る
+            顧客詳細を見る
             <Icon name="heroicons:arrow-right" class="h-3.5 w-3.5" />
           </NuxtLink>
         </div>
@@ -313,7 +170,7 @@ const tabCount = (key: string) =>
 
     <!-- ===== 件数フッター ===== -->
     <p class="text-xs text-gray-400 text-right">
-      {{ filteredCases.length }} / {{ stats.total }} 件表示中
+      {{ filteredCases.length }} / {{ allCases.length }} 件表示中
     </p>
 
   </div>

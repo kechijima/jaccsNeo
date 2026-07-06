@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { SERVICE_LABELS, STATUS_LABELS } from '~/types/service'
-import { MOCK_CUSTOMERS, MOCK_SERVICE_CASES } from '~/data/mock'
 import { useServices } from '~/composables/useServices'
 import { useNotifications } from '~/composables/useNotifications'
 import { useStorage } from '~/composables/useStorage'
@@ -20,7 +19,8 @@ const { uploadFile } = useStorage()
 const { canEditCustomer: checkEditPermission } = usePermission()
 const authStore = useAuthStore()
 
-const customer = computed(() => MOCK_CUSTOMERS.find(c => c.id === customerId.value))
+const { getById } = useCustomerStore()
+const customer = getById(customerId)
 const customerName = computed(() => customer.value?.name ?? '')
 
 const canEditCustomer = computed(() => {
@@ -36,7 +36,7 @@ const serviceLabel = computed(() => SERVICE_LABELS[serviceType.value] ?? service
 
 const dbCase = ref<any>(null)
 const caseData = computed(() => {
-  const raw = dbCase.value || (MOCK_SERVICE_CASES[customerId.value] ?? {})[serviceType.value]?.find((c: any) => c.id === caseId.value)
+  const raw = dbCase.value
   if (!raw) return null
   return {
     ...raw,

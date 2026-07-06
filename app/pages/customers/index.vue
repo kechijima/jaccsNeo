@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { exportCustomersToCsv, exportApoToCsv, downloadCsv } from '~/utils/csvCustomer'
+import { exportCustomersToCsv, downloadCsv } from '~/utils/csvCustomer'
 import type { Customer } from '~/types/customer'
 
 definePageMeta({ middleware: ['auth'] })
@@ -33,8 +33,9 @@ const resetFilters = () => {
 const relationships = computed(() =>
   [...new Set(customers.value.map(c => c.relationship).filter(Boolean))] as string[]
 )
+// 状況はCSV由来の長文メモが入ることがあるため、短い値のみフィルタ候補にする
 const statuses = computed(() =>
-  [...new Set(customers.value.map(c => c.status1).filter(Boolean))] as string[]
+  [...new Set(customers.value.map(c => c.status1).filter(s => s && s.length <= 20))] as string[]
 )
 const stages = computed(() =>
   [...new Set(customers.value.map(c => c.stage).filter(Boolean))].sort() as string[]
@@ -70,11 +71,6 @@ const today = () =>
 const handleExportCsv = () => {
   const csv = exportCustomersToCsv(filtered.value)
   downloadCsv(csv, `customers_${today()}.csv`)
-}
-
-const handleExportApo = () => {
-  const csv = exportApoToCsv(filtered.value)
-  downloadCsv(csv, `apo_report_${today()}.csv`)
 }
 
 // ── 日付フォーマット ──────────────────────────────────────────────────────────
@@ -121,16 +117,6 @@ const apoLabel = (c: Customer): { text: string; cls: string } | null => {
         </p>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
-        <!-- アポ分析 -->
-        <NuxtLink to="/customers/apo" class="btn-secondary text-sm flex items-center gap-1.5">
-          <Icon name="heroicons:chart-bar" class="h-4 w-4" />
-          アポ分析
-        </NuxtLink>
-        <!-- アポCSV -->
-        <button class="btn-secondary text-sm flex items-center gap-1.5" @click="handleExportApo">
-          <Icon name="heroicons:calendar-days" class="h-4 w-4" />
-          フォロー表出力
-        </button>
         <!-- 通常CSV -->
         <button class="btn-secondary text-sm flex items-center gap-1.5" @click="handleExportCsv">
           <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
@@ -288,7 +274,7 @@ const apoLabel = (c: Customer): { text: string; cls: string } | null => {
                 <span v-else class="text-gray-400">—</span>
               </td>
               <td class="px-4 py-3">
-                <span v-if="c.status1" class="badge bg-primary-50 text-primary-700">{{ c.status1 }}</span>
+                <span v-if="c.status1" class="badge bg-primary-50 text-primary-700">{{ c.status1.length > 20 ? c.status1.slice(0, 20) + '...' : c.status1 }}</span>
                 <span v-else class="text-gray-400">—</span>
               </td>
               <td class="px-4 py-3">
@@ -323,7 +309,7 @@ const apoLabel = (c: Customer): { text: string; cls: string } | null => {
             <p v-if="c.tel" class="text-sm text-gray-600 mt-1">{{ c.tel }}</p>
           </div>
           <div class="flex flex-col items-end gap-1 shrink-0">
-            <span v-if="c.status1" class="badge bg-primary-50 text-primary-700 text-xs">{{ c.status1 }}</span>
+            <span v-if="c.status1" class="badge bg-primary-50 text-primary-700 text-xs">{{ c.status1.length > 15 ? c.status1.slice(0, 15) + '...' : c.status1 }}</span>
             <span v-if="apoLabel(c)" class="badge text-xs" :class="apoLabel(c)!.cls">{{ apoLabel(c)!.text }}</span>
           </div>
         </div>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { SERVICE_LABELS, STATUS_LABELS } from '~/types/service'
-import { MOCK_CUSTOMERS, MOCK_SERVICE_CASES } from '~/data/mock'
+import { SERVICE_LABELS } from '~/types/service'
+import { useCustomerStore } from '~/composables/useCustomerStore'
+import { useAppServices } from '~/composables/useAppServices'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -11,34 +12,34 @@ const { canEditCustomer } = usePermission()
 
 const serviceLabel = computed(() => SERVICE_LABELS[serviceType.value] ?? serviceType.value)
 
-const customer = computed(() => MOCK_CUSTOMERS.find(c => c.id === customerId.value))
+const { getById } = useCustomerStore()
+const { getServiceValue } = useAppServices()
+const customer = getById(customerId)
 const customerName = computed(() => customer.value?.name ?? '')
 
+// パーソナルデータのservices値から対応状況を1件の案件として表示
 const cases = computed(() => {
-  const rawCases = (MOCK_SERVICE_CASES[customerId.value] ?? {})[serviceType.value] ?? []
-  return rawCases.map((c: any) => ({
-    id: c.id,
-    status: c.status,
-    statusLabel: STATUS_LABELS[c.status] ?? c.status,
-    assignedFp: c.updatedBy ?? '',
-    date: c.date ?? '',
-    contractDate: c.contractDate ?? '',
-    amount: c.amount ?? '',
-    company: c.company ?? '',
-    notes: c.notes ?? '',
-    updatedAt: c.updatedAt ? c.updatedAt.toDate().toLocaleDateString('ja-JP') : '',
-  }))
+  const value = getServiceValue(customer.value, serviceType.value)
+  if (!value) return []
+  return [{
+    id: `${customerId.value}-${serviceType.value}`,
+    status: value,
+    statusLabel: value,
+    assignedFp: customer.value?.assignedFpName ?? '',
+    contractDate: '',
+    amount: '',
+    company: '',
+    notes: '',
+    updatedAt: '',
+  }]
 })
 
 const statusClass = (status: string) => {
-  switch (status) {
-    case 'contracted': return 'bg-green-100 text-green-700'
-    case 'completed': return 'bg-blue-100 text-blue-700'
-    case 'considering': return 'bg-amber-100 text-amber-700'
-    case 'consulting': return 'bg-sky-100 text-sky-700'
-    case 'failed': return 'bg-red-100 text-red-600'
-    default: return 'bg-gray-100 text-gray-500'
-  }
+  if (/成約|○|済/.test(status)) return 'bg-green-100 text-green-700'
+  if (/検討/.test(status))       return 'bg-amber-100 text-amber-700'
+  if (/相談|確認/.test(status))  return 'bg-sky-100 text-sky-700'
+  if (/不成立|見送/.test(status)) return 'bg-red-100 text-red-600'
+  return 'bg-gray-100 text-gray-600'
 }
 </script>
 
@@ -86,11 +87,10 @@ const statusClass = (status: string) => {
     </div>
 
     <div v-else class="space-y-3">
-      <NuxtLink
+      <div
         v-for="c in cases"
         :key="c.id"
-        :to="`/customers/${customerId}/services/${serviceType}/${c.id}`"
-        class="card p-5 block hover:shadow-md transition"
+        class="card p-5 block"
       >
         <div class="flex items-start justify-between gap-3">
           <div class="space-y-2 min-w-0">
@@ -105,11 +105,10 @@ const statusClass = (status: string) => {
             </div>
           </div>
           <div class="text-right shrink-0">
-            <p class="text-xs text-gray-400">担当: {{ c.assignedFp }}</p>
-            <p class="text-xs text-gray-400 mt-1">更新: {{ c.updatedAt }}</p>
+            <p class="text-xs text-gray-400">担当: {{ c.assignedFp || '—' }}</p>
           </div>
         </div>
-      </NuxtLink>
+      </div>
     </div>
 
   </div>
