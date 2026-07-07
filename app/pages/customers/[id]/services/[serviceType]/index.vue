@@ -16,6 +16,7 @@ const { getById } = useCustomerStore()
 const { getServiceValue } = useAppServices()
 const customer = getById(customerId)
 const customerName = computed(() => customer.value?.name ?? '')
+const canEdit = computed(() => customer.value ? canEditCustomer(customer.value.assignedFpId ?? '') : false)
 
 // パーソナルデータのservices値から対応状況を1件の案件として表示
 const cases = computed(() => {
@@ -64,7 +65,7 @@ const statusClass = (status: string) => {
         <p class="text-sm text-gray-500 mt-0.5">{{ customerName }} さん — {{ cases.length }}件の案件</p>
       </div>
       <NuxtLink
-        v-if="canEditCustomer"
+        v-if="canEdit"
         :to="`/customers/${customerId}/services/${serviceType}/new`"
         class="btn-primary text-sm flex items-center gap-1.5 shrink-0"
       >
@@ -78,7 +79,7 @@ const statusClass = (status: string) => {
       <Icon name="heroicons:document-text" class="h-10 w-10 text-gray-300 mx-auto mb-2" />
       <p class="text-sm text-gray-400">案件がまだありません</p>
       <NuxtLink
-        v-if="canEditCustomer"
+        v-if="canEdit"
         :to="`/customers/${customerId}/services/${serviceType}/new`"
         class="mt-3 inline-block btn-primary text-sm"
       >

@@ -344,6 +344,11 @@ const updateFamilyMember = (idx: number, key: keyof FamilyMember, value: string)
       </h3>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">担当 未来設計士</label>
+          <input :value="form.assignedFpName" type="text" class="input-field"
+            @input="update('assignedFpName', ($event.target as HTMLInputElement).value)" />
+        </div>
+        <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">関係性</label>
           <input :value="form.relationship" type="text" class="input-field"
             @input="update('relationship', ($event.target as HTMLInputElement).value)" />

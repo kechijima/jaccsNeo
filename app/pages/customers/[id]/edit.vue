@@ -21,7 +21,7 @@ onMounted(async () => {
       error.value = '顧客が見つかりません'
       return
     }
-    if (!canEditCustomer.value) {
+    if (!canEditCustomer(customer.value.assignedFpId ?? '')) {
       await navigateTo(`/customers/${id.value}`)
       return
     }

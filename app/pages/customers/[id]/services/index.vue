@@ -13,6 +13,7 @@ const { getById } = useCustomerStore()
 const { resolveKey } = useAppServices()
 const customer = getById(customerId)
 const customerName = computed(() => customer.value?.name ?? '')
+const canEdit = computed(() => customer.value ? canEditCustomer(customer.value.assignedFpId ?? '') : false)
 
 // ── カテゴリ定義 ──────────────────────────────────────────────────────
 const CATEGORY_DEFS = [
@@ -251,7 +252,7 @@ const statusClass = (status: string) => {
             <Icon name="heroicons:chevron-right" class="h-3.5 w-3.5 text-gray-300 shrink-0 ml-auto" />
           </NuxtLink>
           <NuxtLink
-            v-if="canEditCustomer"
+            v-if="canEdit"
             :to="`/customers/${customerId}/services/${svc.key}/new`"
             class="ml-2 shrink-0 text-xs text-gray-400 hover:text-primary-600 transition-colors"
             @click.stop
