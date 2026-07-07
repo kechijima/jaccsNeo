@@ -122,8 +122,12 @@ const handlePolicyCopySelect = async (idx: number, e: Event) => {
     const path = `life-insurance/${customerId.value || 'unlinked'}/${Date.now()}-${file.name}`
     const url = await uploadFile(path, file)
     slot.file = { name: file.name, url }
-  } catch {
-    slot.error = 'アップロードに失敗しました'
+  } catch (e: any) {
+    // Storageのセキュリティルール/認証設定に問題があるとここで403等が返る。
+    // 原因を特定しやすいようFirebaseのエラーコードをそのまま表示する。
+    const code = e?.code ?? e?.message ?? '不明なエラー'
+    slot.error = `アップロードに失敗しました（${code}）`
+    console.error('保険証券コピーのアップロードに失敗:', e)
   } finally {
     slot.uploading = false
     input.value = ''

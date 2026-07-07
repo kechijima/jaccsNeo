@@ -117,8 +117,12 @@ export const useAuth = () => {
             new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000)),
           ])
         }
-      } catch {
-        // Firebase未接続・未設定・タイムアウトでも無視してモック動作を継続
+      } catch (e: any) {
+        // Firebase未接続・未設定・タイムアウトでもモック動作は継続するが、
+        // Storage等の認証必須操作が失敗する原因になるためコンソールには残す
+        // （例: Firebaseコンソールで匿名認証プロバイダが無効になっていると
+        //   auth/admin-restricted-operation や auth/operation-not-allowed になる）
+        console.warn('匿名認証に失敗しました（Firebase Storageへのアップロード等が失敗する可能性があります）:', e?.code ?? e)
       }
       await router.push('/dashboard')
     } finally {
