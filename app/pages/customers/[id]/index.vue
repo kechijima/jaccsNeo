@@ -269,17 +269,17 @@ const activeServices = computed(() => {
             <dt class="text-gray-500">紹介数</dt>
             <dd class="font-medium text-gray-900">{{ customer.referralCount }}名</dd>
           </div>
-          <div v-if="customer.status1">
+          <div v-if="customer.status1" class="sm:col-span-2">
             <dt class="text-gray-500">状況（ワン）</dt>
-            <dd><span class="badge bg-primary-50 text-primary-700">{{ customer.status1 }}</span></dd>
+            <dd class="font-medium text-gray-900 whitespace-pre-line mt-0.5">{{ customer.status1 }}</dd>
           </div>
-          <div v-if="customer.status2">
+          <div v-if="customer.status2" class="sm:col-span-2">
             <dt class="text-gray-500">状況（ツー）</dt>
-            <dd><span class="badge bg-primary-50 text-primary-700">{{ customer.status2 }}</span></dd>
+            <dd class="font-medium text-gray-900 whitespace-pre-line mt-0.5">{{ customer.status2 }}</dd>
           </div>
           <div v-if="customer.postFollowStatus" class="sm:col-span-2">
             <dt class="text-gray-500">フォロー以降の状況</dt>
-            <dd class="font-medium text-gray-900">{{ customer.postFollowStatus }}</dd>
+            <dd class="font-medium text-gray-900 whitespace-pre-line mt-0.5">{{ customer.postFollowStatus }}</dd>
           </div>
         </dl>
       </div>

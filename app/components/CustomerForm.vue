@@ -363,19 +363,19 @@ const updateFamilyMember = (idx: number, key: keyof FamilyMember, value: string)
           <input :value="form.referralSource" type="text" class="input-field"
             @input="update('referralSource', ($event.target as HTMLInputElement).value)" />
         </div>
-        <div>
+        <div class="sm:col-span-2">
           <label class="block text-sm font-medium text-gray-700 mb-1">状況（ワン）</label>
-          <input :value="form.status1" type="text" class="input-field"
-            @input="update('status1', ($event.target as HTMLInputElement).value)" />
+          <textarea :value="form.status1" rows="4" class="input-field resize-none"
+            @input="update('status1', ($event.target as HTMLTextAreaElement).value)" />
         </div>
-        <div>
+        <div class="sm:col-span-2">
           <label class="block text-sm font-medium text-gray-700 mb-1">状況（ツー）</label>
-          <input :value="form.status2" type="text" class="input-field"
-            @input="update('status2', ($event.target as HTMLInputElement).value)" />
+          <textarea :value="form.status2" rows="4" class="input-field resize-none"
+            @input="update('status2', ($event.target as HTMLTextAreaElement).value)" />
         </div>
         <div class="sm:col-span-2">
           <label class="block text-sm font-medium text-gray-700 mb-1">フォロー以降の状況</label>
-          <textarea :value="form.postFollowStatus" rows="2" class="input-field resize-none"
+          <textarea :value="form.postFollowStatus" rows="4" class="input-field resize-none"
             @input="update('postFollowStatus', ($event.target as HTMLTextAreaElement).value)" />
         </div>
       </div>
