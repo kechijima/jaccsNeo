@@ -27,6 +27,7 @@ export interface LifeInsuranceCase {
   residenceTypes?: string[]     // 住居（実家・賃貸・持ち家）
   metParents?: string           // 親など（ショッカー）に会ったか
   planningPurpose?: string      // プランニング・目的
+  policyCopies?: string[]       // 保険証券コピー（最大3件、ファイル名/URL）
 
   meetingDate?: string          // 面前日
   scheduledTime?: string        // 設定時刻
@@ -46,6 +47,15 @@ export interface LifeInsuranceCase {
   createdAt: Date
   updatedAt: Date
 }
+
+// 新規作成フォーム用（id・作成日時等は除く）
+export type LifeInsuranceCaseInput = Omit<LifeInsuranceCase, 'id' | 'createdAt' | 'updatedAt'>
+
+export const RESIDENCE_TYPE_OPTIONS = ['実家', '賃貸', '持ち家']
+export const WEEKDAY_OPTIONS = ['月', '火', '水', '木', '金', '土', '日']
+export const MET_PARENTS_OPTIONS = ['会った', '会ってない', '会う必要がない']
+export const NEW_OR_SWITCH_OPTIONS = ['新規', '乗換']
+export const PROGRESS_STATUS_OPTIONS = ['未成約', '設計書提出', '契約手続き中', '成約', '不成立']
 
 export const LIFE_INSURANCE_FIELD_LABELS: Record<string, string> = {
   contractContent:     '契約内容',

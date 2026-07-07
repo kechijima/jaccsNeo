@@ -288,7 +288,7 @@ const activeServices = computed(() => {
       <div v-if="activeServices.length > 0" class="card p-5">
         <h2 class="font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <Icon name="heroicons:squares-2x2" class="h-5 w-5 text-primary-600" />
-          サービス状況
+          対応プロダクト一覧
         </h2>
         <div class="flex flex-wrap gap-2">
           <span

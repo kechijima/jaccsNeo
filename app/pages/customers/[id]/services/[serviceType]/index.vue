@@ -85,7 +85,7 @@ const liFieldEntries = (c: any) => {
         </p>
       </div>
       <NuxtLink
-        v-if="canEdit && !isLifeInsurance"
+        v-if="canEdit"
         :to="`/customers/${customerId}/services/${serviceType}/new`"
         class="btn-primary text-sm flex items-center gap-1.5 shrink-0"
       >

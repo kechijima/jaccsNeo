@@ -141,14 +141,12 @@ const statusClass = (status: string) => {
                 <td class="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{{ c.assignedFpName || '—' }}</td>
                 <td class="px-4 py-3 whitespace-nowrap">
                   <NuxtLink
-                    v-if="c.customerId"
-                    :to="`/customers/${c.customerId}`"
+                    :to="`/services/${serviceType}/${c.id}`"
                     class="inline-flex items-center gap-0.5 text-xs text-primary-600 hover:underline"
                   >
-                    顧客詳細
+                    詳細
                     <Icon name="heroicons:arrow-top-right-on-square" class="h-3 w-3" />
                   </NuxtLink>
-                  <span v-else class="text-xs text-gray-300">未連携</span>
                 </td>
               </tr>
             </tbody>
@@ -182,14 +180,12 @@ const statusClass = (status: string) => {
           </p>
           <div class="flex justify-end pt-1 border-t border-gray-50">
             <NuxtLink
-              v-if="c.customerId"
-              :to="`/customers/${c.customerId}`"
+              :to="`/services/${serviceType}/${c.id}`"
               class="inline-flex items-center gap-1 text-xs text-primary-600 font-medium hover:underline"
             >
               案件詳細を見る
               <Icon name="heroicons:arrow-right" class="h-3.5 w-3.5" />
             </NuxtLink>
-            <span v-else class="text-xs text-gray-300">パーソナルデータ未連携</span>
           </div>
         </div>
       </div>
