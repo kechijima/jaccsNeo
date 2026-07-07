@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import { useCustomerStore } from '~/composables/useCustomerStore'
+import { useSavedSearchStore } from '~/composables/useSavedSearchStore'
 import { exportApoToCsv, downloadCsv } from '~/utils/csvCustomer'
 import type { Customer } from '~/types/customer'
+import type { FilterOperator, FilterCondition, SavedSearch } from '~/types/savedSearch'
 
 definePageMeta({ middleware: ['auth'] })
 
 const store = useCustomerStore()
 const router = useRouter()
+const { user } = useCurrentUser()
 
 // ── 絞り込み条件（項目を選択 → 条件を入力） ─────────────────────────────
-type Operator = 'contains' | 'notContains' | 'equals' | 'notEmpty' | 'empty'
+type Operator = FilterOperator
 
 interface FieldOption {
   key: string
@@ -54,11 +57,7 @@ const OPERATOR_OPTIONS: { value: Operator; label: string }[] = [
   { value: 'empty',       label: '空' },
 ]
 
-interface ConditionRow {
-  field: string
-  operator: Operator
-  value: string
-}
+type ConditionRow = FilterCondition
 
 const makeCondition = (): ConditionRow => ({ field: FIELD_OPTIONS[0].key, operator: 'contains', value: '' })
 
@@ -124,6 +123,45 @@ const filtered = computed(() => {
 
   return list
 })
+
+// ── 保存した検索（ログインユーザーごとにlocalStorageへ永続化） ────────
+const savedSearchStore = useSavedSearchStore()
+const mySavedSearches = savedSearchStore.getForUser(computed(() => user.value?.uid))
+
+const showSaveModal   = ref(false)
+const saveSearchName  = ref('')
+
+const openSaveModal = () => {
+  saveSearchName.value = ''
+  showSaveModal.value = true
+}
+
+const confirmSaveSearch = () => {
+  const name = saveSearchName.value.trim()
+  if (!name) return
+  savedSearchStore.save({
+    uid: user.value?.uid ?? 'mock-user-123',
+    name,
+    searchQuery: searchQuery.value,
+    filterType: filterType.value,
+    matchMode: matchMode.value,
+    conditions: conditions.value.map(c => ({ ...c })),
+  })
+  showSaveModal.value = false
+}
+
+const applySavedSearch = (s: SavedSearch) => {
+  searchQuery.value = s.searchQuery
+  filterType.value  = s.filterType
+  matchMode.value   = s.matchMode
+  conditions.value  = s.conditions.map(c => ({ ...c }))
+  showFilter.value  = conditions.value.length > 0
+}
+
+const removeSavedSearch = (s: SavedSearch) => {
+  if (!confirm(`検索条件「${s.name}」を削除しますか？`)) return
+  savedSearchStore.remove(s.id)
+}
 
 // ── ページネーション（大量データのため描画件数を制限） ────────────────
 const pageSize = ref(50)
@@ -289,7 +327,33 @@ const statusColor = (s: string) => {
             class="flex h-4 w-4 items-center justify-center rounded-full bg-primary-500 text-[10px] text-white font-bold"
           >{{ activeConditionCount }}</span>
         </button>
+        <!-- 現在の条件を保存 -->
+        <button
+          class="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition shrink-0"
+          @click="openSaveModal"
+        >
+          <Icon name="heroicons:bookmark" class="h-4 w-4" />
+          保存
+        </button>
       </div>
+    </div>
+
+    <!-- ===== 保存した検索（ログインユーザーごと） ===== -->
+    <div v-if="mySavedSearches.length > 0" class="flex flex-wrap items-center gap-2">
+      <span class="text-xs text-gray-400 shrink-0 flex items-center gap-1">
+        <Icon name="heroicons:bookmark-square" class="h-3.5 w-3.5" />
+        保存した検索
+      </span>
+      <span
+        v-for="s in mySavedSearches"
+        :key="s.id"
+        class="inline-flex items-center gap-1 rounded-full bg-gray-100 pl-3 pr-1.5 py-1 text-xs text-gray-700 hover:bg-gray-200 transition"
+      >
+        <button class="hover:text-primary-700 transition" @click="applySavedSearch(s)">{{ s.name }}</button>
+        <button class="p-0.5 rounded-full hover:bg-gray-300 text-gray-400 hover:text-red-500 transition" @click="removeSavedSearch(s)">
+          <Icon name="heroicons:x-mark" class="h-3 w-3" />
+        </button>
+      </span>
     </div>
 
     <!-- ===== 詳細条件パネル（項目を選択して条件を入れる） ===== -->
@@ -591,6 +655,45 @@ const statusColor = (s: string) => {
 
           <div class="flex gap-3">
             <button class="flex-1 btn-secondary" @click="showImportModal = false">閉じる</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- ===== 検索条件保存モーダル ===== -->
+    <Teleport to="body">
+      <div
+        v-if="showSaveModal"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+        @click.self="showSaveModal = false"
+      >
+        <div class="bg-white w-full max-w-sm rounded-2xl p-6 space-y-4 shadow-xl mx-4">
+          <div class="flex items-center justify-between">
+            <h3 class="font-bold text-gray-900 flex items-center gap-2">
+              <Icon name="heroicons:bookmark" class="h-5 w-5 text-primary-600" />
+              検索条件を保存
+            </h3>
+            <button class="p-1.5 rounded-lg hover:bg-gray-100 transition" @click="showSaveModal = false">
+              <Icon name="heroicons:x-mark" class="h-5 w-5 text-gray-500" />
+            </button>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1.5">検索条件の名前</label>
+            <input
+              v-model="saveSearchName"
+              type="text"
+              placeholder="例：担当顧客・アポ調整中"
+              class="input-field text-sm"
+              @keydown.enter="confirmSaveSearch"
+            />
+          </div>
+
+          <p class="text-xs text-gray-400">現在のキーワード・区分・詳細条件がこの名前で保存され、次回以降ワンクリックで呼び出せます。</p>
+
+          <div class="flex gap-3 pt-1">
+            <button class="flex-1 btn-secondary" @click="showSaveModal = false">キャンセル</button>
+            <button class="flex-1 btn-primary" :disabled="!saveSearchName.trim()" @click="confirmSaveSearch">保存する</button>
           </div>
         </div>
       </div>
