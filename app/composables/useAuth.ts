@@ -1,5 +1,6 @@
 import {
   signInWithEmailAndPassword,
+  signInAnonymously,
   signOut,
   onAuthStateChanged,
   sendPasswordResetEmail,
@@ -105,6 +106,19 @@ export const useAuth = () => {
       // セッションを保存してリロード後もログイン状態を維持する
       if (import.meta.client) {
         localStorage.setItem(MOCK_SESSION_KEY, JSON.stringify(mockUser))
+      }
+      // Firebase Storage/Firestoreのセキュリティルール（認証必須）を満たすため
+      // 匿名認証でFirebaseセッションを確立する（失敗・応答なしでもモック画面遷移は継続）
+      try {
+        const { $auth } = useNuxtApp()
+        if (!$auth.currentUser) {
+          await Promise.race([
+            signInAnonymously($auth),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000)),
+          ])
+        }
+      } catch {
+        // Firebase未接続・未設定・タイムアウトでも無視してモック動作を継続
       }
       await router.push('/dashboard')
     } finally {
