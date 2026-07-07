@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import { SERVICE_LABELS } from '~/types/service'
-import type { ServiceCaseForm, ServiceStatus, ServiceType } from '~/types/service'
 import {
   RESIDENCE_TYPE_OPTIONS, WEEKDAY_OPTIONS, MET_PARENTS_OPTIONS,
   NEW_OR_SWITCH_OPTIONS, PROGRESS_STATUS_OPTIONS,
 } from '~/types/lifeInsurance'
 import type { LifeInsuranceCaseInput, PolicyCopyFile } from '~/types/lifeInsurance'
-import { useCustomerStore } from '~/composables/useCustomerStore'
 import { useLifeInsuranceCases } from '~/composables/useLifeInsuranceCases'
 import { useStorage } from '~/composables/useStorage'
 import { useToast } from '~/composables/useToast'
@@ -14,103 +12,65 @@ import { useToast } from '~/composables/useToast'
 definePageMeta({ middleware: ['auth'] })
 
 const route = useRoute()
-const customerId = computed(() => route.params.id as string)
 const serviceType = computed(() => route.params.serviceType as string)
+const caseId = computed(() => route.params.caseId as string)
+const serviceLabel = computed(() => SERVICE_LABELS[serviceType.value] ?? serviceType.value)
 const isLifeInsurance = computed(() => serviceType.value === 'lifeInsurance')
 
-const serviceLabel = computed(() => SERVICE_LABELS[serviceType.value] ?? serviceType.value)
-const { show: showToast } = useToast()
-
-// ===== 汎用アプリ用フォーム =====
-const { fetchCustomer } = useCustomers()
-const { createCase } = useServices()
-
-const customerName = ref('')
-const customer = ref<any>(null)
-
-const form = ref<ServiceCaseForm>({
-  status: 'consulting' as ServiceStatus,
-  date: '',
-  contractDate: '',
-  amount: '',
-  company: '',
-  notes: '',
-})
-
-const submitting = ref(false)
-const error = ref('')
-
-onMounted(async () => {
-  try {
-    const c = await fetchCustomer(customerId.value)
-    customer.value = c
-    customerName.value = c?.name ?? ''
-    if (isLifeInsurance.value && c) {
-      liForm.name = c.name ?? ''
-      liForm.nameKana = c.nameKana ?? ''
-      liForm.gender = c.gender ?? ''
-      liForm.dob = c.dob ?? ''
-      liForm.tel = c.tel ?? ''
-      liForm.assignedFpName = c.assignedFpName ?? ''
-    }
-  }
-  catch (e: any) {
-    error.value = e.message ?? '顧客情報の取得に失敗しました'
-  }
-})
-
-const handleSubmit = async () => {
-  submitting.value = true
-  error.value = ''
-  try {
-    await createCase(customerId.value, serviceType.value as ServiceType, form.value)
-    showToast('案件を追加しました')
-    await navigateTo(`/customers/${customerId.value}/services/${serviceType.value}`)
-  }
-  catch (e: any) {
-    error.value = e.message ?? '保存に失敗しました'
-    submitting.value = false
-  }
+// 現状、編集ページは生命保険アプリのみ対応
+if (!isLifeInsurance.value) {
+  await navigateTo(`/services/${serviceType.value}`)
 }
 
-// ===== 生命保険アプリ専用フォーム =====
-const { create: createLiCase } = useLifeInsuranceCases()
+const { getById, update } = useLifeInsuranceCases()
+const liCase = getById(caseId)
+
+if (!liCase.value) {
+  await navigateTo(`/services/${serviceType.value}`)
+}
+
+const { show: showToast } = useToast()
 
 const liForm = reactive<LifeInsuranceCaseInput>({
-  customerId: customerId.value,
-  name: '',
-  nameKana: '',
-  gender: '',
-  dob: '',
-  tel: '',
-  assignedFpName: '',
-  faceToFaceStaffName: '',
-  designRequest: '',
-  newOrSwitch: '',
-  desiredApptDates: ['', '', ''],
-  availableWeekdays: [],
-  monthlyBudget: '',
-  bonus: '',
-  savings: '',
-  residenceTypes: [],
-  metParents: '',
-  planningPurpose: '',
-  policyCopies: [],
-  meetingDate: '',
-  scheduledTime: '',
-  reminder: '',
-  progressStatus: '未成約',
-  contractContent: '',
-  planningContent: '',
-  recordNumber: '',
+  customerId: liCase.value?.customerId,
+  name: liCase.value?.name ?? '',
+  nameKana: liCase.value?.nameKana ?? '',
+  gender: liCase.value?.gender ?? '',
+  dob: liCase.value?.dob ?? '',
+  tel: liCase.value?.tel ?? '',
+  assignedFpName: liCase.value?.assignedFpName ?? '',
+  faceToFaceStaffName: liCase.value?.faceToFaceStaffName ?? '',
+  designRequest: liCase.value?.designRequest ?? '',
+  newOrSwitch: liCase.value?.newOrSwitch ?? '',
+  desiredApptDates: [
+    liCase.value?.desiredApptDates?.[0] ?? '',
+    liCase.value?.desiredApptDates?.[1] ?? '',
+    liCase.value?.desiredApptDates?.[2] ?? '',
+  ],
+  availableWeekdays: [...(liCase.value?.availableWeekdays ?? [])],
+  monthlyBudget: liCase.value?.monthlyBudget ?? '',
+  bonus: liCase.value?.bonus ?? '',
+  savings: liCase.value?.savings ?? '',
+  residenceTypes: [...(liCase.value?.residenceTypes ?? [])],
+  metParents: liCase.value?.metParents ?? '',
+  planningPurpose: liCase.value?.planningPurpose ?? '',
+  policyCopies: [...(liCase.value?.policyCopies ?? [])],
+  meetingDate: liCase.value?.meetingDate ?? '',
+  scheduledTime: liCase.value?.scheduledTime ?? '',
+  reminder: liCase.value?.reminder ?? '',
+  progressStatus: liCase.value?.progressStatus ?? '未成約',
+  contractContent: liCase.value?.contractContent ?? '',
+  planningContent: liCase.value?.planningContent ?? '',
+  recordNumber: liCase.value?.recordNumber ?? '',
 })
 
-// 保険証券コピー（Firebase Storageへアップロードし、ダウンロードURLを保持）
+// 保険証券コピー（既存分を引き継ぎつつ、Firebase Storageへ追加アップロード）
 const { uploadFile } = useStorage()
+const existingCopies = liCase.value?.policyCopies ?? []
 const policyCopySlots = ref<Array<{ file: PolicyCopyFile | null; uploading: boolean; error: string }>>([
-  { file: null, uploading: false, error: '' },
-  { file: null, uploading: false, error: '' },
-  { file: null, uploading: false, error: '' },
+  { file: existingCopies[0] ?? null, uploading: false, error: '' },
+  { file: existingCopies[1] ?? null, uploading: false, error: '' },
+  { file: existingCopies[2] ?? null, uploading: false, error: '' },
 ])
 
 const handlePolicyCopySelect = async (idx: number, e: Event) => {
@@ -122,12 +82,10 @@ const handlePolicyCopySelect = async (idx: number, e: Event) => {
   slot.uploading = true
   slot.error = ''
   try {
-    const path = `life-insurance/${customerId.value || 'unlinked'}/${Date.now()}-${file.name}`
+    const path = `life-insurance/${liCase.value?.customerId || 'unlinked'}/${Date.now()}-${file.name}`
     const url = await uploadFile(path, file)
     slot.file = { name: file.name, url }
   } catch (e: any) {
-    // Storageのセキュリティルール/認証設定に問題があるとここで403等が返る。
-    // 原因を特定しやすいようFirebaseのエラーコードをそのまま表示する。
     const code = e?.code ?? e?.message ?? '不明なエラー'
     slot.error = `アップロードに失敗しました（${code}）`
     console.error('保険証券コピーのアップロードに失敗:', e)
@@ -164,14 +122,13 @@ const handleLiSubmit = async () => {
     const policyCopies = policyCopySlots.value
       .map(s => s.file)
       .filter((f): f is PolicyCopyFile => !!f)
-    createLiCase({
+    update(caseId.value, {
       ...liForm,
-      recordNumber: `local-${Date.now()}`,
       desiredApptDates: desiredApptDates.length ? desiredApptDates : undefined,
       policyCopies: policyCopies.length ? policyCopies : undefined,
     })
-    showToast('案件を追加しました')
-    await navigateTo(`/customers/${customerId.value}/services/${serviceType.value}`)
+    showToast('案件を更新しました')
+    await navigateTo(`/services/${serviceType.value}/${caseId.value}`)
   }
   catch (e: any) {
     liError.value = e.message ?? '保存に失敗しました'
@@ -181,25 +138,22 @@ const handleLiSubmit = async () => {
 </script>
 
 <template>
-  <div class="p-4 md:p-6 max-w-2xl mx-auto space-y-5">
+  <div v-if="liCase" class="p-4 md:p-6 max-w-2xl mx-auto space-y-5">
 
     <!-- パンくず -->
     <div class="flex items-center gap-2 text-sm text-gray-400 flex-wrap">
-      <NuxtLink :to="`/customers/${customerId}`">{{ customerName }}</NuxtLink>
+      <NuxtLink to="/services" class="hover:text-primary-600 transition-colors">アプリ</NuxtLink>
       <Icon name="heroicons:chevron-right" class="h-3 w-3" />
-      <NuxtLink :to="`/customers/${customerId}/services`">アプリ連携</NuxtLink>
+      <NuxtLink :to="`/services/${serviceType}`" class="hover:text-primary-600 transition-colors">{{ serviceLabel }}</NuxtLink>
       <Icon name="heroicons:chevron-right" class="h-3 w-3" />
-      <NuxtLink :to="`/customers/${customerId}/services/${serviceType}`">{{ serviceLabel }}</NuxtLink>
+      <NuxtLink :to="`/services/${serviceType}/${caseId}`" class="hover:text-primary-600 transition-colors">案件詳細</NuxtLink>
       <Icon name="heroicons:chevron-right" class="h-3 w-3" />
-      <span class="text-gray-600">新規案件</span>
+      <span class="text-gray-600">編集</span>
     </div>
 
-    <h1 class="text-xl font-bold text-gray-900">{{ serviceLabel }} — 案件登録</h1>
+    <h1 class="text-xl font-bold text-gray-900">{{ serviceLabel }} — 案件編集</h1>
 
-    <!-- ========================================================= -->
-    <!-- 生命保険：専用フォーム                                       -->
-    <!-- ========================================================= -->
-    <form v-if="isLifeInsurance" class="space-y-5" @submit.prevent="handleLiSubmit">
+    <form class="space-y-5" @submit.prevent="handleLiSubmit">
 
       <div v-if="liError" class="flex items-start gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700">
         <Icon name="heroicons:exclamation-circle" class="mt-0.5 h-4 w-4 shrink-0" />
@@ -409,92 +363,14 @@ const handleLiSubmit = async () => {
 
       <!-- ボタン -->
       <div class="flex justify-between pt-2 pb-8">
-        <NuxtLink :to="`/customers/${customerId}/services/${serviceType}`" class="btn-secondary">
+        <NuxtLink :to="`/services/${serviceType}/${caseId}`" class="btn-secondary">
           キャンセル
         </NuxtLink>
         <button type="submit" class="btn-primary" :disabled="liSubmitting || anyPolicyUploading">
           <Icon v-if="liSubmitting" name="heroicons:arrow-path" class="h-4 w-4 animate-spin mr-1" />
-          {{ liSubmitting ? '保存中...' : anyPolicyUploading ? 'アップロード中...' : '案件を登録する' }}
+          {{ liSubmitting ? '保存中...' : anyPolicyUploading ? 'アップロード中...' : '変更を保存する' }}
         </button>
       </div>
-    </form>
-
-    <!-- ========================================================= -->
-    <!-- その他アプリ：汎用フォーム                                   -->
-    <!-- ========================================================= -->
-    <form v-else class="card p-6 space-y-5" @submit.prevent="handleSubmit">
-
-      <!-- ステータス -->
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1.5">対応ステータス <span class="text-red-500">*</span></label>
-        <div class="flex flex-wrap gap-2">
-          <button
-            v-for="opt in [
-              { value: 'consulting', label: '相談中' },
-              { value: 'considering', label: '検討中' },
-              { value: 'contracted', label: '成約' },
-              { value: 'completed', label: '完了' },
-              { value: 'failed', label: '不成立' },
-            ]"
-            :key="opt.value"
-            type="button"
-            class="flex items-center gap-1.5 cursor-pointer rounded-lg border px-3 py-2 text-sm transition"
-            :class="form.status === opt.value ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'"
-            @click="form.status = opt.value as ServiceStatus"
-          >{{ opt.label }}</button>
-        </div>
-      </div>
-
-      <!-- 対応日 -->
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1.5">対応開始日</label>
-        <input v-model="form.date" type="date" class="input-field" />
-      </div>
-
-      <!-- 成約日 -->
-      <div v-if="form.status === 'contracted' || form.status === 'completed'">
-        <label class="block text-sm font-medium text-gray-700 mb-1.5">成約日</label>
-        <input v-model="form.contractDate" type="date" class="input-field" />
-      </div>
-
-      <!-- 保険会社・会社名 -->
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1.5">会社名・保険会社</label>
-        <input v-model="form.company" type="text" placeholder="例: メットライフ生命" class="input-field" />
-      </div>
-
-      <!-- 金額 -->
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1.5">金額・保険料</label>
-        <input v-model="form.amount" type="text" placeholder="例: 月額 15,000円" class="input-field" />
-      </div>
-
-      <!-- 備考 -->
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1.5">備考・メモ</label>
-        <textarea v-model="form.notes" rows="4" placeholder="案件の詳細・経緯・メモを入力..." class="input-field" />
-      </div>
-
-      <!-- ファイル添付（Phase3で実装） -->
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1.5">添付ファイル</label>
-        <div class="flex items-center justify-center rounded-lg border-2 border-dashed border-gray-200 p-6 text-sm text-gray-400">
-          <Icon name="heroicons:paper-clip" class="h-5 w-5 mr-2" />
-          ファイルをドラッグ&ドロップ（Phase3で実装予定）
-        </div>
-      </div>
-
-      <!-- ボタン -->
-      <div class="flex justify-between pt-2">
-        <NuxtLink :to="`/customers/${customerId}/services/${serviceType}`" class="btn-secondary">
-          キャンセル
-        </NuxtLink>
-        <button type="submit" class="btn-primary" :disabled="submitting">
-          <Icon v-if="submitting" name="heroicons:arrow-path" class="h-4 w-4 animate-spin mr-1" />
-          {{ submitting ? '保存中...' : '案件を登録する' }}
-        </button>
-      </div>
-
     </form>
   </div>
 </template>

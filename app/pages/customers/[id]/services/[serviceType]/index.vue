@@ -110,9 +110,18 @@ const PROGRESS_RESTRICTED_KEYS: (keyof typeof LIFE_INSURANCE_FIELD_LABELS)[] = [
               <span v-if="c.newOrSwitch" class="badge text-xs bg-indigo-50 text-indigo-600">{{ c.newOrSwitch }}</span>
               <span class="text-xs text-gray-400">レコード#{{ c.recordNumber }}</span>
             </div>
-            <div class="text-right text-xs text-gray-400">
-              <p v-if="c.assignedFpName">担当: {{ c.assignedFpName }}</p>
-              <p v-if="c.faceToFaceStaffName">面前担当: {{ c.faceToFaceStaffName }}</p>
+            <div class="flex items-start gap-3 shrink-0">
+              <div class="text-right text-xs text-gray-400">
+                <p v-if="c.assignedFpName">担当: {{ c.assignedFpName }}</p>
+                <p v-if="c.faceToFaceStaffName">面前担当: {{ c.faceToFaceStaffName }}</p>
+              </div>
+              <NuxtLink
+                :to="`/services/${serviceType}/${c.id}/edit`"
+                class="text-xs text-primary-600 hover:underline flex items-center gap-0.5 shrink-0"
+              >
+                <Icon name="heroicons:pencil" class="h-3.5 w-3.5" />
+                編集
+              </NuxtLink>
             </div>
           </div>
 

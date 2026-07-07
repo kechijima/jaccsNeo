@@ -78,15 +78,24 @@ const progressRestrictedEntries = computed(() => buildEntries(['contractContent'
             <h1 v-else class="text-xl font-bold text-gray-900">{{ liCase.name }}</h1>
             <p class="text-sm text-gray-400 mt-0.5">{{ liCase.nameKana }}</p>
           </div>
-          <NuxtLink
-            v-if="liCase.customerId"
-            :to="`/customers/${liCase.customerId}`"
-            class="btn-secondary text-sm flex items-center gap-1.5 shrink-0"
-          >
-            <Icon name="heroicons:identification" class="h-4 w-4" />
-            顧客詳細
-          </NuxtLink>
-          <span v-else class="badge text-xs bg-gray-100 text-gray-400 shrink-0">パーソナルデータ未連携</span>
+          <div class="flex items-center gap-2 shrink-0">
+            <NuxtLink
+              v-if="liCase.customerId"
+              :to="`/customers/${liCase.customerId}`"
+              class="btn-secondary text-sm flex items-center gap-1.5"
+            >
+              <Icon name="heroicons:identification" class="h-4 w-4" />
+              顧客詳細
+            </NuxtLink>
+            <span v-else class="badge text-xs bg-gray-100 text-gray-400">パーソナルデータ未連携</span>
+            <NuxtLink
+              :to="`/services/${serviceType}/${caseId}/edit`"
+              class="btn-primary text-sm flex items-center gap-1.5"
+            >
+              <Icon name="heroicons:pencil" class="h-4 w-4" />
+              編集
+            </NuxtLink>
+          </div>
         </div>
 
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs border-t border-gray-100 pt-4">

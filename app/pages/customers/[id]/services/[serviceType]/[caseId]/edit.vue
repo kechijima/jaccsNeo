@@ -104,7 +104,7 @@ const handleDelete = async () => {
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">対応ステータス <span class="text-red-500">*</span></label>
         <div class="flex flex-wrap gap-2">
-          <label
+          <button
             v-for="opt in [
               { value: 'consulting', label: '相談中' },
               { value: 'considering', label: '検討中' },
@@ -113,12 +113,11 @@ const handleDelete = async () => {
               { value: 'failed', label: '不成立' },
             ]"
             :key="opt.value"
+            type="button"
             class="flex items-center gap-1.5 cursor-pointer rounded-lg border px-3 py-2 text-sm transition"
             :class="form.status === opt.value ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'"
-          >
-            <input v-model="form.status" type="radio" :value="opt.value" class="sr-only" />
-            {{ opt.label }}
-          </label>
+            @click="form.status = opt.value as ServiceStatus"
+          >{{ opt.label }}</button>
         </div>
       </div>
 
