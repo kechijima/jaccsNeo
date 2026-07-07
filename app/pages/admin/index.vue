@@ -3,6 +3,13 @@ definePageMeta({ middleware: ['auth', 'admin'] })
 
 const adminMenus = [
   {
+    to: '/admin/announcements',
+    icon: 'heroicons:megaphone',
+    label: 'お知らせ管理',
+    description: 'ダッシュボードに表示するグループ別お知らせの作成・公開設定',
+    color: 'text-teal-600 bg-teal-50',
+  },
+  {
     to: '/admin/apps',
     icon: 'heroicons:squares-2x2',
     label: 'アプリ管理',

@@ -73,6 +73,46 @@ export const MOCK_NOTIFICATIONS = [
   { id: 'n012', uid: 'mock-user-123', type: 'post_reaction', title: 'リアクションがつきました', body: '佐藤花子さんがあなたの投稿に🎉を押しました。',                 isRead: true,  linkUrl: '/portal/spaces/s002/posts/p006', relatedId: 'p006', createdAt: ts(-8) },
 ]
 
+// ─── お知らせ（管理者が設定するグループ別公開情報） ───────────────────────────
+export const MOCK_ANNOUNCEMENTS = [
+  {
+    id: 'an001', title: '5月度全体会議のご案内', scope: 'all', isPublished: true,
+    authorName: '西島伸樹',
+    body: '5月度の全体会議を本社会議室にて開催します。詳細はイベント一覧をご確認ください。',
+    publishedAt: d(-1), createdAt: d(-1), updatedAt: d(-1),
+  },
+  {
+    id: 'an002', title: 'システムメンテナンスのお知らせ', scope: 'all', isPublished: true,
+    authorName: '管理者',
+    body: '4月20日 2:00〜4:00にシステムメンテナンスを実施します。この間はサービスをご利用いただけません。',
+    publishedAt: d(-3), createdAt: d(-3), updatedAt: d(-3),
+  },
+  {
+    id: 'an003', title: 'Reterace 月次目標について', scope: 'reterace', isPublished: true,
+    authorName: '西島伸樹',
+    body: '今月のグループ目標はワンアポ20件・成約8件です。週次ミーティングで進捗を共有します。',
+    publishedAt: d(-2), createdAt: d(-2), updatedAt: d(-2),
+  },
+  {
+    id: 'an004', title: 'Miraito 新人研修スケジュール', scope: 'miraito', isPublished: true,
+    authorName: '佐藤花子',
+    body: '来月より新人向け研修プログラムを開始します。対象者は各自スケジュールをご確認ください。',
+    publishedAt: d(-4), createdAt: d(-4), updatedAt: d(-4),
+  },
+  {
+    id: 'an005', title: 'Asset 相続セミナー準備状況', scope: 'asset', isPublished: true,
+    authorName: '鈴木二郎',
+    body: '来月の相続セミナーの集客状況を共有します。参加者20名を目標に進めています。',
+    publishedAt: d(-5), createdAt: d(-5), updatedAt: d(-5),
+  },
+  {
+    id: 'an006', title: '（下書き）年末年始休業のお知らせ', scope: 'all', isPublished: false,
+    authorName: '管理者',
+    body: '年末年始の休業期間について、確定次第お知らせします。',
+    publishedAt: d(0), createdAt: d(0), updatedAt: d(0),
+  },
+]
+
 // ─── スペース ─────────────────────────────────────────────────────────────────
 export const MOCK_SPACES = [
   { id: 's001', name: '全体スペース',           type: 'all',     description: '全メンバーへの共有・連絡',  memberCount: 24, admins: ['user-001', 'mock-user-123'], isPinned: true,  isArchived: false, headerImage: '' },

@@ -2,12 +2,15 @@
 import { MOCK_NOTIFICATIONS, MOCK_SPACES } from '~/data/mock'
 import { usePortalStore } from '~/composables/usePortalStore'
 import { useCustomerStore } from '~/composables/useCustomerStore'
+import { useAnnouncementStore } from '~/composables/useAnnouncementStore'
+import { ANNOUNCEMENT_SCOPE_LABELS, ANNOUNCEMENT_SCOPE_COLORS } from '~/types/announcement'
 
 definePageMeta({ middleware: ['auth'] })
 
 const { user, displayName } = useCurrentUser()
 const portalStore = usePortalStore()
 const customerStore = useCustomerStore()
+const announcementStore = useAnnouncementStore()
 
 const now = new Date()
 const greeting = computed(() => {
@@ -17,36 +20,12 @@ const greeting = computed(() => {
   return 'こんばんは'
 })
 
-// ── お知らせ ───────────────────────────────────────────────────────────────
-const allNotifications = computed(() => MOCK_NOTIFICATIONS.slice(0, 5))
+// ── お知らせ（管理者がグループ別に公開した情報） ─────────────────────────
+const groupAnnouncements = announcementStore.getForGroup(computed(() => user.value?.groupId))
+const allAnnouncements = computed(() => groupAnnouncements.value.slice(0, 5))
 
-const notifTypeLabel = (type: string) => {
-  const map: Record<string, string> = {
-    post_comment:     'コメント',
-    mention:          'メンション',
-    post_reaction:    'リアクション',
-    event_reminder:   'イベント',
-    event_created:    'イベント',
-    customer_assigned:'顧客',
-    meeting_created:  '商談',
-    system:           'システム',
-  }
-  return map[type] ?? 'お知らせ'
-}
-
-const notifTypeColor = (type: string) => {
-  const map: Record<string, string> = {
-    post_comment:     'bg-blue-100 text-blue-700',
-    mention:          'bg-purple-100 text-purple-700',
-    post_reaction:    'bg-pink-100 text-pink-700',
-    event_reminder:   'bg-amber-100 text-amber-700',
-    event_created:    'bg-amber-100 text-amber-700',
-    customer_assigned:'bg-green-100 text-green-700',
-    meeting_created:  'bg-sky-100 text-sky-700',
-    system:           'bg-gray-100 text-gray-600',
-  }
-  return map[type] ?? 'bg-gray-100 text-gray-600'
-}
+const announcementFmt = (d: Date) =>
+  d.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 
 // ── アプリ shortcuts ───────────────────────────────────────────────────────
 const appShortcuts = [
@@ -161,35 +140,33 @@ const unreadNotifCount = computed(() => MOCK_NOTIFICATIONS.filter(n => !n.isRead
       <div class="card overflow-hidden flex flex-col">
         <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <h2 class="font-bold text-gray-900 flex items-center gap-2">
-            <Icon name="heroicons:bell" class="h-5 w-5 text-amber-500" />
+            <Icon name="heroicons:megaphone" class="h-5 w-5 text-amber-500" />
             お知らせ
-            <span v-if="unreadNotifCount > 0" class="ml-1 flex h-5 px-1.5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white min-w-[20px]">
-              {{ unreadNotifCount }}
+            <span v-if="allAnnouncements.length > 0" class="ml-1 flex h-5 px-1.5 items-center justify-center rounded-full bg-primary-500 text-[10px] font-bold text-white min-w-[20px]">
+              {{ allAnnouncements.length }}
             </span>
           </h2>
-          <NuxtLink to="/notifications" class="text-xs text-primary-600 hover:underline">すべて</NuxtLink>
         </div>
 
         <div class="flex-1 divide-y divide-gray-50 overflow-y-auto">
           <div
-            v-for="notif in allNotifications"
-            :key="notif.id"
+            v-for="a in allAnnouncements"
+            :key="a.id"
             class="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition"
-            :class="!notif.isRead ? 'bg-blue-50/40' : ''"
           >
             <div class="mt-0.5 flex-1 min-w-0">
               <div class="flex items-center gap-2 flex-wrap">
-                <span class="badge text-[10px] font-semibold px-1.5" :class="notifTypeColor(notif.type)">
-                  {{ notifTypeLabel(notif.type) }}
+                <span class="badge text-[10px] font-semibold px-1.5" :class="ANNOUNCEMENT_SCOPE_COLORS[a.scope]">
+                  {{ ANNOUNCEMENT_SCOPE_LABELS[a.scope] }}
                 </span>
-                <span v-if="!notif.isRead" class="inline-block h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />
+                <span class="text-[10px] text-gray-400">{{ announcementFmt(a.publishedAt) }}</span>
               </div>
-              <p class="text-xs font-semibold text-gray-800 mt-0.5 truncate">{{ notif.title }}</p>
-              <p class="text-xs text-gray-500 mt-0.5 line-clamp-2 leading-relaxed">{{ notif.body }}</p>
+              <p class="text-xs font-semibold text-gray-800 mt-0.5 truncate">{{ a.title }}</p>
+              <p class="text-xs text-gray-500 mt-0.5 line-clamp-2 leading-relaxed">{{ a.body }}</p>
             </div>
           </div>
-          <div v-if="allNotifications.length === 0" class="flex flex-col items-center justify-center py-12">
-            <Icon name="heroicons:bell-slash" class="h-10 w-10 text-gray-200 mb-2" />
+          <div v-if="allAnnouncements.length === 0" class="flex flex-col items-center justify-center py-12">
+            <Icon name="heroicons:megaphone" class="h-10 w-10 text-gray-200 mb-2" />
             <p class="text-sm text-gray-400">お知らせはありません</p>
           </div>
         </div>

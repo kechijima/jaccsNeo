@@ -2,14 +2,16 @@
 import { SERVICE_LABELS } from '~/types/service'
 import { useCustomerStore } from '~/composables/useCustomerStore'
 import { useAppServices } from '~/composables/useAppServices'
+import { useLifeInsuranceCases } from '~/composables/useLifeInsuranceCases'
 
 definePageMeta({ middleware: ['auth'] })
 
 const { customers } = useCustomerStore()
 const { countForType } = useAppServices()
+const { cases: liCases } = useLifeInsuranceCases()
 
-// ── カウント計算（パーソナルデータのサービス項目から集計） ──────────────
-const getCount = (type: string) => countForType(type)
+// ── カウント計算（生命保険はkintone連動の専用案件数、それ以外はパーソナルデータのサービス項目から集計） ──
+const getCount = (type: string) => type === 'lifeInsurance' ? liCases.value.length : countForType(type)
 
 // ── サマリー ──────────────────────────────────────────────────────────
 const totalCases = computed(() =>
