@@ -40,6 +40,25 @@ export const useAuth = () => {
     }
   }
 
+  // Firebase Storage/Firestoreのセキュリティルール（認証必須）を満たすため
+  // 匿名認証でFirebaseセッションを確立する（失敗・応答なしでもモック動作は継続）
+  const ensureAnonymousAuth = async () => {
+    try {
+      const { $auth } = useNuxtApp()
+      if ($auth.currentUser) return
+      await Promise.race([
+        signInAnonymously($auth),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000)),
+      ])
+    } catch (e: any) {
+      // Firebase未接続・未設定・タイムアウトでもモック動作は継続するが、
+      // Storage等の認証必須操作が失敗する原因になるためコンソールには残す
+      // （例: Firebaseコンソールで匿名認証プロバイダが無効になっていると
+      //   auth/admin-restricted-operation や auth/operation-not-allowed になる）
+      console.warn('匿名認証に失敗しました（Firebase Storageへのアップロード等が失敗する可能性があります）:', e?.code ?? e)
+    }
+  }
+
   // localStorage からモックセッションを復元
   const restoreMockSession = (): AppUser | null => {
     if (!import.meta.client) return null
@@ -63,6 +82,9 @@ export const useAuth = () => {
     if (mockSession) {
       authStore.setUser(mockSession)
       authStore.setInitialized(true)
+      // 匿名認証が未確立のセッション（例: 匿名認証を有効化する前にログインしていた場合）
+      // でも次回アクセス時に自動で確立されるようにする。初期化はブロックしない。
+      ensureAnonymousAuth()
       return Promise.resolve()
     }
 
@@ -107,23 +129,7 @@ export const useAuth = () => {
       if (import.meta.client) {
         localStorage.setItem(MOCK_SESSION_KEY, JSON.stringify(mockUser))
       }
-      // Firebase Storage/Firestoreのセキュリティルール（認証必須）を満たすため
-      // 匿名認証でFirebaseセッションを確立する（失敗・応答なしでもモック画面遷移は継続）
-      try {
-        const { $auth } = useNuxtApp()
-        if (!$auth.currentUser) {
-          await Promise.race([
-            signInAnonymously($auth),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000)),
-          ])
-        }
-      } catch (e: any) {
-        // Firebase未接続・未設定・タイムアウトでもモック動作は継続するが、
-        // Storage等の認証必須操作が失敗する原因になるためコンソールには残す
-        // （例: Firebaseコンソールで匿名認証プロバイダが無効になっていると
-        //   auth/admin-restricted-operation や auth/operation-not-allowed になる）
-        console.warn('匿名認証に失敗しました（Firebase Storageへのアップロード等が失敗する可能性があります）:', e?.code ?? e)
-      }
+      await ensureAnonymousAuth()
       await router.push('/dashboard')
     } finally {
       authStore.setLoading(false)
