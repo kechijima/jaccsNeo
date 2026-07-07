@@ -154,6 +154,24 @@ const liFieldEntries = (c: any) => {
             </div>
           </div>
 
+          <!-- 保険証券コピー -->
+          <div v-if="c.policyCopies?.length" class="border-t border-gray-100 pt-4">
+            <dt class="text-gray-500 text-xs mb-2">保険証券コピー</dt>
+            <dd class="flex flex-wrap gap-2">
+              <a
+                v-for="(f, i) in c.policyCopies"
+                :key="i"
+                :href="f.url"
+                target="_blank"
+                rel="noopener"
+                class="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:text-primary-700 transition"
+              >
+                <Icon name="heroicons:document" class="h-3.5 w-3.5" />
+                {{ f.name }}
+              </a>
+            </dd>
+          </div>
+
           <!-- ワン/ツー/フォロー -->
           <div v-if="c.oneStatus || c.twoStatus || c.followStatus" class="border-t border-gray-100 pt-4 space-y-2 text-sm">
             <div v-if="c.oneStatus">

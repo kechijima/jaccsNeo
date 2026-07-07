@@ -1,3 +1,8 @@
+export interface PolicyCopyFile {
+  name: string   // 元のファイル名
+  url: string    // Firebase StorageのダウンロードURL
+}
+
 // 生命保険アプリの案件データ型（kintone「生命保険」アプリのCSVエクスポート項目に対応）
 export interface LifeInsuranceCase {
   id: string
@@ -27,7 +32,7 @@ export interface LifeInsuranceCase {
   residenceTypes?: string[]     // 住居（実家・賃貸・持ち家）
   metParents?: string           // 親など（ショッカー）に会ったか
   planningPurpose?: string      // プランニング・目的
-  policyCopies?: string[]       // 保険証券コピー（最大3件、ファイル名/URL）
+  policyCopies?: PolicyCopyFile[] // 保険証券コピー（最大3件、Firebase Storageアップロード）
 
   meetingDate?: string          // 面前日
   scheduledTime?: string        // 設定時刻

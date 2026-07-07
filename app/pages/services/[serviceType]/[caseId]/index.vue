@@ -157,14 +157,18 @@ const fieldEntries = computed(() => {
           保険証券コピー
         </h2>
         <div class="flex flex-wrap gap-2">
-          <span
+          <a
             v-for="(f, i) in liCase.policyCopies"
             :key="i"
-            class="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-1.5 text-xs text-gray-600"
+            :href="f.url"
+            target="_blank"
+            rel="noopener"
+            class="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:text-primary-700 transition"
           >
             <Icon name="heroicons:document" class="h-3.5 w-3.5" />
-            {{ f }}
-          </span>
+            {{ f.name }}
+            <Icon name="heroicons:arrow-top-right-on-square" class="h-3 w-3" />
+          </a>
         </div>
       </div>
 

@@ -5,9 +5,10 @@ import {
   RESIDENCE_TYPE_OPTIONS, WEEKDAY_OPTIONS, MET_PARENTS_OPTIONS,
   NEW_OR_SWITCH_OPTIONS, PROGRESS_STATUS_OPTIONS,
 } from '~/types/lifeInsurance'
-import type { LifeInsuranceCaseInput } from '~/types/lifeInsurance'
+import type { LifeInsuranceCaseInput, PolicyCopyFile } from '~/types/lifeInsurance'
 import { useCustomerStore } from '~/composables/useCustomerStore'
 import { useLifeInsuranceCases } from '~/composables/useLifeInsuranceCases'
+import { useStorage } from '~/composables/useStorage'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -101,11 +102,39 @@ const liForm = reactive<LifeInsuranceCaseInput>({
   recordNumber: '',
 })
 
-const policyCopyFiles = ref<(string | null)[]>([null, null, null])
-const handlePolicyCopySelect = (idx: number, e: Event) => {
-  const file = (e.target as HTMLInputElement).files?.[0]
-  policyCopyFiles.value[idx] = file?.name ?? null
+// 保険証券コピー（Firebase Storageへアップロードし、ダウンロードURLを保持）
+const { uploadFile } = useStorage()
+const policyCopySlots = ref<Array<{ file: PolicyCopyFile | null; uploading: boolean; error: string }>>([
+  { file: null, uploading: false, error: '' },
+  { file: null, uploading: false, error: '' },
+  { file: null, uploading: false, error: '' },
+])
+
+const handlePolicyCopySelect = async (idx: number, e: Event) => {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+
+  const slot = policyCopySlots.value[idx]
+  slot.uploading = true
+  slot.error = ''
+  try {
+    const path = `life-insurance/${customerId.value || 'unlinked'}/${Date.now()}-${file.name}`
+    const url = await uploadFile(path, file)
+    slot.file = { name: file.name, url }
+  } catch {
+    slot.error = 'アップロードに失敗しました'
+  } finally {
+    slot.uploading = false
+    input.value = ''
+  }
 }
+
+const removePolicyCopy = (idx: number) => {
+  policyCopySlots.value[idx] = { file: null, uploading: false, error: '' }
+}
+
+const anyPolicyUploading = computed(() => policyCopySlots.value.some(s => s.uploading))
 
 const toggleInArray = (arr: string[], value: string) => {
   const idx = arr.indexOf(value)
@@ -117,11 +146,17 @@ const liSubmitting = ref(false)
 const liError = ref('')
 
 const handleLiSubmit = async () => {
+  if (policyCopySlots.value.some(s => s.uploading)) {
+    liError.value = 'ファイルのアップロードが完了するまでお待ちください'
+    return
+  }
   liSubmitting.value = true
   liError.value = ''
   try {
     const desiredApptDates = (liForm.desiredApptDates ?? []).filter(Boolean)
-    const policyCopies = policyCopyFiles.value.filter((f): f is string => !!f)
+    const policyCopies = policyCopySlots.value
+      .map(s => s.file)
+      .filter((f): f is PolicyCopyFile => !!f)
     createLiCase({
       ...liForm,
       recordNumber: `local-${Date.now()}`,
@@ -320,13 +355,44 @@ const handleLiSubmit = async () => {
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div v-for="i in 3" :key="i">
               <label class="block text-xs text-gray-500 mb-1">証券コピー{{ ['①', '②', '③'][i - 1] }}</label>
-              <div class="flex items-center justify-center rounded-lg border-2 border-dashed border-gray-200 p-4 text-xs text-gray-400 text-center">
+
+              <!-- アップロード済み -->
+              <div
+                v-if="policyCopySlots[i - 1].file"
+                class="flex items-center justify-between gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-xs"
+              >
+                <a
+                  :href="policyCopySlots[i - 1].file!.url"
+                  target="_blank"
+                  rel="noopener"
+                  class="flex items-center gap-1.5 min-w-0 text-green-700 hover:underline"
+                >
+                  <Icon name="heroicons:document-check" class="h-4 w-4 shrink-0" />
+                  <span class="truncate">{{ policyCopySlots[i - 1].file!.name }}</span>
+                </a>
+                <button type="button" class="shrink-0 text-gray-400 hover:text-red-500 transition" @click="removePolicyCopy(i - 1)">
+                  <Icon name="heroicons:x-mark" class="h-4 w-4" />
+                </button>
+              </div>
+
+              <!-- アップロード中 -->
+              <div
+                v-else-if="policyCopySlots[i - 1].uploading"
+                class="flex items-center justify-center rounded-lg border-2 border-dashed border-primary-200 bg-primary-50 p-4 text-xs text-primary-500"
+              >
+                <Icon name="heroicons:arrow-path" class="h-4 w-4 animate-spin mr-1.5" />
+                アップロード中...
+              </div>
+
+              <!-- 未選択 -->
+              <div v-else class="flex items-center justify-center rounded-lg border-2 border-dashed border-gray-200 p-4 text-xs text-gray-400 text-center hover:border-primary-300 transition">
                 <label class="cursor-pointer w-full">
                   <Icon name="heroicons:paper-clip" class="h-4 w-4 mx-auto mb-1" />
-                  <span class="block truncate">{{ policyCopyFiles[i - 1] ?? 'ファイルを選択' }}</span>
+                  <span class="block truncate">ファイルを選択</span>
                   <input type="file" class="hidden" accept="image/*,.pdf" @change="handlePolicyCopySelect(i - 1, $event)" />
                 </label>
               </div>
+              <p v-if="policyCopySlots[i - 1].error" class="text-xs text-red-500 mt-1">{{ policyCopySlots[i - 1].error }}</p>
             </div>
           </div>
         </div>
@@ -337,9 +403,9 @@ const handleLiSubmit = async () => {
         <NuxtLink :to="`/customers/${customerId}/services/${serviceType}`" class="btn-secondary">
           キャンセル
         </NuxtLink>
-        <button type="submit" class="btn-primary" :disabled="liSubmitting">
+        <button type="submit" class="btn-primary" :disabled="liSubmitting || anyPolicyUploading">
           <Icon v-if="liSubmitting" name="heroicons:arrow-path" class="h-4 w-4 animate-spin mr-1" />
-          {{ liSubmitting ? '保存中...' : '案件を登録する' }}
+          {{ liSubmitting ? '保存中...' : anyPolicyUploading ? 'アップロード中...' : '案件を登録する' }}
         </button>
       </div>
     </form>
