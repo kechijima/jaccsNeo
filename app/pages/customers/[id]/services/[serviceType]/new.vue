@@ -216,7 +216,7 @@ const handleLiSubmit = async () => {
         </div>
       </div>
 
-      <!-- 契約・プランニング内容 -->
+      <!-- 契約・プランニング -->
       <div class="card p-5 space-y-4">
         <h3 class="font-semibold text-gray-900 flex items-center gap-2">
           <Icon name="heroicons:document-text" class="h-5 w-5 text-primary-600" />
@@ -229,126 +229,14 @@ const handleLiSubmit = async () => {
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">新規（無保険状態）or 乗換契約</label>
           <div class="flex gap-2">
-            <label
+            <button
               v-for="opt in NEW_OR_SWITCH_OPTIONS" :key="opt"
+              type="button"
               class="flex items-center gap-1.5 cursor-pointer rounded-lg border px-3 py-2 text-sm transition"
               :class="liForm.newOrSwitch === opt ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'"
-            >
-              <input v-model="liForm.newOrSwitch" type="radio" :value="opt" class="sr-only" />
-              {{ opt }}
-            </label>
+              @click="liForm.newOrSwitch = opt"
+            >{{ opt }}</button>
           </div>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">契約内容</label>
-          <textarea v-model="liForm.contractContent" rows="3" placeholder="契約内容を入力..." class="input-field resize-none" />
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">プランニング内容</label>
-          <textarea v-model="liForm.planningContent" rows="3" placeholder="プランニング内容を入力..." class="input-field resize-none" />
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">プランニング・目的</label>
-          <textarea v-model="liForm.planningPurpose" rows="2" placeholder="プランニングの目的を入力..." class="input-field resize-none" />
-        </div>
-      </div>
-
-      <!-- アポ -->
-      <div class="card p-5 space-y-4">
-        <h3 class="font-semibold text-gray-900 flex items-center gap-2">
-          <Icon name="heroicons:calendar-days" class="h-5 w-5 text-primary-600" />
-          アポ希望
-        </h3>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div v-for="i in 3" :key="i">
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">アポ希望日{{ ['①', '②', '③'][i - 1] }}</label>
-            <input v-model="liForm.desiredApptDates![i - 1]" type="datetime-local" class="input-field text-sm" />
-          </div>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">アポ可能曜日（日程が合わない場合）</label>
-          <div class="flex flex-wrap gap-2">
-            <label
-              v-for="d in WEEKDAY_OPTIONS" :key="d"
-              class="flex items-center gap-1 cursor-pointer rounded-lg border px-3 py-1.5 text-sm transition"
-              :class="liForm.availableWeekdays?.includes(d) ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'"
-              @click="toggleInArray(liForm.availableWeekdays!, d)"
-            >{{ d }}</label>
-          </div>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">面前日</label>
-            <input v-model="liForm.meetingDate" type="date" class="input-field" />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">設定時刻</label>
-            <input v-model="liForm.scheduledTime" type="time" class="input-field" />
-          </div>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">リマインダー</label>
-          <input v-model="liForm.reminder" type="text" placeholder="リマインダー内容を入力..." class="input-field" />
-        </div>
-      </div>
-
-      <!-- ヒアリング項目 -->
-      <div class="card p-5 space-y-4">
-        <h3 class="font-semibold text-gray-900 flex items-center gap-2">
-          <Icon name="heroicons:clipboard-document-list" class="h-5 w-5 text-primary-600" />
-          ヒアリング項目
-        </h3>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">収支（いくら貯金できるか）</label>
-            <input v-model="liForm.monthlyBudget" type="text" placeholder="例: 5万円" class="input-field" />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">ボーナス</label>
-            <input v-model="liForm.bonus" type="text" placeholder="例: 50万円" class="input-field" />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">貯蓄</label>
-            <input v-model="liForm.savings" type="text" placeholder="例: 300万円" class="input-field" />
-          </div>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">住居</label>
-          <div class="flex flex-wrap gap-2">
-            <label
-              v-for="r in RESIDENCE_TYPE_OPTIONS" :key="r"
-              class="flex items-center gap-1 cursor-pointer rounded-lg border px-3 py-1.5 text-sm transition"
-              :class="liForm.residenceTypes?.includes(r) ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'"
-              @click="toggleInArray(liForm.residenceTypes!, r)"
-            >{{ r }}</label>
-          </div>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">親など（ショッカー）に会ったか</label>
-          <div class="flex flex-wrap gap-2">
-            <label
-              v-for="opt in MET_PARENTS_OPTIONS" :key="opt"
-              class="flex items-center gap-1.5 cursor-pointer rounded-lg border px-3 py-2 text-sm transition"
-              :class="liForm.metParents === opt ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'"
-            >
-              <input v-model="liForm.metParents" type="radio" :value="opt" class="sr-only" />
-              {{ opt }}
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <!-- 進行状況・証券コピー -->
-      <div class="card p-5 space-y-4">
-        <h3 class="font-semibold text-gray-900 flex items-center gap-2">
-          <Icon name="heroicons:shield-check" class="h-5 w-5 text-primary-600" />
-          進行状況・証券コピー
-        </h3>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">進行状況</label>
-          <select v-model="liForm.progressStatus" class="input-field">
-            <option v-for="s in PROGRESS_STATUS_OPTIONS" :key="s" :value="s">{{ s }}</option>
-          </select>
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">保険証券コピー</label>
@@ -398,6 +286,119 @@ const handleLiSubmit = async () => {
         </div>
       </div>
 
+      <!-- アポ -->
+      <div class="card p-5 space-y-4">
+        <h3 class="font-semibold text-gray-900 flex items-center gap-2">
+          <Icon name="heroicons:calendar-days" class="h-5 w-5 text-primary-600" />
+          アポ希望
+        </h3>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div v-for="i in 3" :key="i">
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">アポ希望日{{ ['①', '②', '③'][i - 1] }}</label>
+            <input v-model="liForm.desiredApptDates![i - 1]" type="datetime-local" class="input-field text-sm" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">アポ可能曜日（日程が合わない場合）</label>
+          <div class="flex flex-wrap gap-2">
+            <label
+              v-for="d in WEEKDAY_OPTIONS" :key="d"
+              class="flex items-center gap-1 cursor-pointer rounded-lg border px-3 py-1.5 text-sm transition"
+              :class="liForm.availableWeekdays?.includes(d) ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'"
+              @click="toggleInArray(liForm.availableWeekdays!, d)"
+            >{{ d }}</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- ヒアリング項目 -->
+      <div class="card p-5 space-y-4">
+        <h3 class="font-semibold text-gray-900 flex items-center gap-2">
+          <Icon name="heroicons:clipboard-document-list" class="h-5 w-5 text-primary-600" />
+          ヒアリング項目
+        </h3>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">収支（いくら貯金できるか）</label>
+            <input v-model="liForm.monthlyBudget" type="text" placeholder="例: 5万円" class="input-field" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">ボーナス</label>
+            <input v-model="liForm.bonus" type="text" placeholder="例: 50万円" class="input-field" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">貯蓄</label>
+            <input v-model="liForm.savings" type="text" placeholder="例: 300万円" class="input-field" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">住居</label>
+          <div class="flex flex-wrap gap-2">
+            <label
+              v-for="r in RESIDENCE_TYPE_OPTIONS" :key="r"
+              class="flex items-center gap-1 cursor-pointer rounded-lg border px-3 py-1.5 text-sm transition"
+              :class="liForm.residenceTypes?.includes(r) ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'"
+              @click="toggleInArray(liForm.residenceTypes!, r)"
+            >{{ r }}</label>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">親など（ショッカー）に会ったか</label>
+          <div class="flex flex-wrap gap-2">
+            <button
+              v-for="opt in MET_PARENTS_OPTIONS" :key="opt"
+              type="button"
+              class="flex items-center gap-1.5 cursor-pointer rounded-lg border px-3 py-2 text-sm transition"
+              :class="liForm.metParents === opt ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'"
+              @click="liForm.metParents = opt"
+            >{{ opt }}</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 進行状況 -->
+      <div class="card p-5 space-y-4">
+        <h3 class="font-semibold text-gray-900 flex items-center gap-2">
+          <Icon name="heroicons:shield-check" class="h-5 w-5 text-primary-600" />
+          進行状況
+        </h3>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">進行状況</label>
+          <select v-model="liForm.progressStatus" class="input-field">
+            <option v-for="s in PROGRESS_STATUS_OPTIONS" :key="s" :value="s">{{ s }}</option>
+          </select>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">面前日</label>
+            <input v-model="liForm.meetingDate" type="date" class="input-field" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">設定時刻</label>
+            <input v-model="liForm.scheduledTime" type="time" class="input-field" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">リマインダー</label>
+          <input v-model="liForm.reminder" type="text" placeholder="リマインダー内容を入力..." class="input-field" />
+        </div>
+
+        <p class="text-sm font-bold text-red-600 pt-2 border-t border-gray-100">担当者以外編集禁止</p>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">契約内容</label>
+          <textarea v-model="liForm.contractContent" rows="3" placeholder="契約内容を入力..." class="input-field resize-none" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">プランニング内容</label>
+          <textarea v-model="liForm.planningContent" rows="3" placeholder="プランニング内容を入力..." class="input-field resize-none" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">プランニング・目的</label>
+          <textarea v-model="liForm.planningPurpose" rows="2" placeholder="プランニングの目的を入力..." class="input-field resize-none" />
+        </div>
+      </div>
+
       <!-- ボタン -->
       <div class="flex justify-between pt-2 pb-8">
         <NuxtLink :to="`/customers/${customerId}/services/${serviceType}`" class="btn-secondary">
@@ -419,7 +420,7 @@ const handleLiSubmit = async () => {
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">対応ステータス <span class="text-red-500">*</span></label>
         <div class="flex flex-wrap gap-2">
-          <label
+          <button
             v-for="opt in [
               { value: 'consulting', label: '相談中' },
               { value: 'considering', label: '検討中' },
@@ -428,12 +429,11 @@ const handleLiSubmit = async () => {
               { value: 'failed', label: '不成立' },
             ]"
             :key="opt.value"
+            type="button"
             class="flex items-center gap-1.5 cursor-pointer rounded-lg border px-3 py-2 text-sm transition"
             :class="form.status === opt.value ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'"
-          >
-            <input v-model="form.status" type="radio" :value="opt.value" class="sr-only" />
-            {{ opt.label }}
-          </label>
+            @click="form.status = opt.value as ServiceStatus"
+          >{{ opt.label }}</button>
         </div>
       </div>
 

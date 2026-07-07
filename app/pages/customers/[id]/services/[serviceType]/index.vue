@@ -51,15 +51,15 @@ const statusClass = (status: string) => {
 }
 
 // 生命保険案件の主要フィールドを表示用に整形
-const liFieldEntries = (c: any) => {
-  const keys: (keyof typeof LIFE_INSURANCE_FIELD_LABELS)[] = [
-    'contractContent', 'planningContent', 'designRequest', 'newOrSwitch',
-    'monthlyBudget', 'bonus', 'savings', 'planningPurpose',
-  ]
-  return keys
+const liFieldEntries = (c: any, keys: (keyof typeof LIFE_INSURANCE_FIELD_LABELS)[]) =>
+  keys
     .filter(k => c[k])
     .map(k => ({ label: LIFE_INSURANCE_FIELD_LABELS[k], value: c[k] }))
-}
+
+// 契約・プランニングの枠に表示する項目
+const CONTRACT_PLANNING_KEYS: (keyof typeof LIFE_INSURANCE_FIELD_LABELS)[] = ['designRequest', 'monthlyBudget', 'bonus', 'savings']
+// 進行状況の枠に表示する項目（担当者以外編集禁止）
+const PROGRESS_RESTRICTED_KEYS: (keyof typeof LIFE_INSURANCE_FIELD_LABELS)[] = ['contractContent', 'planningContent', 'planningPurpose']
 </script>
 
 <template>
@@ -116,13 +116,38 @@ const liFieldEntries = (c: any) => {
             </div>
           </div>
 
-          <!-- 主要項目 -->
-          <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
-            <div v-for="f in liFieldEntries(c)" :key="f.label" class="sm:col-span-2">
-              <dt class="text-gray-500">{{ f.label }}</dt>
-              <dd class="font-medium text-gray-900 whitespace-pre-line mt-0.5">{{ f.value }}</dd>
+          <!-- 契約・プランニング -->
+          <div
+            v-if="liFieldEntries(c, CONTRACT_PLANNING_KEYS).length > 0 || c.policyCopies?.length"
+            class="space-y-3"
+          >
+            <h3 class="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+              <Icon name="heroicons:document-text" class="h-4 w-4 text-primary-600" />
+              契約・プランニング
+            </h3>
+            <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+              <div v-for="f in liFieldEntries(c, CONTRACT_PLANNING_KEYS)" :key="f.label">
+                <dt class="text-gray-500 text-xs">{{ f.label }}</dt>
+                <dd class="font-medium text-gray-900 whitespace-pre-line mt-0.5">{{ f.value }}</dd>
+              </div>
+            </dl>
+            <div v-if="c.policyCopies?.length">
+              <dt class="text-gray-500 text-xs mb-2">保険証券コピー</dt>
+              <dd class="flex flex-wrap gap-2">
+                <a
+                  v-for="(f, i) in c.policyCopies"
+                  :key="i"
+                  :href="f.url"
+                  target="_blank"
+                  rel="noopener"
+                  class="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:text-primary-700 transition"
+                >
+                  <Icon name="heroicons:document" class="h-3.5 w-3.5" />
+                  {{ f.name }}
+                </a>
+              </dd>
             </div>
-          </dl>
+          </div>
 
           <!-- アポ・活動状況 -->
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm border-t border-gray-100 pt-4">
@@ -144,32 +169,38 @@ const liFieldEntries = (c: any) => {
               <dt class="text-gray-500 text-xs">親などに会ったか</dt>
               <dd class="font-medium text-gray-900 mt-0.5 text-xs">{{ c.metParents }}</dd>
             </div>
-            <div v-if="c.meetingDate">
-              <dt class="text-gray-500 text-xs">面前日</dt>
-              <dd class="font-medium text-gray-900 mt-0.5 text-xs">{{ c.meetingDate }}{{ c.scheduledTime ? ` ${c.scheduledTime}` : '' }}</dd>
-            </div>
             <div v-if="c.tel">
               <dt class="text-gray-500 text-xs">TEL</dt>
               <dd class="font-medium text-gray-900 mt-0.5 text-xs">{{ c.tel }}</dd>
             </div>
           </div>
 
-          <!-- 保険証券コピー -->
-          <div v-if="c.policyCopies?.length" class="border-t border-gray-100 pt-4">
-            <dt class="text-gray-500 text-xs mb-2">保険証券コピー</dt>
-            <dd class="flex flex-wrap gap-2">
-              <a
-                v-for="(f, i) in c.policyCopies"
-                :key="i"
-                :href="f.url"
-                target="_blank"
-                rel="noopener"
-                class="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:text-primary-700 transition"
-              >
-                <Icon name="heroicons:document" class="h-3.5 w-3.5" />
-                {{ f.name }}
-              </a>
-            </dd>
+          <!-- 進行状況 -->
+          <div class="border-t border-gray-100 pt-4 space-y-3">
+            <h3 class="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+              <Icon name="heroicons:shield-check" class="h-4 w-4 text-primary-600" />
+              進行状況
+            </h3>
+            <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+              <div v-if="c.meetingDate">
+                <dt class="text-gray-500 text-xs">面前日</dt>
+                <dd class="font-medium text-gray-900 mt-0.5 text-xs">{{ c.meetingDate }}{{ c.scheduledTime ? ` ${c.scheduledTime}` : '' }}</dd>
+              </div>
+              <div v-if="c.reminder">
+                <dt class="text-gray-500 text-xs">リマインダー</dt>
+                <dd class="font-medium text-gray-900 mt-0.5 text-xs">{{ c.reminder }}</dd>
+              </div>
+            </dl>
+
+            <template v-if="liFieldEntries(c, PROGRESS_RESTRICTED_KEYS).length > 0">
+              <p class="text-xs font-bold text-red-600">担当者以外編集禁止</p>
+              <dl class="space-y-3 text-sm">
+                <div v-for="f in liFieldEntries(c, PROGRESS_RESTRICTED_KEYS)" :key="f.label">
+                  <dt class="text-gray-500 text-xs">{{ f.label }}</dt>
+                  <dd class="font-medium text-gray-900 whitespace-pre-line mt-0.5">{{ f.value }}</dd>
+                </div>
+              </dl>
+            </template>
           </div>
 
           <!-- ワン/ツー/フォロー -->

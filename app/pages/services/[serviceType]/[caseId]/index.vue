@@ -27,16 +27,17 @@ const statusClass = (status: string) => {
   return 'bg-gray-100 text-gray-600'
 }
 
-const fieldEntries = computed(() => {
+const buildEntries = (keys: (keyof typeof LIFE_INSURANCE_FIELD_LABELS)[]) => {
   if (!liCase.value) return []
-  const keys: (keyof typeof LIFE_INSURANCE_FIELD_LABELS)[] = [
-    'contractContent', 'planningContent', 'designRequest', 'newOrSwitch',
-    'monthlyBudget', 'bonus', 'savings', 'planningPurpose',
-  ]
   return keys
     .filter(k => (liCase.value as any)[k])
     .map(k => ({ label: LIFE_INSURANCE_FIELD_LABELS[k], value: (liCase.value as any)[k] }))
-})
+}
+
+// 契約・プランニングの枠に表示する項目
+const contractPlanningEntries = computed(() => buildEntries(['designRequest', 'monthlyBudget', 'bonus', 'savings']))
+// 進行状況の枠に表示する項目（担当者以外編集禁止）
+const progressRestrictedEntries = computed(() => buildEntries(['contractContent', 'planningContent', 'planningPurpose']))
 </script>
 
 <template>
@@ -97,23 +98,40 @@ const fieldEntries = computed(() => {
         </div>
       </div>
 
-      <!-- 契約・プランニング内容 -->
-      <div v-if="fieldEntries.length > 0" class="card p-5 space-y-4">
+      <!-- 契約・プランニング -->
+      <div v-if="contractPlanningEntries.length > 0 || liCase.newOrSwitch || liCase.policyCopies?.length" class="card p-5 space-y-4">
         <h2 class="font-semibold text-gray-900 flex items-center gap-2">
           <Icon name="heroicons:document-text" class="h-5 w-5 text-primary-600" />
           契約・プランニング
         </h2>
         <dl class="space-y-3 text-sm">
-          <div v-for="f in fieldEntries" :key="f.label">
+          <div v-for="f in contractPlanningEntries" :key="f.label">
             <dt class="text-gray-500">{{ f.label }}</dt>
             <dd class="font-medium text-gray-900 whitespace-pre-line mt-0.5">{{ f.value }}</dd>
           </div>
         </dl>
+        <div v-if="liCase.policyCopies?.length">
+          <dt class="text-gray-500 text-sm mb-2">保険証券コピー</dt>
+          <dd class="flex flex-wrap gap-2">
+            <a
+              v-for="(f, i) in liCase.policyCopies"
+              :key="i"
+              :href="f.url"
+              target="_blank"
+              rel="noopener"
+              class="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:text-primary-700 transition"
+            >
+              <Icon name="heroicons:document" class="h-3.5 w-3.5" />
+              {{ f.name }}
+              <Icon name="heroicons:arrow-top-right-on-square" class="h-3 w-3" />
+            </a>
+          </dd>
+        </div>
       </div>
 
       <!-- アポ・ヒアリング項目 -->
       <div
-        v-if="liCase.desiredApptDates?.length || liCase.availableWeekdays?.length || liCase.residenceTypes?.length || liCase.metParents || liCase.meetingDate || liCase.reminder"
+        v-if="liCase.desiredApptDates?.length || liCase.availableWeekdays?.length || liCase.residenceTypes?.length || liCase.metParents"
         class="card p-5 space-y-4"
       >
         <h2 class="font-semibold text-gray-900 flex items-center gap-2">
@@ -139,6 +157,19 @@ const fieldEntries = computed(() => {
             <dt class="text-gray-500 text-xs">親などに会ったか</dt>
             <dd class="font-medium text-gray-900 mt-0.5">{{ liCase.metParents }}</dd>
           </div>
+        </dl>
+      </div>
+
+      <!-- 進行状況 -->
+      <div
+        v-if="liCase.meetingDate || liCase.reminder || progressRestrictedEntries.length > 0"
+        class="card p-5 space-y-4"
+      >
+        <h2 class="font-semibold text-gray-900 flex items-center gap-2">
+          <Icon name="heroicons:shield-check" class="h-5 w-5 text-primary-600" />
+          進行状況
+        </h2>
+        <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
           <div v-if="liCase.meetingDate">
             <dt class="text-gray-500 text-xs">面前日</dt>
             <dd class="font-medium text-gray-900 mt-0.5">{{ liCase.meetingDate }}{{ liCase.scheduledTime ? ` ${liCase.scheduledTime}` : '' }}</dd>
@@ -148,28 +179,16 @@ const fieldEntries = computed(() => {
             <dd class="font-medium text-gray-900 mt-0.5">{{ liCase.reminder }}</dd>
           </div>
         </dl>
-      </div>
 
-      <!-- 保険証券コピー -->
-      <div v-if="liCase.policyCopies?.length" class="card p-5 space-y-3">
-        <h2 class="font-semibold text-gray-900 flex items-center gap-2">
-          <Icon name="heroicons:paper-clip" class="h-5 w-5 text-primary-600" />
-          保険証券コピー
-        </h2>
-        <div class="flex flex-wrap gap-2">
-          <a
-            v-for="(f, i) in liCase.policyCopies"
-            :key="i"
-            :href="f.url"
-            target="_blank"
-            rel="noopener"
-            class="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:text-primary-700 transition"
-          >
-            <Icon name="heroicons:document" class="h-3.5 w-3.5" />
-            {{ f.name }}
-            <Icon name="heroicons:arrow-top-right-on-square" class="h-3 w-3" />
-          </a>
-        </div>
+        <template v-if="progressRestrictedEntries.length > 0">
+          <p class="text-sm font-bold text-red-600 pt-2 border-t border-gray-100">担当者以外編集禁止</p>
+          <dl class="space-y-3 text-sm">
+            <div v-for="f in progressRestrictedEntries" :key="f.label">
+              <dt class="text-gray-500">{{ f.label }}</dt>
+              <dd class="font-medium text-gray-900 whitespace-pre-line mt-0.5">{{ f.value }}</dd>
+            </div>
+          </dl>
+        </template>
       </div>
 
       <!-- ワン/ツー/フォロー -->
