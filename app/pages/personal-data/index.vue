@@ -302,7 +302,7 @@ const statusColor = (s: string) => {
           class="input-field pl-9 text-sm"
         />
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 flex-wrap">
         <button
           v-for="btn in [{ key: 'all', label: 'すべて' }, { key: 'individual', label: '個人' }, { key: 'corporate', label: '法人' }]"
           :key="btn.key"
