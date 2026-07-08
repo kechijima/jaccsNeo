@@ -10,8 +10,9 @@ const serviceType = computed(() => route.params.serviceType as string)
 const serviceLabel = computed(() => SERVICE_LABELS[serviceType.value] ?? serviceType.value)
 const isLifeInsurance = computed(() => serviceType.value === 'lifeInsurance')
 
-// ── 生命保険：専用案件データ（kintone「生命保険」アプリ連動） ──────────
-const { cases: liCases } = useLifeInsuranceCases()
+// ── 生命保険：専用案件データ（Firestore連動） ──────────
+const { cases: liCases, loading: liLoading, fetchAll: fetchLiCases } = useLifeInsuranceCases()
+if (isLifeInsurance.value) await fetchLiCases()
 
 // ── その他サービス：パーソナルデータの対応状況から導出 ──────────────
 const { getCasesForType } = useAppServices()
@@ -96,7 +97,12 @@ const statusClass = (status: string) => {
     <!-- ========================================================= -->
     <template v-if="isLifeInsurance">
 
-      <div v-if="filteredLiCases.length === 0" class="card p-12 text-center">
+      <div v-if="liLoading" class="card p-12 text-center">
+        <Icon name="heroicons:arrow-path" class="h-8 w-8 text-gray-300 mx-auto mb-2 animate-spin" />
+        <p class="text-gray-400 text-sm">読み込み中...</p>
+      </div>
+
+      <div v-else-if="filteredLiCases.length === 0" class="card p-12 text-center">
         <Icon name="heroicons:document-magnifying-glass" class="h-12 w-12 text-gray-200 mx-auto mb-3" />
         <p class="text-gray-400 font-medium">該当する案件がありません</p>
       </div>

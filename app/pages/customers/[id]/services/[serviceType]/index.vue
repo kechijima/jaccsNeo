@@ -21,8 +21,9 @@ const customer = getById(customerId)
 const customerName = computed(() => customer.value?.name ?? '')
 const canEdit = computed(() => customer.value ? canEditCustomer(customer.value.assignedFpId ?? '') : false)
 
-// ── 生命保険：kintone連動の専用案件データ ──────────────────────────
-const { getByCustomerId } = useLifeInsuranceCases()
+// ── 生命保険：Firestore連動の専用案件データ ──────────────────────────
+const { getByCustomerId, fetchAll: fetchLiCases, loading: liLoading } = useLifeInsuranceCases()
+if (isLifeInsurance.value) await fetchLiCases()
 const liCases = getByCustomerId(customerId)
 
 // パーソナルデータのservices値から対応状況を1件の案件として表示（生命保険以外、または生命保険で案件未連携の場合のフォールバック）
@@ -94,9 +95,13 @@ const PROGRESS_RESTRICTED_KEYS: (keyof typeof LIFE_INSURANCE_FIELD_LABELS)[] = [
       </NuxtLink>
     </div>
 
-    <!-- ===== 生命保険：kintone連動の詳細案件表示 ===== -->
+    <!-- ===== 生命保険：Firestore連動の詳細案件表示 ===== -->
     <template v-if="isLifeInsurance">
-      <div v-if="liCases.length === 0" class="card p-10 text-center">
+      <div v-if="liLoading" class="card p-10 text-center">
+        <Icon name="heroicons:arrow-path" class="h-8 w-8 text-gray-300 mx-auto mb-2 animate-spin" />
+        <p class="text-sm text-gray-400">読み込み中...</p>
+      </div>
+      <div v-else-if="liCases.length === 0" class="card p-10 text-center">
         <Icon name="heroicons:shield-check" class="h-10 w-10 text-gray-300 mx-auto mb-2" />
         <p class="text-sm text-gray-400">生命保険アプリと連携した案件がありません</p>
       </div>

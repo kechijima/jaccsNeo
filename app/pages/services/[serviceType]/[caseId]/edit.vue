@@ -22,7 +22,8 @@ if (!isLifeInsurance.value) {
   await navigateTo(`/services/${serviceType.value}`)
 }
 
-const { getById, update } = useLifeInsuranceCases()
+const { getById, update, fetchAll } = useLifeInsuranceCases()
+await fetchAll()
 const liCase = getById(caseId)
 
 if (!liCase.value) {
@@ -122,7 +123,7 @@ const handleLiSubmit = async () => {
     const policyCopies = policyCopySlots.value
       .map(s => s.file)
       .filter((f): f is PolicyCopyFile => !!f)
-    update(caseId.value, {
+    await update(caseId.value, {
       ...liForm,
       desiredApptDates: desiredApptDates.length ? desiredApptDates : undefined,
       policyCopies: policyCopies.length ? policyCopies : undefined,

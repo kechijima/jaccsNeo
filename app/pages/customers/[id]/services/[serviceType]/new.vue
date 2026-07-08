@@ -164,7 +164,7 @@ const handleLiSubmit = async () => {
     const policyCopies = policyCopySlots.value
       .map(s => s.file)
       .filter((f): f is PolicyCopyFile => !!f)
-    createLiCase({
+    await createLiCase({
       ...liForm,
       recordNumber: `local-${Date.now()}`,
       desiredApptDates: desiredApptDates.length ? desiredApptDates : undefined,

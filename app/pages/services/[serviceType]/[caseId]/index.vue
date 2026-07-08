@@ -12,12 +12,13 @@ const serviceLabel = computed(() => SERVICE_LABELS[serviceType.value] ?? service
 const isLifeInsurance = computed(() => serviceType.value === 'lifeInsurance')
 
 // 現状、詳細ページは生命保険アプリのみ対応（他アプリは一覧から顧客詳細へ遷移）
-const { getById } = useLifeInsuranceCases()
-const liCase = getById(caseId)
-
 if (!isLifeInsurance.value) {
   await navigateTo(`/services/${serviceType.value}`)
 }
+
+const { getById, fetchAll } = useLifeInsuranceCases()
+await fetchAll()
+const liCase = getById(caseId)
 
 const statusClass = (status: string) => {
   if (/未成約|不成立|見送/.test(status)) return 'bg-red-100 text-red-600'

@@ -8,9 +8,10 @@ definePageMeta({ middleware: ['auth'] })
 
 const { customers } = useCustomerStore()
 const { countForType } = useAppServices()
-const { cases: liCases } = useLifeInsuranceCases()
+const { cases: liCases, fetchAll: fetchLiCases } = useLifeInsuranceCases()
+await fetchLiCases()
 
-// ── カウント計算（生命保険はkintone連動の専用案件数、それ以外はパーソナルデータのサービス項目から集計） ──
+// ── カウント計算（生命保険はFirestore連動の専用案件数、それ以外はパーソナルデータのサービス項目から集計） ──
 const getCount = (type: string) => type === 'lifeInsurance' ? liCases.value.length : countForType(type)
 
 // ── サマリー ──────────────────────────────────────────────────────────

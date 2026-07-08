@@ -58,6 +58,13 @@ const adminMenus = [
     description: 'デモ・動作確認用の顧客データをFirestoreに投入',
     color: 'text-amber-600 bg-amber-50',
   },
+  {
+    to: '/admin/seed-life-insurance',
+    icon: 'heroicons:shield-check',
+    label: '生命保険データ投入',
+    description: 'kintoneインポート済みの生命保険案件データをFirestoreへ一括投入',
+    color: 'text-sky-600 bg-sky-50',
+  },
 ]
 
 const { fetchUsers } = useUsers()
