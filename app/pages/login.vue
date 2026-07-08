@@ -24,6 +24,7 @@ const errorMessages: Record<string, string> = {
   'auth/too-many-requests':    'ログイン試行が多すぎます。しばらく待ってからお試しください',
   'auth/user-disabled':        'このアカウントは無効化されています',
   'auth/invalid-credential':   'メールアドレスまたはパスワードが正しくありません',
+  'app/profile-not-found':     'ユーザープロフィールが見つかりません。管理者にお問い合わせください',
 }
 
 const handleLogin = async () => {

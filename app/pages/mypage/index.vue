@@ -5,9 +5,9 @@ definePageMeta({ middleware: ['auth'] })
 
 const { user } = useCurrentUser()
 
+// ログイン中の実ユーザーを優先し、未取得時のみモックデータにフォールバックする
 const mockUser = computed(() =>
-  MOCK_ADMIN_USERS.find(u => u.uid === (user.value?.uid ?? 'mock-user-123'))
-  ?? MOCK_ADMIN_USERS.find(u => u.uid === 'mock-user-123')!
+  user.value ?? MOCK_ADMIN_USERS.find(u => u.uid === 'mock-user-123')!
 )
 
 // ── フォームデータ ─────────────────────────────────────────────────────────

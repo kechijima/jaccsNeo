@@ -17,13 +17,15 @@ const AUTH_ERROR_MESSAGES = {
 // 新規ユーザーに置き換えてしまう（＝管理者自身がログアウトされる）ため、
 // Admin SDKを使えるCloud Functions側で作成する。
 //
-// 注意: このアプリのログインは現状モック実装（実際のFirebase Authに紐づく
-// ユーザーロール管理をまだ行っていない）ため、ここでは「ログイン済み（匿名認証含む）」
-// であることのみを確認している。実運用でロールベースのアクセス制御を厳格化する場合は、
-// context.auth.uid に対応する users/{uid} ドキュメントの role が
-// system_admin であることを別途検証すること。
+// ブートストラップ: usersコレクションが1件も存在しない場合に限り、未ログインでも
+// 呼び出しを許可し、強制的にsystem_adminとして最初の管理者アカウントを作成する
+// （/setup ページから利用）。1件でもユーザーが存在すればこの経路は閉じ、
+// 以降は必ずログイン済みであることを要求する。
 exports.createAuthUser = onCall(async (request) => {
-  if (!request.auth) {
+  const usersSnapshot = await admin.firestore().collection('users').limit(1).get()
+  const isBootstrap = usersSnapshot.empty
+
+  if (!isBootstrap && !request.auth) {
     throw new HttpsError('unauthenticated', 'ログインが必要です')
   }
 
@@ -45,14 +47,14 @@ exports.createAuthUser = onCall(async (request) => {
     await admin.firestore().doc(`users/${userRecord.uid}`).set({
       email,
       displayName,
-      role: role ?? 'general',
-      specialTeams: specialTeams ?? [],
+      role: isBootstrap ? 'system_admin' : (role ?? 'general'),
+      specialTeams: isBootstrap ? [] : (specialTeams ?? []),
       groupId: groupId ?? null,
       kumiaiId: kumiaiId ?? null,
       position: position ?? null,
       isActive: true,
-      createdBy: request.auth.uid,
-      updatedBy: request.auth.uid,
+      createdBy: request.auth ? request.auth.uid : 'bootstrap',
+      updatedBy: request.auth ? request.auth.uid : 'bootstrap',
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     })
@@ -62,5 +64,5 @@ exports.createAuthUser = onCall(async (request) => {
     throw new HttpsError('internal', 'ユーザープロフィールの作成に失敗しました')
   }
 
-  return { uid: userRecord.uid }
+  return { uid: userRecord.uid, bootstrap: isBootstrap }
 })
