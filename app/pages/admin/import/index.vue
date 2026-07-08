@@ -85,32 +85,34 @@ const statusClass = (status: string) =>
       <div class="px-5 py-3 border-b border-gray-100 bg-gray-50">
         <h2 class="font-semibold text-gray-900">インポート履歴</h2>
       </div>
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="border-b border-gray-100">
-            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">ファイル名</th>
-            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500">総数</th>
-            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500">成功</th>
-            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500">エラー</th>
-            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">状態</th>
-            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">実行日時</th>
-            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">担当者</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-50">
-          <tr v-for="h in importHistory" :key="h.id" class="hover:bg-gray-50">
-            <td class="px-4 py-3 font-medium text-gray-800 text-xs max-w-[200px] truncate">{{ h.filename }}</td>
-            <td class="px-4 py-3 text-center text-gray-600">{{ h.totalRows.toLocaleString() }}</td>
-            <td class="px-4 py-3 text-center font-semibold text-green-700">{{ h.successRows.toLocaleString() }}</td>
-            <td class="px-4 py-3 text-center font-semibold" :class="h.errorRows > 0 ? 'text-red-600' : 'text-gray-400'">{{ h.errorRows }}</td>
-            <td class="px-4 py-3">
-              <span class="badge text-xs" :class="statusClass(h.status)">{{ h.statusLabel }}</span>
-            </td>
-            <td class="px-4 py-3 text-gray-500 text-xs">{{ h.createdAt }}</td>
-            <td class="px-4 py-3 text-gray-500 text-xs">{{ h.operator }}</td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-gray-100">
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">ファイル名</th>
+              <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 whitespace-nowrap">総数</th>
+              <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 whitespace-nowrap">成功</th>
+              <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 whitespace-nowrap">エラー</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">状態</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">実行日時</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">担当者</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50">
+            <tr v-for="h in importHistory" :key="h.id" class="hover:bg-gray-50">
+              <td class="px-4 py-3 font-medium text-gray-800 text-xs max-w-[200px] truncate">{{ h.filename }}</td>
+              <td class="px-4 py-3 text-center text-gray-600 whitespace-nowrap">{{ h.totalRows.toLocaleString() }}</td>
+              <td class="px-4 py-3 text-center font-semibold text-green-700 whitespace-nowrap">{{ h.successRows.toLocaleString() }}</td>
+              <td class="px-4 py-3 text-center font-semibold whitespace-nowrap" :class="h.errorRows > 0 ? 'text-red-600' : 'text-gray-400'">{{ h.errorRows }}</td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <span class="badge text-xs" :class="statusClass(h.status)">{{ h.statusLabel }}</span>
+              </td>
+              <td class="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{{ h.createdAt }}</td>
+              <td class="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{{ h.operator }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <!-- データ移行ガイド -->

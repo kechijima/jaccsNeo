@@ -206,7 +206,7 @@ const deleteKumiai = (g: typeof groups.value[0], kumiaiId: string) => {
         class="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40"
         @click.self="showAddGroup = false"
       >
-        <div class="bg-white w-full md:max-w-md rounded-t-2xl md:rounded-2xl p-6 space-y-4 shadow-xl">
+        <div class="bg-white w-full md:max-w-md rounded-t-2xl md:rounded-2xl p-6 space-y-4 shadow-xl max-h-[85vh] overflow-y-auto">
           <div class="flex items-center justify-between">
             <h3 class="font-bold text-gray-900">グループを追加</h3>
             <button class="p-1.5 hover:bg-gray-100 rounded-lg" @click="showAddGroup = false">
@@ -237,7 +237,7 @@ const deleteKumiai = (g: typeof groups.value[0], kumiaiId: string) => {
         class="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40"
         @click.self="editGroupTarget = null"
       >
-        <div class="bg-white w-full md:max-w-md rounded-t-2xl md:rounded-2xl p-6 space-y-4 shadow-xl">
+        <div class="bg-white w-full md:max-w-md rounded-t-2xl md:rounded-2xl p-6 space-y-4 shadow-xl max-h-[85vh] overflow-y-auto">
           <div class="flex items-center justify-between">
             <h3 class="font-bold text-gray-900">グループ編集</h3>
             <button class="p-1.5 hover:bg-gray-100 rounded-lg" @click="editGroupTarget = null">
@@ -267,7 +267,7 @@ const deleteKumiai = (g: typeof groups.value[0], kumiaiId: string) => {
         class="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40"
         @click.self="addKumiaiGroup = null"
       >
-        <div class="bg-white w-full md:max-w-md rounded-t-2xl md:rounded-2xl p-6 space-y-4 shadow-xl">
+        <div class="bg-white w-full md:max-w-md rounded-t-2xl md:rounded-2xl p-6 space-y-4 shadow-xl max-h-[85vh] overflow-y-auto">
           <div class="flex items-center justify-between">
             <div>
               <h3 class="font-bold text-gray-900">組合を追加</h3>
@@ -305,7 +305,7 @@ const deleteKumiai = (g: typeof groups.value[0], kumiaiId: string) => {
         class="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40"
         @click.self="editKumiaiTarget = null; editKumiaiGroup = null"
       >
-        <div class="bg-white w-full md:max-w-md rounded-t-2xl md:rounded-2xl p-6 space-y-4 shadow-xl">
+        <div class="bg-white w-full md:max-w-md rounded-t-2xl md:rounded-2xl p-6 space-y-4 shadow-xl max-h-[85vh] overflow-y-auto">
           <div class="flex items-center justify-between">
             <div>
               <h3 class="font-bold text-gray-900">組合を編集</h3>

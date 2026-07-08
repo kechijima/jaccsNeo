@@ -467,7 +467,7 @@ const eventColorMap: Record<string, string> = {
         class="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40"
         @click.self="showCompose = false"
       >
-        <div class="bg-white w-full md:max-w-lg rounded-t-2xl md:rounded-2xl p-5 space-y-4 shadow-xl">
+        <div class="bg-white w-full md:max-w-lg rounded-t-2xl md:rounded-2xl p-5 space-y-4 shadow-xl max-h-[90vh] overflow-y-auto">
           <div class="flex items-center justify-between">
             <h3 class="font-bold text-gray-900">投稿する</h3>
             <button class="p-1.5 rounded-lg hover:bg-gray-100 transition" @click="showCompose = false">

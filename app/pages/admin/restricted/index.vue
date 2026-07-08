@@ -60,30 +60,32 @@ const categoryColors: Record<string, string> = {
 
     <!-- コンテンツ一覧 -->
     <div class="card overflow-hidden">
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="border-b border-gray-100 bg-gray-50">
-            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">タイトル</th>
-            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">カテゴリ</th>
-            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500">閲覧数</th>
-            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">作成日</th>
-            <th class="px-4 py-3" />
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-50">
-          <tr v-for="doc in docs" :key="doc.id" class="hover:bg-gray-50">
-            <td class="px-4 py-3 font-medium text-gray-900">{{ doc.title }}</td>
-            <td class="px-4 py-3">
-              <span class="badge text-xs" :class="categoryColors[doc.category] ?? 'bg-gray-100 text-gray-600'">{{ doc.category }}</span>
-            </td>
-            <td class="px-4 py-3 text-center text-gray-500">{{ doc.accessCount }}</td>
-            <td class="px-4 py-3 text-gray-500 text-xs">{{ doc.createdAt }}</td>
-            <td class="px-4 py-3 flex gap-2 justify-end">
-              <NuxtLink :to="`/admin/restricted/${doc.id}`" class="text-xs text-primary-600 hover:underline">詳細</NuxtLink>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-gray-100 bg-gray-50">
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">タイトル</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">カテゴリ</th>
+              <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 whitespace-nowrap">閲覧数</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">作成日</th>
+              <th class="px-4 py-3" />
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50">
+            <tr v-for="doc in docs" :key="doc.id" class="hover:bg-gray-50">
+              <td class="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">{{ doc.title }}</td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <span class="badge text-xs" :class="categoryColors[doc.category] ?? 'bg-gray-100 text-gray-600'">{{ doc.category }}</span>
+              </td>
+              <td class="px-4 py-3 text-center text-gray-500 whitespace-nowrap">{{ doc.accessCount }}</td>
+              <td class="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{{ doc.createdAt }}</td>
+              <td class="px-4 py-3 flex gap-2 justify-end whitespace-nowrap">
+                <NuxtLink :to="`/admin/restricted/${doc.id}`" class="text-xs text-primary-600 hover:underline">詳細</NuxtLink>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
   </div>

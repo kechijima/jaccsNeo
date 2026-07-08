@@ -593,7 +593,7 @@ const statusColor = (s: string) => {
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
         @click.self="showImportModal = false"
       >
-        <div class="bg-white w-full max-w-md rounded-2xl p-6 space-y-5 shadow-xl mx-4">
+        <div class="bg-white w-full max-w-md rounded-2xl p-6 space-y-5 shadow-xl mx-4 max-h-[85vh] overflow-y-auto">
           <div class="flex items-center justify-between">
             <h3 class="font-bold text-gray-900 flex items-center gap-2">
               <Icon name="heroicons:arrow-up-tray" class="h-5 w-5 text-primary-600" />
@@ -667,7 +667,7 @@ const statusColor = (s: string) => {
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
         @click.self="showSaveModal = false"
       >
-        <div class="bg-white w-full max-w-sm rounded-2xl p-6 space-y-4 shadow-xl mx-4">
+        <div class="bg-white w-full max-w-sm rounded-2xl p-6 space-y-4 shadow-xl mx-4 max-h-[85vh] overflow-y-auto">
           <div class="flex items-center justify-between">
             <h3 class="font-bold text-gray-900 flex items-center gap-2">
               <Icon name="heroicons:bookmark" class="h-5 w-5 text-primary-600" />
