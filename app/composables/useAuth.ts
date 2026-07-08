@@ -8,6 +8,7 @@ import {
 import { doc, getDoc } from 'firebase/firestore'
 import { useAuthStore } from '~/stores/auth'
 import type { AppUser } from '~/types/user'
+import { toAppUser } from '~/utils/userMapper'
 
 export const useAuth = () => {
   const authStore = useAuthStore()
@@ -21,20 +22,9 @@ export const useAuth = () => {
     if (!snap.exists()) return null
 
     const data = snap.data()
-    return {
-      uid:          firebaseUser.uid,
-      email:        firebaseUser.email ?? '',
-      displayName:  data.displayName ?? firebaseUser.displayName ?? '',
-      avatarUrl:    data.avatarUrl,
-      role:         data.role ?? 'general',
-      specialTeams: data.specialTeams ?? [],
-      groupId:      data.groupId,
-      kumiaiId:     data.kumiaiId,
-      position:     data.position,
-      isActive:     data.isActive ?? true,
-      createdAt:    data.createdAt?.toDate?.() ?? new Date(),
-      updatedAt:    data.updatedAt?.toDate?.() ?? new Date(),
-    }
+    const user = toAppUser(firebaseUser.uid, data, firebaseUser.email ?? '')
+    user.displayName = data.displayName ?? firebaseUser.displayName ?? ''
+    return user
   }
 
   // 認証状態の監視（アプリ起動時に一度だけ呼ぶ）。ログイン・ログアウトの

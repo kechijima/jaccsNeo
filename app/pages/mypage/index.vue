@@ -1,9 +1,16 @@
 <script setup lang="ts">
 import { MOCK_ADMIN_USERS } from '~/data/mock'
+import { useUsers } from '~/composables/useUsers'
+import { useStorage } from '~/composables/useStorage'
+import { useAuthStore } from '~/stores/auth'
+import type { AppUser } from '~/types/user'
 
 definePageMeta({ middleware: ['auth'] })
 
 const { user } = useCurrentUser()
+const authStore = useAuthStore()
+const { updateMyProfile } = useUsers()
+const { uploadFile } = useStorage()
 
 // ログイン中の実ユーザーを優先し、未取得時のみモックデータにフォールバックする
 const mockUser = computed(() =>
@@ -17,7 +24,6 @@ const form = reactive({
   firstName: '',
   lastNameKana: '',
   firstNameKana: '',
-  email: '',
   mobile: '',
   position: '',
   groupId: '',
@@ -35,7 +41,7 @@ const form = reactive({
   salaryContent: '',
   supportPerson: '',
   // 銀行情報（個人）
-  risonaAccount: '',
+  resonaAccount: '',
   sbiAccount: '',
   otherBankName: '',
   otherBankBranch: '',
@@ -52,22 +58,48 @@ const form = reactive({
   snsUrl: '',
 })
 
+// 日付系（ネイティブの日付ピッカーを使うため「なし」を代入できない項目）
+const DATE_FIELDS = new Set(['joinDate', 'birthday', 'kumiaiJoinDate'])
+
 // 初期化
-onMounted(() => {
+const loadForm = () => {
   const u = mockUser.value
   form.lastName = u.lastName ?? ''
   form.firstName = u.firstName ?? ''
   form.lastNameKana = u.lastNameKana ?? ''
   form.firstNameKana = u.firstNameKana ?? ''
-  form.email = u.email ?? ''
   form.mobile = u.mobile ?? ''
   form.position = u.position ?? ''
   form.groupId = u.groupId ?? ''
+  form.employeeId = u.employeeId ?? ''
+  form.joinDate = u.joinDate ?? ''
   form.birthday = u.birthday ?? ''
   // type="month" の input は YYYY-MM 形式のみ受け付けるため切り詰める
   form.kumiaiJoinDate = (u.kumiaiJoinDate ?? '').slice(0, 7)
+  form.nationality = u.nationality ?? ''
+  form.localArea = u.localArea ?? ''
+  form.hobbies = u.hobbies ?? ''
+  form.comment = u.comment ?? ''
   form.selfIntro = u.selfIntro ?? ''
-})
+  form.businessContent = u.businessContent ?? ''
+  form.salaryContent = u.salaryContent ?? ''
+  form.supportPerson = u.supportPerson ?? ''
+  form.resonaAccount = u.resonaAccount ?? ''
+  form.sbiAccount = u.sbiAccount ?? ''
+  form.otherBankName = u.otherBankName ?? ''
+  form.otherBankBranch = u.otherBankBranch ?? ''
+  form.otherBankAccount = u.otherBankAccount ?? ''
+  form.yuuchoInfo = u.yuuchoInfo ?? ''
+  form.corporateName = u.corporateName ?? ''
+  form.corporateAccount = u.corporateAccount ?? ''
+  form.corporateSbiAccount = u.corporateSbiAccount ?? ''
+  form.invoiceNumber = u.invoiceNumber ?? ''
+  form.dreamGoal = u.dreamGoal ?? ''
+  form.snsUrl = u.snsUrl ?? ''
+}
+
+onMounted(loadForm)
+watch(() => user.value?.uid, loadForm)
 
 // ── タブ ─────────────────────────────────────────────────────────────────
 const activeTab = ref<'basic' | 'business' | 'bank' | 'corporate' | 'goal'>('basic')
@@ -83,13 +115,61 @@ const tabs = [
 // ── 保存 ─────────────────────────────────────────────────────────────────
 const saving = ref(false)
 const saved = ref(false)
+const saveError = ref('')
 
 const saveProfile = async () => {
   saving.value = true
-  await new Promise(r => setTimeout(r, 600))
-  saving.value = false
-  saved.value = true
-  setTimeout(() => { saved.value = false }, 2500)
+  saveError.value = ''
+  try {
+    // 未入力の項目は「なし」を明示的に登録する（日付系は形式上「なし」を入れられないため対象外）
+    const payload: Record<string, string> = {}
+    for (const [key, value] of Object.entries(form)) {
+      const trimmed = (value ?? '').toString().trim()
+      payload[key] = trimmed === '' && !DATE_FIELDS.has(key) ? 'なし' : trimmed
+    }
+
+    await updateMyProfile(payload)
+
+    // フォームにも反映（画面上の表示を「なし」埋め後の状態に揃える）
+    Object.assign(form, payload)
+    if (authStore.user) {
+      authStore.setUser({ ...authStore.user, ...payload } as AppUser)
+    }
+
+    saved.value = true
+    setTimeout(() => { saved.value = false }, 2500)
+  } catch (e: any) {
+    saveError.value = e.message ?? '保存に失敗しました'
+  } finally {
+    saving.value = false
+  }
+}
+
+// ── 写真アップロード ─────────────────────────────────────────────────────
+const photoInputRef = ref<HTMLInputElement>()
+const uploadingPhoto = ref(false)
+const photoError = ref('')
+
+const handlePhotoSelect = async (e: Event) => {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+
+  uploadingPhoto.value = true
+  photoError.value = ''
+  try {
+    const uid = user.value?.uid ?? 'unknown'
+    const path = `avatars/${uid}/${Date.now()}-${file.name}`
+    const url = await uploadFile(path, file)
+    await updateMyProfile({ avatarUrl: url })
+    if (authStore.user) {
+      authStore.setUser({ ...authStore.user, avatarUrl: url })
+    }
+  } catch (e: any) {
+    photoError.value = e.message ?? '写真のアップロードに失敗しました'
+  } finally {
+    uploadingPhoto.value = false
+    if (photoInputRef.value) photoInputRef.value.value = ''
+  }
 }
 
 // ── グループ表示 ──────────────────────────────────────────────────────────
@@ -113,24 +193,41 @@ const groupLabel = computed(() => {
           <Icon name="heroicons:user-circle" class="h-6 w-6 text-primary-600" />
           マイページ
         </h1>
-        <p class="mt-1 text-sm text-gray-500">プロフィール・業務情報を管理します</p>
+        <p class="mt-1 text-sm text-gray-500">
+          プロフィール・業務情報を管理します。
+          <NuxtLink v-if="user" :to="`/team/${user.uid}`" class="text-primary-600 hover:underline">公開プロフィールを見る</NuxtLink>
+        </p>
       </div>
-      <button
-        class="btn-primary text-sm flex items-center gap-1.5"
-        :disabled="saving"
-        @click="saveProfile"
-      >
-        <Icon v-if="saving" name="heroicons:arrow-path" class="h-4 w-4 animate-spin" />
-        <Icon v-else-if="saved" name="heroicons:check" class="h-4 w-4" />
-        <Icon v-else name="heroicons:cloud-arrow-up" class="h-4 w-4" />
-        {{ saving ? '保存中...' : saved ? '保存しました' : '保存する' }}
-      </button>
+      <div class="flex flex-col items-end gap-1">
+        <button
+          class="btn-primary text-sm flex items-center gap-1.5"
+          :disabled="saving"
+          @click="saveProfile"
+        >
+          <Icon v-if="saving" name="heroicons:arrow-path" class="h-4 w-4 animate-spin" />
+          <Icon v-else-if="saved" name="heroicons:check" class="h-4 w-4" />
+          <Icon v-else name="heroicons:cloud-arrow-up" class="h-4 w-4" />
+          {{ saving ? '保存中...' : saved ? '保存しました' : '保存する' }}
+        </button>
+        <p v-if="saveError" class="text-xs text-red-500">{{ saveError }}</p>
+      </div>
     </div>
 
     <!-- プロフィールカード -->
     <div class="card p-5 flex items-center gap-4">
-      <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary-100 text-primary-700 text-2xl font-bold">
-        {{ mockUser.displayName.charAt(0) }}
+      <div class="relative shrink-0">
+        <img
+          v-if="mockUser.avatarUrl"
+          :src="mockUser.avatarUrl"
+          alt=""
+          class="h-16 w-16 rounded-full object-cover"
+        />
+        <div v-else class="flex h-16 w-16 items-center justify-center rounded-full bg-primary-100 text-primary-700 text-2xl font-bold">
+          {{ mockUser.displayName.charAt(0) }}
+        </div>
+        <div v-if="uploadingPhoto" class="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
+          <Icon name="heroicons:arrow-path" class="h-5 w-5 text-white animate-spin" />
+        </div>
       </div>
       <div class="flex-1 min-w-0">
         <p class="text-lg font-bold text-gray-900">{{ mockUser.displayName }}</p>
@@ -139,12 +236,14 @@ const groupLabel = computed(() => {
           <span class="badge bg-gray-100 text-gray-600 text-xs">{{ groupLabel }}</span>
           <span class="text-xs text-gray-400">{{ mockUser.email }}</span>
         </div>
+        <p v-if="photoError" class="text-xs text-red-500 mt-1">{{ photoError }}</p>
       </div>
       <div class="shrink-0">
-        <button class="btn-secondary text-xs flex items-center gap-1">
+        <button class="btn-secondary text-xs flex items-center gap-1" :disabled="uploadingPhoto" @click="photoInputRef?.click()">
           <Icon name="heroicons:camera" class="h-3.5 w-3.5" />
           写真変更
         </button>
+        <input ref="photoInputRef" type="file" accept="image/*" class="hidden" @change="handlePhotoSelect" />
       </div>
     </div>
 
@@ -170,6 +269,7 @@ const groupLabel = computed(() => {
       <!-- 基本情報 -->
       <template v-if="activeTab === 'basic'">
         <h2 class="font-semibold text-gray-900 border-b border-gray-100 pb-2">基本情報</h2>
+        <p class="text-xs text-gray-400 -mt-3">該当がない項目は空欄のまま保存すると「なし」として登録されます</p>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <!-- 氏名 -->
@@ -195,7 +295,8 @@ const groupLabel = computed(() => {
           <!-- 連絡先 -->
           <div>
             <label class="block text-xs font-medium text-gray-500 mb-1">メールアドレス</label>
-            <input v-model="form.email" type="email" class="input-field text-sm" placeholder="example@email.com" />
+            <input :value="mockUser.email" type="email" class="input-field text-sm bg-gray-50" disabled />
+            <p class="mt-1 text-xs text-gray-400">ログインメールアドレスは管理者にご相談ください</p>
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-500 mb-1">携帯電話</label>
@@ -256,7 +357,7 @@ const groupLabel = computed(() => {
           <!-- SNS -->
           <div class="sm:col-span-2">
             <label class="block text-xs font-medium text-gray-500 mb-1">SNS / HP URL</label>
-            <input v-model="form.snsUrl" type="url" class="input-field text-sm" placeholder="https://..." />
+            <input v-model="form.snsUrl" type="text" class="input-field text-sm" placeholder="https://..." />
           </div>
 
           <!-- 趣味・特技 -->
@@ -323,7 +424,7 @@ const groupLabel = computed(() => {
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div class="sm:col-span-2">
             <label class="block text-xs font-medium text-gray-500 mb-1">りそな口座</label>
-            <input v-model="form.risonaAccount" type="text" class="input-field text-sm" placeholder="支店名・口座番号" />
+            <input v-model="form.resonaAccount" type="text" class="input-field text-sm" placeholder="支店名・口座番号" />
           </div>
 
           <div class="sm:col-span-2">

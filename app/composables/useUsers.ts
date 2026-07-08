@@ -8,26 +8,11 @@ import {
   orderBy,
   where,
   serverTimestamp,
-  type DocumentData,
 } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
 import type { AppUser, UserRole, SpecialTeam, GroupId } from '~/types/user'
 import { useAuthStore } from '~/stores/auth'
-
-const toUser = (id: string, data: DocumentData): AppUser => ({
-  uid:          id,
-  email:        data.email ?? '',
-  displayName:  data.displayName ?? '',
-  avatarUrl:    data.avatarUrl,
-  role:         data.role ?? 'general',
-  specialTeams: data.specialTeams ?? [],
-  groupId:      data.groupId,
-  kumiaiId:     data.kumiaiId,
-  position:     data.position,
-  isActive:     data.isActive ?? true,
-  createdAt:    data.createdAt?.toDate?.() ?? new Date(),
-  updatedAt:    data.updatedAt?.toDate?.() ?? new Date(),
-})
+import { toAppUser } from '~/utils/userMapper'
 
 export const useUsers = () => {
   const { $db, $functions } = useNuxtApp()
@@ -39,31 +24,31 @@ export const useUsers = () => {
   const fetchUsers = async (): Promise<AppUser[]> => {
     const q = query(usersCol(), orderBy('displayName', 'asc'))
     const snap = await getDocs(q)
-    return snap.docs.map(d => toUser(d.id, d.data()))
+    return snap.docs.map(d => toAppUser(d.id, d.data()))
   }
 
   // ===== グループ別ユーザー =====
   const fetchUsersByGroup = async (groupId: GroupId): Promise<AppUser[]> => {
     const q = query(usersCol(), where('groupId', '==', groupId), orderBy('displayName', 'asc'))
     const snap = await getDocs(q)
-    return snap.docs.map(d => toUser(d.id, d.data()))
+    return snap.docs.map(d => toAppUser(d.id, d.data()))
   }
 
   // ===== 組合別ユーザー =====
   const fetchUsersByKumiai = async (kumiaiId: string): Promise<AppUser[]> => {
     const q = query(usersCol(), where('kumiaiId', '==', kumiaiId), orderBy('displayName', 'asc'))
     const snap = await getDocs(q)
-    return snap.docs.map(d => toUser(d.id, d.data()))
+    return snap.docs.map(d => toAppUser(d.id, d.data()))
   }
 
-  // ===== 1件取得 =====
+  // ===== 1件取得（マイページ・公開プロフィールでも使用） =====
   const fetchUser = async (uid: string): Promise<AppUser | null> => {
     const snap = await getDoc(doc($db, 'users', uid))
     if (!snap.exists()) return null
-    return toUser(snap.id, snap.data())
+    return toAppUser(snap.id, snap.data())
   }
 
-  // ===== ユーザー情報更新（Firestoreのみ） =====
+  // ===== ユーザー情報更新（管理者専用。役割・所属など） =====
   const updateUser = async (uid: string, data: {
     displayName?: string
     role?: UserRole
@@ -77,6 +62,17 @@ export const useUsers = () => {
     await updateDoc(doc($db, 'users', uid), {
       ...data,
       updatedBy: authStore.user?.uid,
+      updatedAt: serverTimestamp(),
+    })
+  }
+
+  // ===== 自分自身のプロフィール更新（マイページ用。本人のみ許可） =====
+  const updateMyProfile = async (data: Record<string, any>): Promise<void> => {
+    const uid = authStore.user?.uid
+    if (!uid) throw new Error('ログインしてください')
+    await updateDoc(doc($db, 'users', uid), {
+      ...data,
+      updatedBy: uid,
       updatedAt: serverTimestamp(),
     })
   }
@@ -106,6 +102,7 @@ export const useUsers = () => {
     fetchUsersByKumiai,
     fetchUser,
     updateUser,
+    updateMyProfile,
     createAuthUser,
   }
 }

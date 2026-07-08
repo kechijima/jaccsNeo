@@ -344,12 +344,9 @@ const openDetail = (u: any) => { selectedUser.value = u }
                       {{ selectedUser.position || '' }}
                     </dd>
                   </div>
-                  <div v-if="selectedUser.supporter?.mainName || selectedUser.supporter?.subName" class="grid grid-cols-3 gap-1">
+                  <div v-if="selectedUser.supportPerson" class="grid grid-cols-3 gap-1">
                     <dt class="text-gray-500">サポート者</dt>
-                    <dd class="col-span-2">
-                      <span v-if="selectedUser.supporter?.mainName">メイン: {{ selectedUser.supporter.mainName }}</span>
-                      <span v-if="selectedUser.supporter?.subName" class="block">サブ: {{ selectedUser.supporter.subName }}</span>
-                    </dd>
+                    <dd class="col-span-2">{{ selectedUser.supportPerson }}</dd>
                   </div>
                 </dl>
               </section>
@@ -387,27 +384,21 @@ const openDetail = (u: any) => { selectedUser.value = u }
                 <dl class="space-y-2">
                   <div v-if="selectedUser.resonaAccount" class="grid grid-cols-3 gap-1">
                     <dt class="text-gray-500">りそな</dt>
-                    <dd class="col-span-2 text-xs">{{ selectedUser.resonaAccount.branch }} / {{ selectedUser.resonaAccount.number }}</dd>
+                    <dd class="col-span-2 text-xs">{{ selectedUser.resonaAccount }}</dd>
                   </div>
                   <div v-if="selectedUser.sbiAccount" class="grid grid-cols-3 gap-1">
                     <dt class="text-gray-500">SBI</dt>
-                    <dd class="col-span-2 text-xs">{{ selectedUser.sbiAccount.branch }} / {{ selectedUser.sbiAccount.number }}</dd>
+                    <dd class="col-span-2 text-xs">{{ selectedUser.sbiAccount }}</dd>
                   </div>
-                  <div v-if="selectedUser.otherBankAccount" class="grid grid-cols-3 gap-1">
+                  <div v-if="selectedUser.otherBankName || selectedUser.otherBankBranch || selectedUser.otherBankAccount" class="grid grid-cols-3 gap-1">
                     <dt class="text-gray-500">その他銀行</dt>
                     <dd class="col-span-2 text-xs">
-                      {{ selectedUser.otherBankAccount.bankName }} {{ selectedUser.otherBankAccount.branch }} /
-                      {{ selectedUser.otherBankAccount.type }} {{ selectedUser.otherBankAccount.number }} /
-                      {{ selectedUser.otherBankAccount.holderName }}
+                      {{ selectedUser.otherBankName }} {{ selectedUser.otherBankBranch }} {{ selectedUser.otherBankAccount }}
                     </dd>
                   </div>
-                  <div v-if="selectedUser.yuchoAccount" class="grid grid-cols-3 gap-1">
+                  <div v-if="selectedUser.yuuchoInfo" class="grid grid-cols-3 gap-1">
                     <dt class="text-gray-500">ゆうちょ</dt>
-                    <dd class="col-span-2 text-xs">
-                      {{ selectedUser.yuchoAccount.storeName }}（{{ selectedUser.yuchoAccount.storeCode }}） /
-                      {{ selectedUser.yuchoAccount.type }} {{ selectedUser.yuchoAccount.number }} /
-                      {{ selectedUser.yuchoAccount.holderName }}
-                    </dd>
+                    <dd class="col-span-2 text-xs">{{ selectedUser.yuuchoInfo }}</dd>
                   </div>
                 </dl>
               </section>
@@ -420,39 +411,46 @@ const openDetail = (u: any) => { selectedUser.value = u }
                     <dt class="text-gray-500">法人名</dt>
                     <dd class="col-span-2">{{ selectedUser.corporateName }}</dd>
                   </div>
-                  <div v-if="selectedUser.corporateResonaAccount" class="grid grid-cols-3 gap-1">
-                    <dt class="text-gray-500">法人りそな</dt>
-                    <dd class="col-span-2 text-xs">{{ selectedUser.corporateResonaAccount.branch }} / {{ selectedUser.corporateResonaAccount.number }}</dd>
+                  <div v-if="selectedUser.corporateAccount" class="grid grid-cols-3 gap-1">
+                    <dt class="text-gray-500">法人口座</dt>
+                    <dd class="col-span-2 text-xs">{{ selectedUser.corporateAccount }}</dd>
                   </div>
                   <div v-if="selectedUser.corporateSbiAccount" class="grid grid-cols-3 gap-1">
                     <dt class="text-gray-500">法人SBI</dt>
-                    <dd class="col-span-2 text-xs">{{ selectedUser.corporateSbiAccount.branch }} / {{ selectedUser.corporateSbiAccount.number }}</dd>
+                    <dd class="col-span-2 text-xs">{{ selectedUser.corporateSbiAccount }}</dd>
+                  </div>
+                  <div v-if="selectedUser.invoiceNumber" class="grid grid-cols-3 gap-1">
+                    <dt class="text-gray-500">インボイス番号</dt>
+                    <dd class="col-span-2 text-xs">{{ selectedUser.invoiceNumber }}</dd>
                   </div>
                 </dl>
               </section>
 
               <!-- プロフィール -->
-              <section v-if="selectedUser.selfIntro || selectedUser.recentGoal">
+              <section v-if="selectedUser.selfIntro || selectedUser.dreamGoal">
                 <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">プロフィール</h3>
                 <dl class="space-y-3">
                   <div v-if="selectedUser.selfIntro">
                     <dt class="text-gray-500 mb-1">自己紹介</dt>
                     <dd class="text-xs leading-relaxed bg-gray-50 rounded-lg p-3">{{ selectedUser.selfIntro }}</dd>
                   </div>
-                  <div v-if="selectedUser.recentGoal">
-                    <dt class="text-gray-500 mb-1">直近の夢・目標</dt>
-                    <dd class="text-xs leading-relaxed bg-gray-50 rounded-lg p-3">{{ selectedUser.recentGoal }}</dd>
+                  <div v-if="selectedUser.dreamGoal">
+                    <dt class="text-gray-500 mb-1">夢・目標</dt>
+                    <dd class="text-xs leading-relaxed bg-gray-50 rounded-lg p-3 whitespace-pre-line">{{ selectedUser.dreamGoal }}</dd>
                   </div>
                 </dl>
               </section>
 
               <!-- アクション -->
               <div class="flex gap-3 pt-2">
+                <NuxtLink :to="`/team/${selectedUser.uid}`" class="flex-1 btn-secondary text-center text-sm">
+                  プロフィールを見る
+                </NuxtLink>
                 <NuxtLink :to="`/admin/users/${selectedUser.uid}/edit`" class="flex-1 btn-primary text-center text-sm">
                   編集する
                 </NuxtLink>
-                <button class="flex-1 btn-secondary text-sm" @click="selectedUser = null">閉じる</button>
               </div>
+              <button class="w-full text-center text-xs text-gray-400 hover:underline pt-1" @click="selectedUser = null">閉じる</button>
 
             </div>
           </div>

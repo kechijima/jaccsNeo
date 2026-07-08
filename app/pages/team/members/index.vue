@@ -153,10 +153,11 @@ onMounted(async () => {
             <p class="text-xs font-semibold text-gray-500">{{ kumiai.name }}</p>
           </div>
           <div class="divide-y divide-gray-50">
-            <div
+            <NuxtLink
               v-for="m in kumiai.members"
               :key="m.uid"
-              class="flex items-center justify-between px-5 py-3"
+              :to="`/team/${m.uid}`"
+              class="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors"
             >
               <div class="flex items-center gap-3">
                 <div class="flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold" :class="group.bgColor" style="color: inherit">
@@ -177,7 +178,7 @@ onMounted(async () => {
                   <p class="text-xs text-gray-400">新規</p>
                 </div>
               </div>
-            </div>
+            </NuxtLink>
           </div>
         </div>
       </div>

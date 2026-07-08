@@ -4,33 +4,6 @@ export type SpecialTeam = 'real_estate' | 'non_life_insurance'
 
 export type GroupId = 'reterace' | 'miraito' | 'asset'
 
-// 銀行口座情報
-export interface BankAccount {
-  branch: string
-  number: string
-}
-
-export interface OtherBankAccount {
-  bankName:  string
-  branch:    string
-  type:      string   // 普通・当座など
-  number:    string
-  holderName: string
-}
-
-export interface YuchoAccount {
-  storeName: string
-  storeCode: string
-  type:      string
-  number:    string
-  holderName: string
-}
-
-export interface Supporter {
-  mainName?: string
-  subName?:  string
-}
-
 export interface AppUser {
   uid:          string
   email:        string
@@ -45,16 +18,22 @@ export interface AppUser {
   isActive?:    boolean
 
   // ── 基本情報 ──────────────────────────────────────────────────────────
-  lastName?:      string
-  firstName?:     string
-  lastNameKana?:  string
-  firstNameKana?: string
-  mobile?:        string
-  birthday?:      string   // YYYY-MM-DD
-  kumiaiJoinDate?: string  // YYYY-MM
+  lastName?:       string
+  firstName?:      string
+  lastNameKana?:   string
+  firstNameKana?:  string
+  mobile?:         string
+  employeeId?:     string
+  joinDate?:       string   // YYYY-MM-DD
+  birthday?:       string   // YYYY-MM-DD
+  kumiaiJoinDate?: string   // YYYY-MM
+  nationality?:    string
+  localArea?:      string
+  comment?:        string
+  snsUrl?:         string
 
   // ── 組織・サポート ────────────────────────────────────────────────────
-  supporter?: Supporter
+  supportPerson?: string
 
   // ── 属性 ──────────────────────────────────────────────────────────────
   businessContent?:  string
@@ -64,19 +43,22 @@ export interface AppUser {
   hobbies?:          string
 
   // ── 個人口座 ──────────────────────────────────────────────────────────
-  resonaAccount?:    BankAccount
-  sbiAccount?:       BankAccount
-  otherBankAccount?: OtherBankAccount
-  yuchoAccount?:     YuchoAccount
+  resonaAccount?:    string   // りそな口座（支店名・口座番号）
+  sbiAccount?:       string   // SBI口座（口座番号）
+  otherBankName?:    string   // 上記以外の銀行名
+  otherBankBranch?:  string   // 支店名
+  otherBankAccount?: string   // 口座番号
+  yuuchoInfo?:       string   // ゆうちょ加入情報
 
   // ── 法人情報 ──────────────────────────────────────────────────────────
-  corporateName?:           string
-  corporateResonaAccount?:  BankAccount
-  corporateSbiAccount?:     BankAccount
+  corporateName?:        string
+  corporateAccount?:     string   // 法人口座（メイン）
+  corporateSbiAccount?:  string   // 法人SBI口座
+  invoiceNumber?:        string
 
   // ── プロフィール ──────────────────────────────────────────────────────
-  selfIntro?: string   // 100文字以内
-  recentGoal?: string
+  selfIntro?:  string
+  dreamGoal?:  string   // 夢・目標
 
   createdAt: Date
   updatedAt: Date
