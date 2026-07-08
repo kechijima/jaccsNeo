@@ -17,6 +17,15 @@ const toCase = (id: string, data: DocumentData): LifeInsuranceCase => ({
   updatedAt: toDate(data.updatedAt),
 }) as LifeInsuranceCase
 
+// Firestoreはフィールド値にundefinedを許可せずエラーになるため、送信前に取り除く
+const stripUndefined = <T extends Record<string, any>>(obj: T): T => {
+  const result = {} as T
+  for (const key of Object.keys(obj) as (keyof T)[]) {
+    if (obj[key] !== undefined) result[key] = obj[key]
+  }
+  return result
+}
+
 export const useLifeInsuranceCases = () => {
   const { $db } = useNuxtApp()
 
@@ -44,20 +53,22 @@ export const useLifeInsuranceCases = () => {
     computed(() => cases.value.find(c => c.id === unref(id)) ?? null)
 
   const create = async (input: LifeInsuranceCaseInput): Promise<string> => {
+    const payload = stripUndefined(input)
     const ref = await addDoc(collection($db, COLLECTION), {
-      ...input,
+      ...payload,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     })
     const now = new Date()
-    cases.value = [{ id: ref.id, ...input, createdAt: now, updatedAt: now }, ...cases.value]
+    cases.value = [{ id: ref.id, ...payload, createdAt: now, updatedAt: now } as LifeInsuranceCase, ...cases.value]
     return ref.id
   }
 
   const update = async (id: string, patch: Partial<LifeInsuranceCaseInput>): Promise<void> => {
-    await updateDoc(doc($db, COLLECTION, id), { ...patch, updatedAt: serverTimestamp() })
+    const payload = stripUndefined(patch)
+    await updateDoc(doc($db, COLLECTION, id), { ...payload, updatedAt: serverTimestamp() })
     const idx = cases.value.findIndex(c => c.id === id)
-    if (idx >= 0) cases.value[idx] = { ...cases.value[idx], ...patch, updatedAt: new Date() }
+    if (idx >= 0) cases.value[idx] = { ...cases.value[idx], ...payload, updatedAt: new Date() }
   }
 
   // kintone CSVから取り込んだ既存61件をFirestoreへ一括投入する初回移行処理（管理者操作）
@@ -69,7 +80,7 @@ export const useLifeInsuranceCases = () => {
       const chunk = LIFE_INSURANCE_CASES.slice(i, i + chunkSize)
       for (const c of chunk) {
         const { id, ...rest } = c
-        batch.set(doc($db, COLLECTION, id), rest)
+        batch.set(doc($db, COLLECTION, id), stripUndefined(rest))
         count++
       }
       await batch.commit()
