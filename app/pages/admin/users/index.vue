@@ -153,12 +153,12 @@ const openDetail = (u: any) => { selectedUser.value = u }
       <table class="w-full text-sm">
         <thead>
           <tr class="border-b border-gray-100 bg-gray-50">
-            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">氏名 / よみがな</th>
-            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">グループ / 組合</th>
-            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">携帯電話</th>
-            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">現在エリア</th>
-            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">ロール / 役職</th>
-            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">状態</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">氏名 / よみがな</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">グループ / 組合</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">携帯電話</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">現在エリア</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">ロール / 役職</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">状態</th>
             <th class="px-4 py-3" />
           </tr>
         </thead>
