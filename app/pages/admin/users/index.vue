@@ -1,7 +1,25 @@
 <script setup lang="ts">
-import { MOCK_ADMIN_USERS } from '~/data/mock'
-
 definePageMeta({ middleware: ['auth', 'admin'] })
+
+const { fetchUsers } = useUsers()
+
+const allUsers = ref<Awaited<ReturnType<typeof fetchUsers>>>([])
+const loading  = ref(true)
+const loadError = ref('')
+
+const loadUsers = async () => {
+  loading.value = true
+  loadError.value = ''
+  try {
+    allUsers.value = await fetchUsers()
+  } catch (e: any) {
+    loadError.value = e.message ?? 'ユーザー一覧の取得に失敗しました'
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(loadUsers)
 
 const roleLabels: Record<string, string> = {
   system_admin: 'システム管理者',
@@ -43,15 +61,13 @@ const resetFilters = () => {
 
 // ── フィルタリング ─────────────────────────────────────────────────────
 const users = computed(() => {
-  let list = MOCK_ADMIN_USERS
+  let list = allUsers.value
 
   const q = searchQuery.value.trim().toLowerCase()
   if (q) {
     list = list.filter(u =>
-      u.displayName?.includes(searchQuery.value.trim()) ||
-      `${u.lastNameKana ?? ''}${u.firstNameKana ?? ''}`.toLowerCase().includes(q) ||
-      u.email?.toLowerCase().includes(q) ||
-      u.mobile?.includes(q)
+      u.displayName?.toLowerCase().includes(q) ||
+      u.email?.toLowerCase().includes(q)
     )
   }
   if (filterGroup.value) list = list.filter(u => u.groupId === filterGroup.value)
@@ -79,7 +95,7 @@ const openDetail = (u: any) => { selectedUser.value = u }
     <div class="flex items-start justify-between gap-3">
       <div>
         <h1 class="text-xl font-bold text-gray-900">ユーザー管理</h1>
-        <p class="text-sm text-gray-500 mt-0.5">{{ users.length }}名表示中（全{{ MOCK_ADMIN_USERS.length }}名）</p>
+        <p class="text-sm text-gray-500 mt-0.5">{{ users.length }}名表示中（全{{ allUsers.length }}名）</p>
       </div>
       <NuxtLink to="/admin/users/new" class="btn-primary text-sm flex items-center gap-1.5">
         <Icon name="heroicons:user-plus" class="h-4 w-4" />
@@ -147,6 +163,21 @@ const openDetail = (u: any) => { selectedUser.value = u }
         </div>
       </div>
     </Transition>
+
+    <!-- 読み込み中 -->
+    <div v-if="loading" class="card p-12 text-center">
+      <Icon name="heroicons:arrow-path" class="h-8 w-8 text-gray-300 mx-auto mb-2 animate-spin" />
+      <p class="text-sm text-gray-400">読み込み中...</p>
+    </div>
+
+    <!-- エラー -->
+    <div v-else-if="loadError" class="card p-12 text-center">
+      <Icon name="heroicons:exclamation-circle" class="h-8 w-8 text-red-300 mx-auto mb-2" />
+      <p class="text-sm text-red-500">{{ loadError }}</p>
+      <button class="mt-3 text-xs text-primary-600 hover:underline" @click="loadUsers">再試行</button>
+    </div>
+
+    <template v-else>
 
     <!-- PC テーブル -->
     <div class="hidden md:block card overflow-hidden">
@@ -234,6 +265,8 @@ const openDetail = (u: any) => { selectedUser.value = u }
         </div>
       </div>
     </div>
+
+    </template>
 
     <!-- ────── 詳細スライドオーバー ────── -->
     <Teleport to="body">

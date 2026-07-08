@@ -1,15 +1,18 @@
 <script setup lang="ts">
-import { createUserWithEmailAndPassword } from 'firebase/auth'
 import type { UserRole, SpecialTeam, GroupId } from '~/types/user'
 
 definePageMeta({ middleware: ['auth', 'admin'] })
 
-const { createUserDoc } = useUsers()
+const { createAuthUser } = useUsers()
+const { sendPasswordReset } = useAuth()
+
+const genTempPassword = () =>
+  `Jaccs${Math.random().toString(36).slice(-6)}!${Math.floor(Math.random() * 10)}`
 
 const form = ref({
   name:            '',
   email:           '',
-  password:        'Jaccs2024!',  // 仮パスワード（初回ログイン時に変更促す）
+  password:        genTempPassword(),  // 仮パスワード（招待メールのリンクから変更してもらう）
   role:            'general' as UserRole,
   groupId:         '' as GroupId | '',
   kumiaiId:        '',
@@ -25,27 +28,27 @@ const handleSubmit = async () => {
   submitting.value = true
   error.value = ''
   try {
-    const { $auth } = useNuxtApp()
-    // Firebase Auth でユーザー作成（管理者アカウントはCloud Functions推奨だが、
-    // クライアント側から一時パスワードで作成する簡易実装）
-    const credential = await createUserWithEmailAndPassword($auth, form.value.email, form.value.password)
-    await createUserDoc(credential.user.uid, {
+    // Cloud Functions経由でFirebase Authユーザー + Firestoreプロフィールを作成
+    // （管理者自身のセッションはログインしたままになる）
+    await createAuthUser({
       email:        form.value.email,
+      password:     form.value.password,
       displayName:  form.value.name,
       role:         form.value.role,
       specialTeams: form.value.specialTeams,
-      groupId:      form.value.groupId as GroupId || undefined,
+      groupId:      form.value.groupId || undefined,
       kumiaiId:     form.value.kumiaiId || undefined,
       position:     form.value.position || undefined,
     })
+
+    if (form.value.sendInviteEmail) {
+      // 失敗してもユーザー作成自体は成功しているので処理は継続する
+      await sendPasswordReset(form.value.email).catch(() => {})
+    }
+
     await navigateTo('/admin/users')
   } catch (e: any) {
-    const msgs: Record<string, string> = {
-      'auth/email-already-in-use': 'このメールアドレスは既に使用されています',
-      'auth/weak-password':        'パスワードが弱すぎます',
-      'auth/invalid-email':        'メールアドレスの形式が正しくありません',
-    }
-    error.value = msgs[e.code] ?? e.message ?? 'ユーザーの作成に失敗しました'
+    error.value = e.message ?? 'ユーザーの作成に失敗しました'
     submitting.value = false
   }
 }

@@ -10,9 +10,9 @@ import {
   serverTimestamp,
   type DocumentData,
 } from 'firebase/firestore'
+import { httpsCallable } from 'firebase/functions'
 import type { AppUser, UserRole, SpecialTeam, GroupId } from '~/types/user'
 import { useAuthStore } from '~/stores/auth'
-import { MOCK_ADMIN_USERS } from '~/data/mock'
 
 const toUser = (id: string, data: DocumentData): AppUser => ({
   uid:          id,
@@ -24,32 +24,22 @@ const toUser = (id: string, data: DocumentData): AppUser => ({
   groupId:      data.groupId,
   kumiaiId:     data.kumiaiId,
   position:     data.position,
+  isActive:     data.isActive ?? true,
   createdAt:    data.createdAt?.toDate?.() ?? new Date(),
   updatedAt:    data.updatedAt?.toDate?.() ?? new Date(),
 })
 
 export const useUsers = () => {
-  const { $db } = useNuxtApp()
+  const { $db, $functions } = useNuxtApp()
   const authStore = useAuthStore()
 
   const usersCol = () => collection($db, 'users')
 
   // ===== 全ユーザー一覧 =====
   const fetchUsers = async (): Promise<AppUser[]> => {
-    try {
-      const q = query(usersCol(), orderBy('displayName', 'asc'))
-      const snap = await getDocs(q)
-      return snap.docs.map(d => toUser(d.id, d.data()))
-    } catch (e) {
-      console.warn('Using mock users')
-      return (MOCK_ADMIN_USERS as any[]).map(u => ({
-        ...u,
-        isActive: true,
-        specialTeams: [],
-        createdAt: u.createdAt || new Date(),
-        updatedAt: u.createdAt || new Date()
-      })) as AppUser[]
-    }
+    const q = query(usersCol(), orderBy('displayName', 'asc'))
+    const snap = await getDocs(q)
+    return snap.docs.map(d => toUser(d.id, d.data()))
   }
 
   // ===== グループ別ユーザー =====
@@ -91,27 +81,23 @@ export const useUsers = () => {
     })
   }
 
-  // ===== ユーザー作成（Cloud Functions 経由が本番推奨だが、管理者フロー用） =====
-  // Firebase Auth の createUser はクライアントSDKでは管理者権限不要でできないため
-  // Admin SDK を Cloud Functions 経由で呼ぶのが正式だが、
-  // ここでは Firestore へのユーザードキュメント作成のみ行う
-  const createUserDoc = async (uid: string, data: {
+  // ===== ユーザー作成（Firebase Auth + Firestoreプロフィール） =====
+  // クライアントSDKのcreateUserWithEmailAndPasswordは呼び出した管理者自身の
+  // セッションを新規ユーザーに置き換えてしまうため、Admin SDKを使える
+  // Cloud Functions（functions/index.js の createAuthUser）経由で作成する。
+  const createAuthUser = async (data: {
     email: string
+    password: string
     displayName: string
     role: UserRole
     specialTeams: SpecialTeam[]
-    groupId?: GroupId
+    groupId?: GroupId | ''
     kumiaiId?: string
     position?: string
-  }): Promise<void> => {
-    if (!authStore.isSystemAdmin) throw new Error('権限がありません')
-    await updateDoc(doc($db, 'users', uid) as any, {
-      ...data,
-      createdBy: authStore.user?.uid,
-      updatedBy: authStore.user?.uid,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    })
+  }): Promise<string> => {
+    const fn = httpsCallable<typeof data, { uid: string }>($functions, 'createAuthUser')
+    const result = await fn(data)
+    return result.data.uid
   }
 
   return {
@@ -120,6 +106,6 @@ export const useUsers = () => {
     fetchUsersByKumiai,
     fetchUser,
     updateUser,
-    createUserDoc,
+    createAuthUser,
   }
 }

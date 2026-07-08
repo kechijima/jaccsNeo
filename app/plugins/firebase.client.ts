@@ -2,6 +2,7 @@ import { initializeApp, getApps, getApp } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 import { getStorage } from 'firebase/storage'
+import { getFunctions } from 'firebase/functions'
 
 // 環境変数・CIシークレットに誤って引用符が含まれていた場合に備えて除去する
 // （例: FIREBASE_STORAGE_BUCKET="jaccsneo.appspot.com" のように値ごと引用符が入ると
@@ -23,9 +24,11 @@ export default defineNuxtPlugin(() => {
 
   const app = getApps().length ? getApp() : initializeApp(firebaseConfig)
 
-  const auth    = getAuth(app)
-  const db      = getFirestore(app)
-  const storage = getStorage(app)
+  const auth      = getAuth(app)
+  const db        = getFirestore(app)
+  const storage   = getStorage(app)
+  // Cloud Functionsのデプロイリージョン（functions/index.jsのsetGlobalOptionsと揃える）
+  const functions = getFunctions(app, 'asia-northeast1')
 
   return {
     provide: {
@@ -33,6 +36,7 @@ export default defineNuxtPlugin(() => {
       auth,
       db,
       storage,
+      functions,
     },
   }
 })
