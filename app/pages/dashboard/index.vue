@@ -21,11 +21,18 @@ const greeting = computed(() => {
 })
 
 // ── お知らせ（管理者がグループ別に公開した情報） ─────────────────────────
+await announcementStore.fetchAll()
 const groupAnnouncements = announcementStore.getForGroup(computed(() => user.value?.groupId))
 const allAnnouncements = computed(() => groupAnnouncements.value.slice(0, 5))
 
 const announcementFmt = (d: Date) =>
   d.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+
+// HTMLタグを除去して80文字に切り詰める（案内文はリッチエディター由来のHTML）
+const announcementExcerpt = (html: string) => {
+  const text = html.replace(/<[^>]*>/g, '')
+  return text.length > 80 ? text.slice(0, 80) + '...' : text
+}
 
 // ── アプリ shortcuts ───────────────────────────────────────────────────────
 const appShortcuts = [
@@ -154,6 +161,7 @@ const unreadNotifCount = computed(() => MOCK_NOTIFICATIONS.filter(n => !n.isRead
             :key="a.id"
             class="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition"
           >
+            <img v-if="a.imageUrl" :src="a.imageUrl" alt="" class="h-10 w-10 rounded-lg object-cover shrink-0 mt-0.5" />
             <div class="mt-0.5 flex-1 min-w-0">
               <div class="flex items-center gap-2 flex-wrap">
                 <span class="badge text-[10px] font-semibold px-1.5" :class="ANNOUNCEMENT_SCOPE_COLORS[a.scope]">
@@ -162,7 +170,7 @@ const unreadNotifCount = computed(() => MOCK_NOTIFICATIONS.filter(n => !n.isRead
                 <span class="text-[10px] text-gray-400">{{ announcementFmt(a.publishedAt) }}</span>
               </div>
               <p class="text-xs font-semibold text-gray-800 mt-0.5 truncate">{{ a.title }}</p>
-              <p class="text-xs text-gray-500 mt-0.5 line-clamp-2 leading-relaxed">{{ a.body }}</p>
+              <p class="text-xs text-gray-500 mt-0.5 line-clamp-2 leading-relaxed">{{ announcementExcerpt(a.body) }}</p>
             </div>
           </div>
           <div v-if="allAnnouncements.length === 0" class="flex flex-col items-center justify-center py-12">

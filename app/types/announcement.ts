@@ -6,7 +6,8 @@ export type AnnouncementScope = 'all' | GroupId
 export interface Announcement {
   id: string
   title: string
-  body: string
+  body: string        // リッチエディターで入力したHTML
+  imageUrl?: string    // 添付画像（Firebase Storage）
   scope: AnnouncementScope
   isPublished: boolean
   authorName: string
