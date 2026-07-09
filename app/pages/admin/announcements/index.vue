@@ -236,6 +236,13 @@ const fmt = (d: Date) => d.toLocaleDateString('ja-JP', { year: 'numeric', month:
               <p class="text-xs text-gray-400 mt-1">投稿者: {{ a.authorName }}</p>
             </div>
             <div class="flex items-center gap-1.5 shrink-0">
+              <NuxtLink
+                :to="`/announcements/${a.id}`"
+                class="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-primary-600 transition"
+                title="詳細ページを見る"
+              >
+                <Icon name="heroicons:arrow-top-right-on-square" class="h-4 w-4" />
+              </NuxtLink>
               <button
                 class="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition disabled:opacity-40"
                 :disabled="togglingId === a.id"

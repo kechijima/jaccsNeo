@@ -156,9 +156,10 @@ const unreadNotifCount = computed(() => MOCK_NOTIFICATIONS.filter(n => !n.isRead
         </div>
 
         <div class="flex-1 divide-y divide-gray-50 overflow-y-auto">
-          <div
+          <NuxtLink
             v-for="a in allAnnouncements"
             :key="a.id"
+            :to="`/announcements/${a.id}`"
             class="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition"
           >
             <img v-if="a.imageUrl" :src="a.imageUrl" alt="" class="h-10 w-10 rounded-lg object-cover shrink-0 mt-0.5" />
@@ -172,7 +173,7 @@ const unreadNotifCount = computed(() => MOCK_NOTIFICATIONS.filter(n => !n.isRead
               <p class="text-xs font-semibold text-gray-800 mt-0.5 truncate">{{ a.title }}</p>
               <p class="text-xs text-gray-500 mt-0.5 line-clamp-2 leading-relaxed">{{ announcementExcerpt(a.body) }}</p>
             </div>
-          </div>
+          </NuxtLink>
           <div v-if="allAnnouncements.length === 0" class="flex flex-col items-center justify-center py-12">
             <Icon name="heroicons:megaphone" class="h-10 w-10 text-gray-200 mb-2" />
             <p class="text-sm text-gray-400">お知らせはありません</p>

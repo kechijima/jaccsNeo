@@ -46,6 +46,9 @@ export const useAnnouncementStore = () => {
         .sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime())
     })
 
+  const getById = (id: Ref<string> | string) =>
+    computed(() => announcements.value.find(a => a.id === unref(id)) ?? null)
+
   const create = async (input: AnnouncementInput): Promise<string> => {
     const ref = await addDoc(collection($db, COLLECTION), {
       ...input,
@@ -74,5 +77,5 @@ export const useAnnouncementStore = () => {
     await update(id, { isPublished: !a.isPublished })
   }
 
-  return { announcements, loading, loaded, fetchAll, getForGroup, create, update, remove, togglePublish }
+  return { announcements, loading, loaded, fetchAll, getForGroup, getById, create, update, remove, togglePublish }
 }

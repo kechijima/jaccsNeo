@@ -10,6 +10,14 @@ import MentionList from '~/components/MentionList.vue'
 import { useUsers } from '~/composables/useUsers'
 import { MOCK_ADMIN_USERS } from '~/data/mock'
 import type { MentionItem } from '~/components/MentionList.vue'
+import { FontSize } from '~/tiptap/fontSize'
+
+const FONT_SIZES = [
+  { label: '小',   value: '12px' },
+  { label: '標準', value: '' },
+  { label: '大',   value: '18px' },
+  { label: '特大', value: '24px' },
+]
 
 const props = defineProps<{
   modelValue: string
@@ -63,6 +71,7 @@ const editor = useEditor({
       },
     }),
     Underline,
+    FontSize,
     Mention.configure({
       HTMLAttributes: {
         class: 'mention bg-primary-50 text-primary-600 px-1 py-0.5 rounded font-medium',
@@ -131,6 +140,17 @@ watch(() => props.modelValue, (value) => {
   editor.value?.commands.setContent(value, false)
 })
 
+const currentFontSize = computed(() => editor.value?.getAttributes('fontSize').size || '')
+
+const setFontSize = (e: Event) => {
+  const size = (e.target as HTMLSelectElement).value
+  if (size) {
+    editor.value?.chain().focus().setFontSize(size).run()
+  } else {
+    editor.value?.chain().focus().unsetFontSize().run()
+  }
+}
+
 const setLink = () => {
   const previousUrl = editor.value?.getAttributes('link').href
   const url = window.prompt('URLを入力してください:', previousUrl)
@@ -188,6 +208,17 @@ onBeforeUnmount(() => {
         <Icon name="heroicons:strikethrough" class="h-4 w-4" />
       </button>
       
+      <div class="w-px h-4 bg-gray-300 mx-1"></div>
+
+      <select
+        :value="currentFontSize"
+        @change="setFontSize"
+        class="text-xs border border-gray-200 rounded px-1.5 py-1 bg-white text-gray-600 hover:border-gray-300 transition-colors focus:outline-none focus:ring-1 focus:ring-primary-300"
+        title="文字サイズ"
+      >
+        <option v-for="s in FONT_SIZES" :key="s.value" :value="s.value">{{ s.label }}</option>
+      </select>
+
       <div class="w-px h-4 bg-gray-300 mx-1"></div>
 
       <button
