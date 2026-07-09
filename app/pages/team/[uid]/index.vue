@@ -131,11 +131,9 @@ const activeTab = ref<typeof tabs[number]['key']>('basic')
             <div><dt class="text-gray-500 text-xs">入社日</dt><dd class="font-medium text-gray-900 mt-0.5">{{ v(profile.joinDate) }}</dd></div>
             <div><dt class="text-gray-500 text-xs">誕生日</dt><dd class="font-medium text-gray-900 mt-0.5">{{ v(profile.birthday) }}</dd></div>
             <div><dt class="text-gray-500 text-xs">組合加入年月</dt><dd class="font-medium text-gray-900 mt-0.5">{{ v(profile.kumiaiJoinDate) }}</dd></div>
-            <div><dt class="text-gray-500 text-xs">国籍</dt><dd class="font-medium text-gray-900 mt-0.5">{{ v(profile.nationality) }}</dd></div>
             <div><dt class="text-gray-500 text-xs">地元エリア</dt><dd class="font-medium text-gray-900 mt-0.5">{{ v(profile.localArea) }}</dd></div>
             <div class="sm:col-span-2"><dt class="text-gray-500 text-xs">SNS / HP URL</dt><dd class="font-medium text-gray-900 mt-0.5 break-all">{{ v(profile.snsUrl) }}</dd></div>
             <div class="sm:col-span-2"><dt class="text-gray-500 text-xs">趣味・特技</dt><dd class="font-medium text-gray-900 mt-0.5">{{ v(profile.hobbies) }}</dd></div>
-            <div class="sm:col-span-2"><dt class="text-gray-500 text-xs">コメント（一言）</dt><dd class="font-medium text-gray-900 mt-0.5">{{ v(profile.comment) }}</dd></div>
             <div class="sm:col-span-2"><dt class="text-gray-500 text-xs">自己紹介</dt><dd class="font-medium text-gray-900 mt-0.5 whitespace-pre-line">{{ v(profile.selfIntro) }}</dd></div>
           </dl>
         </template>

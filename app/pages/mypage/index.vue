@@ -25,16 +25,13 @@ const form = reactive({
   lastNameKana: '',
   firstNameKana: '',
   mobile: '',
-  position: '',
   groupId: '',
   employeeId: '',
   joinDate: '',
   birthday: '',
   kumiaiJoinDate: '',
-  nationality: '',
   localArea: '',
   hobbies: '',
-  comment: '',
   selfIntro: '',
   // ビジネス情報
   businessContent: '',
@@ -69,17 +66,14 @@ const loadForm = () => {
   form.lastNameKana = u.lastNameKana ?? ''
   form.firstNameKana = u.firstNameKana ?? ''
   form.mobile = u.mobile ?? ''
-  form.position = u.position ?? ''
   form.groupId = u.groupId ?? ''
   form.employeeId = u.employeeId ?? ''
   form.joinDate = u.joinDate ?? ''
   form.birthday = u.birthday ?? ''
   // type="month" の input は YYYY-MM 形式のみ受け付けるため切り詰める
   form.kumiaiJoinDate = (u.kumiaiJoinDate ?? '').slice(0, 7)
-  form.nationality = u.nationality ?? ''
   form.localArea = u.localArea ?? ''
   form.hobbies = u.hobbies ?? ''
-  form.comment = u.comment ?? ''
   form.selfIntro = u.selfIntro ?? ''
   form.businessContent = u.businessContent ?? ''
   form.salaryContent = u.salaryContent ?? ''
@@ -303,7 +297,7 @@ const groupLabel = computed(() => {
             <input v-model="form.mobile" type="tel" class="input-field text-sm" placeholder="090-0000-0000" />
           </div>
 
-          <!-- 所属・役職 -->
+          <!-- 所属 -->
           <div>
             <label class="block text-xs font-medium text-gray-500 mb-1">組織 / グループ</label>
             <select v-model="form.groupId" class="input-field text-sm">
@@ -312,10 +306,6 @@ const groupLabel = computed(() => {
               <option value="miraito">Miraito</option>
               <option value="asset">Asset</option>
             </select>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-500 mb-1">役職</label>
-            <input v-model="form.position" type="text" class="input-field text-sm" placeholder="FP / 部長 など" />
           </div>
 
           <!-- 従業員ID -->
@@ -342,12 +332,6 @@ const groupLabel = computed(() => {
             <input v-model="form.kumiaiJoinDate" type="month" class="input-field text-sm" />
           </div>
 
-          <!-- 国籍 -->
-          <div>
-            <label class="block text-xs font-medium text-gray-500 mb-1">国籍</label>
-            <input v-model="form.nationality" type="text" class="input-field text-sm" placeholder="日本" />
-          </div>
-
           <!-- 地元エリア -->
           <div>
             <label class="block text-xs font-medium text-gray-500 mb-1">地元エリア</label>
@@ -364,12 +348,6 @@ const groupLabel = computed(() => {
           <div class="sm:col-span-2">
             <label class="block text-xs font-medium text-gray-500 mb-1">趣味・特技</label>
             <input v-model="form.hobbies" type="text" class="input-field text-sm" placeholder="読書、ゴルフ など" />
-          </div>
-
-          <!-- コメント -->
-          <div class="sm:col-span-2">
-            <label class="block text-xs font-medium text-gray-500 mb-1">コメント（一言）</label>
-            <input v-model="form.comment" type="text" class="input-field text-sm" placeholder="ひとこと" />
           </div>
 
           <!-- 自己紹介 -->

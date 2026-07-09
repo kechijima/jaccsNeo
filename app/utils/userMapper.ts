@@ -24,9 +24,7 @@ export const toAppUser = (uid: string, data: Record<string, any>, fallbackEmail 
   joinDate:        data.joinDate,
   birthday:        data.birthday,
   kumiaiJoinDate:  data.kumiaiJoinDate,
-  nationality:     data.nationality,
   localArea:       data.localArea,
-  comment:         data.comment,
   snsUrl:          data.snsUrl,
 
   supportPerson: data.supportPerson,

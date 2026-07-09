@@ -27,9 +27,7 @@ export interface AppUser {
   joinDate?:       string   // YYYY-MM-DD
   birthday?:       string   // YYYY-MM-DD
   kumiaiJoinDate?: string   // YYYY-MM
-  nationality?:    string
   localArea?:      string
-  comment?:        string
   snsUrl?:         string
 
   // ── 組織・サポート ────────────────────────────────────────────────────
