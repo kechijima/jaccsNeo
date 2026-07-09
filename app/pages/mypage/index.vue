@@ -308,10 +308,10 @@ const groupLabel = computed(() => {
             </select>
           </div>
 
-          <!-- 従業員ID -->
+          <!-- 未来設計ID -->
           <div>
-            <label class="block text-xs font-medium text-gray-500 mb-1">従業員ID</label>
-            <input v-model="form.employeeId" type="text" class="input-field text-sm" placeholder="EMP-0001" />
+            <label class="block text-xs font-medium text-gray-500 mb-1">未来設計ID</label>
+            <input v-model="form.employeeId" type="text" class="input-field text-sm" placeholder="MS-0001" />
           </div>
 
           <!-- 入社日 -->

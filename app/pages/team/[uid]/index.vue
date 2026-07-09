@@ -127,7 +127,7 @@ const activeTab = ref<typeof tabs[number]['key']>('basic')
           <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
             <div><dt class="text-gray-500 text-xs">氏名（よみがな）</dt><dd class="font-medium text-gray-900 mt-0.5">{{ v(`${profile.lastNameKana ?? ''} ${profile.firstNameKana ?? ''}`.trim()) }}</dd></div>
             <div><dt class="text-gray-500 text-xs">携帯電話</dt><dd class="font-medium text-gray-900 mt-0.5">{{ v(profile.mobile) }}</dd></div>
-            <div><dt class="text-gray-500 text-xs">従業員ID</dt><dd class="font-medium text-gray-900 mt-0.5">{{ v(profile.employeeId) }}</dd></div>
+            <div><dt class="text-gray-500 text-xs">未来設計ID</dt><dd class="font-medium text-gray-900 mt-0.5">{{ v(profile.employeeId) }}</dd></div>
             <div><dt class="text-gray-500 text-xs">入社日</dt><dd class="font-medium text-gray-900 mt-0.5">{{ v(profile.joinDate) }}</dd></div>
             <div><dt class="text-gray-500 text-xs">誕生日</dt><dd class="font-medium text-gray-900 mt-0.5">{{ v(profile.birthday) }}</dd></div>
             <div><dt class="text-gray-500 text-xs">組合加入年月</dt><dd class="font-medium text-gray-900 mt-0.5">{{ v(profile.kumiaiJoinDate) }}</dd></div>
