@@ -6,7 +6,7 @@ definePageMeta({ middleware: ['auth', 'admin'] })
 const route = useRoute()
 const uid = computed(() => route.params.uid as string)
 
-const { fetchUser, updateUser } = useUsers()
+const { fetchUser, updateUser, fetchUsers } = useUsers()
 const { sendPasswordReset } = useAuth()
 
 const loading = ref(false)
@@ -21,13 +21,18 @@ const form = ref({
   kumiaiId:     '',
   position:     '',
   specialTeams: [] as SpecialTeam[],
+  mainSupporterUid: '',
+  subSupporterUid:  '',
   isActive:     true,
 })
+
+const existingUsers = ref<Array<{ uid: string; displayName: string }>>([])
 
 onMounted(async () => {
   loading.value = true
   try {
-    const user = await fetchUser(uid.value)
+    const [user, users] = await Promise.all([fetchUser(uid.value), fetchUsers().catch(() => [])])
+    existingUsers.value = users.filter(u => u.uid !== uid.value)
     if (user) {
       form.value = {
         name:         user.displayName,
@@ -37,6 +42,8 @@ onMounted(async () => {
         kumiaiId:     user.kumiaiId ?? '',
         position:     user.position ?? '',
         specialTeams: user.specialTeams ?? [],
+        mainSupporterUid: user.mainSupporterUid ?? '',
+        subSupporterUid:  user.subSupporterUid ?? '',
         isActive:     true,
       }
     }
@@ -58,6 +65,8 @@ const handleSubmit = async () => {
       groupId:      (form.value.groupId as GroupId) || null,
       kumiaiId:     form.value.kumiaiId || null,
       position:     form.value.position || null,
+      mainSupporterUid: form.value.mainSupporterUid || null,
+      subSupporterUid:  form.value.subSupporterUid || null,
     })
     await navigateTo('/admin/users')
   } catch (e: any) {
@@ -139,7 +148,7 @@ const toggleSpecialTeam = (team: string) => {
             <span class="text-sm text-gray-700">不動産チーム</span>
           </label>
           <label class="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" :checked="form.specialTeams.includes('non_life')" class="h-4 w-4 rounded text-primary-600" @change="toggleSpecialTeam('non_life')" />
+            <input type="checkbox" :checked="form.specialTeams.includes('non_life_insurance')" class="h-4 w-4 rounded text-primary-600" @change="toggleSpecialTeam('non_life_insurance')" />
             <span class="text-sm text-gray-700">損保チーム</span>
           </label>
         </div>
@@ -164,6 +173,25 @@ const toggleSpecialTeam = (team: string) => {
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">役職</label>
         <input v-model="form.position" type="text" class="input-field" />
+      </div>
+
+      <!-- 組織図（サポート） -->
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">メインサポート</label>
+          <select v-model="form.mainSupporterUid" class="input-field">
+            <option value="">（なし）</option>
+            <option v-for="u in existingUsers" :key="u.uid" :value="u.uid">{{ u.displayName }}</option>
+          </select>
+          <p class="mt-1 text-xs text-gray-400">組織図でこのメンバーの上位に表示されます</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">サブサポート（任意）</label>
+          <select v-model="form.subSupporterUid" class="input-field">
+            <option value="">（なし）</option>
+            <option v-for="u in existingUsers" :key="u.uid" :value="u.uid">{{ u.displayName }}</option>
+          </select>
+        </div>
       </div>
 
       <!-- アカウント状態 -->

@@ -32,6 +32,8 @@ export interface AppUser {
 
   // ── 組織・サポート ────────────────────────────────────────────────────
   supportPerson?: string
+  mainSupporterUid?: string   // メインサポート（組織図の上位者）のuid
+  subSupporterUid?:  string   // サブサポート（任意）のuid
 
   // ── 属性 ──────────────────────────────────────────────────────────────
   businessContent?:  string

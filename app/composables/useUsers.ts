@@ -57,6 +57,8 @@ export const useUsers = () => {
     kumiaiId?: string | null
     position?: string | null
     isDisabled?: boolean
+    mainSupporterUid?: string | null
+    subSupporterUid?: string | null
   }): Promise<void> => {
     if (!authStore.isSystemAdmin) throw new Error('権限がありません')
     await updateDoc(doc($db, 'users', uid), {

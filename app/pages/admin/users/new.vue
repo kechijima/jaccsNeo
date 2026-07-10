@@ -3,7 +3,7 @@ import type { UserRole, SpecialTeam, GroupId } from '~/types/user'
 
 definePageMeta({ middleware: ['auth', 'admin'] })
 
-const { createAuthUser } = useUsers()
+const { createAuthUser, updateUser, fetchUsers } = useUsers()
 const { sendPasswordReset } = useAuth()
 
 const genTempPassword = () =>
@@ -18,7 +18,14 @@ const form = ref({
   kumiaiId:        '',
   position:        '',
   specialTeams:    [] as SpecialTeam[],
+  mainSupporterUid: '',
+  subSupporterUid:  '',
   sendInviteEmail: true,
+})
+
+const existingUsers = ref<Array<{ uid: string; displayName: string }>>([])
+onMounted(async () => {
+  existingUsers.value = await fetchUsers().catch(() => [])
 })
 
 const submitting = ref(false)
@@ -30,7 +37,7 @@ const handleSubmit = async () => {
   try {
     // Cloud Functions経由でFirebase Authユーザー + Firestoreプロフィールを作成
     // （管理者自身のセッションはログインしたままになる）
-    await createAuthUser({
+    const uid = await createAuthUser({
       email:        form.value.email,
       password:     form.value.password,
       displayName:  form.value.name,
@@ -40,6 +47,14 @@ const handleSubmit = async () => {
       kumiaiId:     form.value.kumiaiId || undefined,
       position:     form.value.position || undefined,
     })
+
+    // 組織図（メインサポート・サブサポート）はクライアント側で追加登録する
+    if (form.value.mainSupporterUid || form.value.subSupporterUid) {
+      await updateUser(uid, {
+        mainSupporterUid: form.value.mainSupporterUid || null,
+        subSupporterUid:  form.value.subSupporterUid || null,
+      })
+    }
 
     if (form.value.sendInviteEmail) {
       // 失敗してもユーザー作成自体は成功しているので処理は継続する
@@ -121,9 +136,9 @@ const toggleSpecialTeam = (team: string) => {
           <label class="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
-              :checked="form.specialTeams.includes('non_life')"
+              :checked="form.specialTeams.includes('non_life_insurance')"
               class="h-4 w-4 rounded text-primary-600"
-              @change="toggleSpecialTeam('non_life')"
+              @change="toggleSpecialTeam('non_life_insurance')"
             />
             <span class="text-sm text-gray-700">損保チーム</span>
           </label>
@@ -150,6 +165,25 @@ const toggleSpecialTeam = (team: string) => {
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">役職</label>
         <input v-model="form.position" type="text" placeholder="例: PM、EM2、一般FP" class="input-field" />
+      </div>
+
+      <!-- 組織図（サポート） -->
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">メインサポート</label>
+          <select v-model="form.mainSupporterUid" class="input-field">
+            <option value="">（なし）</option>
+            <option v-for="u in existingUsers" :key="u.uid" :value="u.uid">{{ u.displayName }}</option>
+          </select>
+          <p class="mt-1 text-xs text-gray-400">組織図でこのメンバーの上位に表示されます</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">サブサポート（任意）</label>
+          <select v-model="form.subSupporterUid" class="input-field">
+            <option value="">（なし）</option>
+            <option v-for="u in existingUsers" :key="u.uid" :value="u.uid">{{ u.displayName }}</option>
+          </select>
+        </div>
       </div>
 
       <!-- 招待メール -->
