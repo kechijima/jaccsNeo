@@ -115,15 +115,15 @@ const statusClass = (status: string) => {
               <tr class="border-b border-gray-100 bg-gray-50">
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">氏名</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">新規/乗換</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[220px]">契約・プランニング内容</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[160px]">契約・プランニング内容</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">進行状況</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">ワン/ツー/フォロー</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">担当</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">詳細</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap sticky right-0 bg-gray-50 shadow-[-4px_0_4px_-2px_rgba(0,0,0,0.06)]">詳細</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-50">
-              <tr v-for="c in filteredLiCases" :key="c.id" class="hover:bg-gray-50 transition-colors">
+              <tr v-for="c in filteredLiCases" :key="c.id" class="group hover:bg-gray-50 transition-colors">
                 <td class="px-4 py-3">
                   <NuxtLink
                     v-if="c.customerId"
@@ -134,18 +134,18 @@ const statusClass = (status: string) => {
                   <p class="text-xs text-gray-400 mt-0.5">{{ c.nameKana }}</p>
                 </td>
                 <td class="px-4 py-3 text-gray-600 text-xs whitespace-nowrap">{{ c.newOrSwitch || '—' }}</td>
-                <td class="px-4 py-3 text-gray-600 text-xs max-w-[260px]">
+                <td class="px-4 py-3 text-gray-600 text-xs max-w-[200px]">
                   <span class="line-clamp-2 whitespace-pre-line">{{ c.contractContent || c.planningContent || '—' }}</span>
                 </td>
                 <td class="px-4 py-3 whitespace-nowrap">
                   <span v-if="c.progressStatus" class="badge text-xs" :class="statusClass(c.progressStatus)">{{ c.progressStatus }}</span>
                   <span v-else class="text-xs text-gray-300">—</span>
                 </td>
-                <td class="px-4 py-3 text-gray-500 text-xs max-w-[180px]">
+                <td class="px-4 py-3 text-gray-500 text-xs max-w-[140px]">
                   <span class="line-clamp-2 whitespace-pre-line">{{ [c.oneStatus, c.twoStatus, c.followStatus].filter(Boolean).join(' / ') || '—' }}</span>
                 </td>
                 <td class="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{{ c.assignedFpName || '—' }}</td>
-                <td class="px-4 py-3 whitespace-nowrap">
+                <td class="px-4 py-3 whitespace-nowrap sticky right-0 bg-white group-hover:bg-gray-50 shadow-[-4px_0_4px_-2px_rgba(0,0,0,0.06)]">
                   <NuxtLink
                     :to="`/services/${serviceType}/${c.id}`"
                     class="inline-flex items-center gap-0.5 text-xs text-primary-600 hover:underline"
@@ -220,14 +220,14 @@ const statusClass = (status: string) => {
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">顧客名</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[200px]">対応状況</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">担当</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">詳細</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap sticky right-0 bg-gray-50 shadow-[-4px_0_4px_-2px_rgba(0,0,0,0.06)]">詳細</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-50">
               <tr
                 v-for="c in filteredGenericCases"
                 :key="c.id"
-                class="hover:bg-gray-50 transition-colors"
+                class="group hover:bg-gray-50 transition-colors"
               >
                 <td class="px-4 py-3">
                   <NuxtLink
@@ -244,7 +244,7 @@ const statusClass = (status: string) => {
                   </span>
                 </td>
                 <td class="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{{ c.assignedFpName || '—' }}</td>
-                <td class="px-4 py-3 whitespace-nowrap">
+                <td class="px-4 py-3 whitespace-nowrap sticky right-0 bg-white group-hover:bg-gray-50 shadow-[-4px_0_4px_-2px_rgba(0,0,0,0.06)]">
                   <NuxtLink
                     :to="`/customers/${c.customerId}`"
                     class="inline-flex items-center gap-0.5 text-xs text-primary-600 hover:underline"

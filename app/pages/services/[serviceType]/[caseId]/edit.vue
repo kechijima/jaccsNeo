@@ -6,6 +6,7 @@ import {
 } from '~/types/lifeInsurance'
 import type { LifeInsuranceCaseInput, PolicyCopyFile } from '~/types/lifeInsurance'
 import { useLifeInsuranceCases } from '~/composables/useLifeInsuranceCases'
+import { useCaseComments } from '~/composables/useCaseComments'
 import { useStorage } from '~/composables/useStorage'
 import { useToast } from '~/composables/useToast'
 
@@ -31,6 +32,29 @@ if (!liCase.value) {
 }
 
 const { show: showToast } = useToast()
+
+// ── コメント ──────────────────────────────────────────────────────────
+const {
+  comments, loading: commentsLoading, loadingMore: commentsLoadingMore, hasMore: hasMoreComments,
+  fetchInitial: fetchComments, loadMore: loadMoreComments, addComment,
+} = useCaseComments(caseId.value)
+await fetchComments()
+
+const commentDraft = ref('')
+const commentSubmitting = ref(false)
+
+const submitComment = async () => {
+  if (!commentDraft.value.trim()) return
+  commentSubmitting.value = true
+  try {
+    await addComment(commentDraft.value)
+    commentDraft.value = ''
+  } finally {
+    commentSubmitting.value = false
+  }
+}
+
+const commentFmt = (d: Date) => d.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 
 const liForm = reactive<LifeInsuranceCaseInput>({
   customerId: liCase.value?.customerId,
@@ -139,7 +163,7 @@ const handleLiSubmit = async () => {
 </script>
 
 <template>
-  <div v-if="liCase" class="p-4 md:p-6 max-w-2xl mx-auto space-y-5">
+  <div v-if="liCase" class="p-4 md:p-6 max-w-5xl mx-auto space-y-5">
 
     <!-- パンくず -->
     <div class="flex items-center gap-2 text-sm text-gray-400 flex-wrap">
@@ -153,6 +177,8 @@ const handleLiSubmit = async () => {
     </div>
 
     <h1 class="text-xl font-bold text-gray-900">{{ serviceLabel }} — 案件編集</h1>
+
+    <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-5 items-start">
 
     <form class="space-y-5" @submit.prevent="handleLiSubmit">
 
@@ -373,5 +399,59 @@ const handleLiSubmit = async () => {
         </button>
       </div>
     </form>
+
+    <!-- コメント -->
+    <aside class="card p-4 space-y-4 lg:sticky lg:top-4">
+      <h3 class="font-semibold text-gray-900 flex items-center gap-2">
+        <Icon name="heroicons:chat-bubble-left-right" class="h-5 w-5 text-primary-600" />
+        コメント
+      </h3>
+
+      <!-- 入力（@でメンバーを指定できます） -->
+      <div class="space-y-2">
+        <RichTextEditor v-model="commentDraft" placeholder="コメントを入力...（@でメンバーを指定できます）" class="min-h-[100px]" />
+        <div class="flex justify-end gap-2">
+          <button type="button" class="btn-secondary text-sm" :disabled="!commentDraft.trim()" @click="commentDraft = ''">キャンセル</button>
+          <button type="button" class="btn-primary text-sm" :disabled="!commentDraft.trim() || commentSubmitting" @click="submitComment">
+            <Icon v-if="commentSubmitting" name="heroicons:arrow-path" class="h-3.5 w-3.5 animate-spin mr-1" />
+            書き込む
+          </button>
+        </div>
+      </div>
+
+      <!-- 履歴 -->
+      <div class="border-t border-gray-100 pt-3 space-y-3 max-h-[480px] overflow-y-auto">
+        <div v-if="commentsLoading" class="text-center text-xs text-gray-400 py-4">読み込み中...</div>
+        <template v-else>
+          <button
+            v-if="hasMoreComments"
+            type="button"
+            class="w-full text-center text-xs text-primary-600 hover:underline py-1 disabled:opacity-40"
+            :disabled="commentsLoadingMore"
+            @click="loadMoreComments"
+          >
+            <Icon v-if="commentsLoadingMore" name="heroicons:arrow-path" class="h-3 w-3 animate-spin inline mr-1" />
+            さらに開く
+          </button>
+
+          <div v-if="comments.length === 0" class="text-xs text-gray-400 text-center py-4">コメントはありません。</div>
+
+          <div v-for="c in comments" :key="c.id" class="flex items-start gap-2">
+            <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-600 font-semibold text-xs">
+              {{ (c.authorName || '?').charAt(0) }}
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-xs font-semibold text-gray-700">
+                {{ c.authorName || '不明' }}
+                <span class="font-normal text-gray-400 ml-1">{{ commentFmt(c.createdAt) }}</span>
+              </p>
+              <div class="text-xs text-gray-600 mt-0.5 leading-relaxed prose prose-sm max-w-none" v-html="c.content" />
+            </div>
+          </div>
+        </template>
+      </div>
+    </aside>
+
+    </div>
   </div>
 </template>
