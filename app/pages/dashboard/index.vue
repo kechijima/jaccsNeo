@@ -56,7 +56,7 @@ const spaceColorMap: Record<string, string> = {
   special: 'bg-amber-100 text-amber-700',
 }
 
-const spacePosts = computed(() => portalStore.posts.value.slice(0, 5))
+const spacePosts = computed(() => portalStore.posts.value.filter(p => !p.isPinned).slice(0, 5))
 
 // HTMLタグを除去して80文字に切り詰める（80文字以下なら「...」を付けない）
 const excerpt = (html: string) => {

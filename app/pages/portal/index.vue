@@ -34,7 +34,8 @@ const isFiltering = computed(() =>
 )
 
 const filteredPosts = computed(() => {
-  let list = store.posts.value
+  // ピン留め投稿は各スペースのサムネイルとして表示されるため、全体フィードには流さない
+  let list = store.posts.value.filter(p => !p.isPinned)
 
   // キーワード
   const q = searchQuery.value.trim().toLowerCase()
