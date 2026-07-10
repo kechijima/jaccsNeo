@@ -65,6 +65,58 @@ const buildMentionItems = (query: string): MentionItem[] => {
     .slice(0, 8)
 }
 
+// アップロード前のファイルから実ピクセル幅を取得する（「元のサイズ」表示用）
+const readNaturalWidth = (file: File): Promise<number | null> =>
+  new Promise((resolve) => {
+    const url = URL.createObjectURL(file)
+    const img = new window.Image()
+    img.onload = () => { resolve(img.naturalWidth || null); URL.revokeObjectURL(url) }
+    img.onerror = () => { resolve(null); URL.revokeObjectURL(url) }
+    img.src = url
+  })
+
+// 画像ファイルをアップロードしてカーソル位置に挿入する（ツールバー・貼り付け・ドロップ共通）
+const uploadAndInsertImage = async (file: File) => {
+  uploadingImage.value = true
+  try {
+    const [url, originalWidth] = await Promise.all([
+      uploadFile(`richtext/${Date.now()}-${file.name}`, file),
+      readNaturalWidth(file),
+    ])
+    editor.value?.chain().focus().setImage({ src: url, originalWidth } as any).run()
+  } finally {
+    uploadingImage.value = false
+  }
+}
+
+// クリップボードから画像を貼り付け（コピーした画像・スクリーンショット等）
+const handlePaste = (_view: unknown, event: ClipboardEvent): boolean => {
+  const items = event.clipboardData?.items
+  if (!items) return false
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      const file = item.getAsFile()
+      if (file) {
+        event.preventDefault()
+        uploadAndInsertImage(file)
+        return true
+      }
+    }
+  }
+  return false
+}
+
+// 画像ファイルのドラッグ＆ドロップにも対応
+const handleDrop = (_view: unknown, event: DragEvent): boolean => {
+  const files = event.dataTransfer?.files
+  if (!files || files.length === 0) return false
+  const file = files[0]
+  if (!file.type.startsWith('image/')) return false
+  event.preventDefault()
+  uploadAndInsertImage(file)
+  return true
+}
+
 const editor = useEditor({
   content: props.modelValue,
   extensions: [
@@ -136,6 +188,8 @@ const editor = useEditor({
     attributes: {
       class: 'prose prose-sm max-w-none focus:outline-none min-h-[120px] px-3 py-2 text-sm text-gray-900',
     },
+    handlePaste,
+    handleDrop,
   },
   onUpdate: ({ editor }) => {
     emit('update:modelValue', editor.getHTML())
@@ -163,28 +217,12 @@ const insertImage = () => {
   imageInputRef.value?.click()
 }
 
-// アップロード前のファイルから実ピクセル幅を取得する（「元のサイズ」表示用）
-const readNaturalWidth = (file: File): Promise<number | null> =>
-  new Promise((resolve) => {
-    const url = URL.createObjectURL(file)
-    const img = new window.Image()
-    img.onload = () => { resolve(img.naturalWidth || null); URL.revokeObjectURL(url) }
-    img.onerror = () => { resolve(null); URL.revokeObjectURL(url) }
-    img.src = url
-  })
-
 const handleImageSelect = async (e: Event) => {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file) return
-  uploadingImage.value = true
   try {
-    const [url, originalWidth] = await Promise.all([
-      uploadFile(`richtext/${Date.now()}-${file.name}`, file),
-      readNaturalWidth(file),
-    ])
-    editor.value?.chain().focus().setImage({ src: url, originalWidth } as any).run()
+    await uploadAndInsertImage(file)
   } finally {
-    uploadingImage.value = false
     if (imageInputRef.value) imageInputRef.value.value = ''
   }
 }
