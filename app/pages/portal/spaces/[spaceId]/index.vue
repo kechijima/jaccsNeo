@@ -177,21 +177,21 @@ const getGroupLabel = (groupId?: string) => {
             <Icon name="heroicons:bookmark-solid" class="h-3.5 w-3.5 text-amber-500" />
             <span class="text-xs font-medium text-amber-700">ピン留め</span>
           </div>
-          <NuxtLink :to="`/portal/spaces/${spaceId}/posts/${pinnedPost.id}`" class="block p-4 hover:bg-gray-50 transition">
+          <div class="p-4">
             <div class="flex items-start gap-3">
               <button
                 type="button"
                 class="h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-semibold shrink-0 bg-amber-400 hover:ring-2 hover:ring-amber-300 transition"
-                @click.stop.prevent="openAuthorProfile(pinnedPost.authorId, pinnedPost.authorName)"
+                @click="openAuthorProfile(pinnedPost.authorId, pinnedPost.authorName)"
               >
                 {{ pinnedPost.authorInitial }}
               </button>
               <div class="flex-1 min-w-0">
                 <p class="text-sm font-semibold text-gray-900">{{ pinnedPost.authorName }}</p>
-                <div class="text-sm text-gray-700 mt-1 line-clamp-3 leading-relaxed prose prose-sm max-w-none" v-html="pinnedPost.content" />
+                <div class="text-sm text-gray-700 mt-1 leading-relaxed prose prose-sm max-w-none" v-html="pinnedPost.content" />
               </div>
             </div>
-          </NuxtLink>
+          </div>
         </div>
 
         <!-- 投稿フォーム -->

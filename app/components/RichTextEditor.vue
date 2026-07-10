@@ -3,7 +3,6 @@ import { ref, onMounted, watch, onBeforeUnmount, computed } from 'vue'
 import { useEditor, EditorContent, VueRenderer } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
-import Image from '@tiptap/extension-image'
 import Underline from '@tiptap/extension-underline'
 import Mention from '@tiptap/extension-mention'
 import tippy from 'tippy.js'
@@ -13,6 +12,7 @@ import { useStorage } from '~/composables/useStorage'
 import { MOCK_ADMIN_USERS } from '~/data/mock'
 import type { MentionItem } from '~/components/MentionList.vue'
 import { FontSize } from '~/tiptap/fontSize'
+import { ResizableImage } from '~/tiptap/resizableImage'
 
 const FONT_SIZES = [
   { label: '小',   value: '12px' },
@@ -77,7 +77,7 @@ const editor = useEditor({
     }),
     Underline,
     FontSize,
-    Image.configure({
+    ResizableImage.configure({
       HTMLAttributes: { class: 'rounded-lg max-w-full' },
     }),
     Mention.configure({
@@ -163,14 +163,26 @@ const insertImage = () => {
   imageInputRef.value?.click()
 }
 
+// アップロード前のファイルから実ピクセル幅を取得する（「元のサイズ」表示用）
+const readNaturalWidth = (file: File): Promise<number | null> =>
+  new Promise((resolve) => {
+    const url = URL.createObjectURL(file)
+    const img = new window.Image()
+    img.onload = () => { resolve(img.naturalWidth || null); URL.revokeObjectURL(url) }
+    img.onerror = () => { resolve(null); URL.revokeObjectURL(url) }
+    img.src = url
+  })
+
 const handleImageSelect = async (e: Event) => {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file) return
   uploadingImage.value = true
   try {
-    const path = `richtext/${Date.now()}-${file.name}`
-    const url = await uploadFile(path, file)
-    editor.value?.chain().focus().setImage({ src: url }).run()
+    const [url, originalWidth] = await Promise.all([
+      uploadFile(`richtext/${Date.now()}-${file.name}`, file),
+      readNaturalWidth(file),
+    ])
+    editor.value?.chain().focus().setImage({ src: url, originalWidth } as any).run()
   } finally {
     uploadingImage.value = false
     if (imageInputRef.value) imageInputRef.value.value = ''
