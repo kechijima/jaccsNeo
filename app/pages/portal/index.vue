@@ -97,10 +97,11 @@ const spaceColorMap: Record<string, string> = {
 
 const allSpaces = computed(() =>
   store.spaces.value.map(s => ({
-    id:     s.id,
-    name:   s.name,
-    unread: s.id === 's002' ? 2 : s.id === 's001' ? 1 : 0,
-    color:  spaceColorMap[s.type] ?? 'bg-indigo-100 text-indigo-700',
+    id:          s.id,
+    name:        s.name,
+    unread:      s.id === 's002' ? 2 : s.id === 's001' ? 1 : 0,
+    color:       spaceColorMap[s.type] ?? 'bg-indigo-100 text-indigo-700',
+    headerImage: s.headerImage,
   })),
 )
 
@@ -378,7 +379,8 @@ const eventColorMap: Record<string, string> = {
               class="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm hover:bg-gray-50 transition"
             >
               <div class="flex items-center gap-2.5 min-w-0">
-                <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold" :class="space.color">
+                <img v-if="space.headerImage" :src="space.headerImage" alt="" class="h-7 w-7 shrink-0 rounded-lg object-cover" />
+                <div v-else class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold" :class="space.color">
                   {{ space.name.charAt(0) }}
                 </div>
                 <span class="truncate text-gray-700">{{ space.name }}</span>

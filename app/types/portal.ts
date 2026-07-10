@@ -1,5 +1,5 @@
 import type { Timestamp } from 'firebase/firestore'
-import type { GroupId } from './user'
+import type { GroupId, UserRole } from './user'
 
 export type SpaceType = 'group' | 'kumiai' | 'special' | 'all'
 
@@ -12,6 +12,9 @@ export interface Space {
   kumiaiId?: string
   memberUids: string[]
   adminUids: string[]
+  // メンバー個別指定に加え、権限（役割）やグループ単位でも対象者を指定できる
+  targetGroupIds?: GroupId[]
+  targetRoles?: UserRole[]
   isArchived: boolean
   isPinned?: boolean
   headerImage?: string
@@ -76,6 +79,9 @@ export interface SpaceForm {
   kumiaiId?: string
   isPinned?: boolean
   headerImage?: string
+  memberUids?: string[]
+  targetGroupIds?: GroupId[]
+  targetRoles?: UserRole[]
 }
 
 export interface PostForm {

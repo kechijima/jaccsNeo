@@ -1,10 +1,18 @@
 <script setup lang="ts">
 import { usePortalStore } from '~/composables/usePortalStore'
+import { useUsers } from '~/composables/useUsers'
+import { resolveSpaceMembers } from '~/composables/useSpaces'
+import type { AppUser } from '~/types/user'
 
 definePageMeta({ middleware: ['auth'] })
 
 const store = usePortalStore()
+const { fetchUsers } = useUsers()
 await store.fetchSpaces()
+const allUsers = ref<AppUser[]>([])
+onMounted(async () => {
+  allUsers.value = await fetchUsers().catch(() => [])
+})
 
 const typeLabelMap: Record<string, string> = {
   all:     '全体スペース',
@@ -15,6 +23,9 @@ const typeLabelMap: Record<string, string> = {
 
 const unreadMap: Record<string, number> = { s001: 1, s002: 2 }
 
+// HTMLタグを除去する（説明はリッチエディター由来のHTML）
+const stripHtml = (html: string) => html.replace(/<[^>]*>/g, '').trim()
+
 const spaceGroups = computed(() => {
   const groupMap = new Map<string, any[]>()
   for (const s of store.spaces.value) {
@@ -23,9 +34,10 @@ const spaceGroups = computed(() => {
     groupMap.get(key)!.push({
       id:          s.id,
       name:        s.name,
-      memberCount: s.memberUids?.length ?? 0,
-      description: s.description,
+      memberCount: resolveSpaceMembers(s, allUsers.value).length,
+      description: s.description ? stripHtml(s.description) : '',
       isPinned:    s.isPinned,
+      headerImage: s.headerImage,
       unread:      unreadMap[s.id] ?? 0,
     })
   }
@@ -88,7 +100,8 @@ const filteredSpaces = computed(() => {
           class="flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition"
         >
           <div class="flex items-center gap-3">
-            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-100 text-primary-700 font-semibold text-sm">
+            <img v-if="space.headerImage" :src="space.headerImage" alt="" class="h-9 w-9 shrink-0 rounded-lg object-cover" />
+            <div v-else class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-100 text-primary-700 font-semibold text-sm">
               {{ space.name.charAt(0) }}
             </div>
             <div>
@@ -122,7 +135,8 @@ const filteredSpaces = computed(() => {
             class="flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition"
           >
             <div class="flex items-center gap-3 min-w-0">
-              <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-100 text-primary-700 font-bold text-sm">
+              <img v-if="space.headerImage" :src="space.headerImage" alt="" class="h-9 w-9 shrink-0 rounded-lg object-cover" />
+              <div v-else class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-100 text-primary-700 font-bold text-sm">
                 {{ space.name.charAt(0) }}
               </div>
               <div class="min-w-0">

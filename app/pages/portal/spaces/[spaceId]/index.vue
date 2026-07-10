@@ -3,6 +3,7 @@ import { usePortalStore } from '~/composables/usePortalStore'
 import { useNotifications } from '~/composables/useNotifications'
 import { useUsers } from '~/composables/useUsers'
 import { useAuthorProfileModal } from '~/composables/useAuthorProfileModal'
+import { resolveSpaceMembers } from '~/composables/useSpaces'
 import type { AppUser } from '~/types/user'
 
 definePageMeta({ middleware: ['auth'] })
@@ -22,22 +23,26 @@ onMounted(async () => {
 })
 
 // ── スペース情報 ──────────────────────────────────────────────────────
+const spaceRaw = computed(() => store.spaces.value.find(sp => sp.id === spaceId.value))
+
+const resolvedMembers = computed(() => spaceRaw.value ? resolveSpaceMembers(spaceRaw.value, members.value) : [])
+
+const descriptionExcerpt = (html: string) => html.replace(/<[^>]*>/g, '').trim()
+
 const space = computed(() => {
-  const s = store.spaces.value.find(sp => sp.id === spaceId.value)
+  const s = spaceRaw.value
   if (!s) return { id: '', name: '', description: '', memberCount: 0, isAdmin: false, isPinned: false, type: '', headerImage: '' }
   return {
     id:          s.id,
     name:        s.name,
-    description: s.description,
-    memberCount: s.memberUids?.length ?? 0,
+    description: s.description ?? '',
+    memberCount: resolvedMembers.value.length,
     isAdmin:     (s.adminUids ?? []).includes(user.value?.uid ?? ''),
     isPinned:    s.isPinned,
     type:        s.type,
     headerImage: s.headerImage ?? '',
   }
 })
-
-const isFollowing = ref(true)
 
 // ── 投稿一覧（このスペース） ──────────────────────────────────────────
 const spacePosts = store.getPostsBySpace(spaceId)
@@ -137,7 +142,7 @@ const getGroupLabel = (groupId?: string) => {
           <div class="flex items-end justify-between w-full">
             <div>
               <h1 class="text-lg font-bold text-white drop-shadow">{{ space.name }}</h1>
-              <p v-if="space.description" class="text-xs text-white/80 mt-0.5">{{ space.description }}</p>
+              <p v-if="space.description" class="text-xs text-white/80 mt-0.5 line-clamp-1">{{ descriptionExcerpt(space.description) }}</p>
             </div>
             <div class="flex items-center gap-2 shrink-0 pb-0.5">
               <NuxtLink to="/portal" class="text-white/80 hover:text-white transition">
@@ -155,21 +160,13 @@ const getGroupLabel = (groupId?: string) => {
         </div>
       </div>
 
-      <!-- フォローボタン行 -->
-      <div class="bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-end gap-2">
-        <button
-          class="text-xs px-3 py-1.5 rounded border transition font-medium"
-          :class="isFollowing
-            ? 'border-gray-300 text-gray-600 hover:bg-gray-50'
-            : 'border-primary-500 text-primary-600 bg-primary-50 hover:bg-primary-100'"
-          @click="isFollowing = !isFollowing"
-        >
-          {{ isFollowing ? 'フォローを解除' : 'フォローする' }}
-        </button>
-      </div>
-
       <!-- フィード -->
       <div class="flex-1 p-4 space-y-3 max-w-2xl w-full mx-auto">
+
+        <!-- スペースについて（説明） -->
+        <div v-if="space.description" class="bg-white border border-gray-200 rounded-lg p-4">
+          <div class="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" v-html="space.description" />
+        </div>
 
         <!-- ピン留め投稿 -->
         <div
@@ -355,9 +352,10 @@ const getGroupLabel = (groupId?: string) => {
         <span class="text-xs text-gray-400">{{ space.memberCount }}名</span>
       </div>
       <!-- アバターグリッド -->
+      <p v-if="resolvedMembers.length === 0" class="text-xs text-gray-300">メンバーが設定されていません</p>
       <div class="grid grid-cols-3 gap-1.5">
         <div
-          v-for="u in members"
+          v-for="u in resolvedMembers"
           :key="u.uid"
           class="flex flex-col items-center gap-0.5"
           :title="u.displayName"

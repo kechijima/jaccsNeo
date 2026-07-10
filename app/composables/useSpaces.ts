@@ -22,12 +22,29 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore'
 import type { Space, SpaceSummary, Post, Comment, SpaceForm, PostForm } from '~/types/portal'
+import type { AppUser } from '~/types/user'
 import { useAuthStore } from '~/stores/auth'
 import { MOCK_SPACES, MOCK_POSTS } from '~/data/mock'
 
 const toSpace = (id: string, data: DocumentData): Space => ({ id, ...data }) as Space
 const toPost  = (id: string, data: DocumentData): Post  => ({ id, ...data }) as Post
 const toComment = (id: string, data: DocumentData): Comment => ({ id, ...data }) as Comment
+
+// スペースの実際のメンバーを算出する（個別追加 ∪ 対象グループ ∪ 対象権限）
+export const resolveSpaceMembers = (space: Space, allUsers: AppUser[]): AppUser[] => {
+  const uids = new Set(space.memberUids ?? [])
+  const groupIds = space.targetGroupIds ?? []
+  const roles = space.targetRoles ?? []
+
+  const matched = allUsers.filter(u =>
+    uids.has(u.uid) ||
+    (u.groupId && groupIds.includes(u.groupId)) ||
+    roles.includes(u.role),
+  )
+
+  const seen = new Set<string>()
+  return matched.filter(u => (seen.has(u.uid) ? false : (seen.add(u.uid), true)))
+}
 
 export const useSpaces = () => {
   const { $db } = useNuxtApp()
@@ -147,6 +164,13 @@ export const useSpaces = () => {
     const q = query(postsCol(spaceId), orderBy('createdAt', 'desc'), limit(30))
     const snap = await getDocs(q)
     return snap.docs.map(d => toPost(d.id, d.data()))
+  }
+
+  // ===== 投稿単体取得（サムネイル＝ピン留め投稿の編集用） =====
+  const fetchPost = async (spaceId: string, postId: string): Promise<Post | null> => {
+    const snap = await getDoc(doc($db, 'spaces', spaceId, 'posts', postId))
+    if (!snap.exists()) return null
+    return toPost(snap.id, snap.data())
   }
 
   // ===== 投稿作成 =====
@@ -304,6 +328,7 @@ export const useSpaces = () => {
     toggleAdmin,
     subscribePosts,
     fetchPosts,
+    fetchPost,
     createPost,
     updatePost,
     deletePost,

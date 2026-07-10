@@ -164,6 +164,7 @@ const toggleArchive = async (id: string) => {
             >
               <td class="px-4 py-3 whitespace-nowrap">
                 <div class="font-medium text-gray-900 flex items-center gap-1.5">
+                  <img v-if="space.headerImage" :src="space.headerImage" alt="" class="h-6 w-6 rounded object-cover shrink-0" />
                   <Icon v-if="space.isPinned" name="heroicons:bookmark-solid" class="h-3.5 w-3.5 text-primary-400 shrink-0" />
                   {{ space.name }}
                 </div>

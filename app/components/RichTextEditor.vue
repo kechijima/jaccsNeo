@@ -3,11 +3,13 @@ import { ref, onMounted, watch, onBeforeUnmount, computed } from 'vue'
 import { useEditor, EditorContent, VueRenderer } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
+import Image from '@tiptap/extension-image'
 import Underline from '@tiptap/extension-underline'
 import Mention from '@tiptap/extension-mention'
 import tippy from 'tippy.js'
 import MentionList from '~/components/MentionList.vue'
 import { useUsers } from '~/composables/useUsers'
+import { useStorage } from '~/composables/useStorage'
 import { MOCK_ADMIN_USERS } from '~/data/mock'
 import type { MentionItem } from '~/components/MentionList.vue'
 import { FontSize } from '~/tiptap/fontSize'
@@ -27,7 +29,10 @@ const props = defineProps<{
 const emit = defineEmits(['update:modelValue', 'submit'])
 
 const { fetchUsers } = useUsers()
+const { uploadFile } = useStorage()
 const users = ref<any[]>([])
+const uploadingImage = ref(false)
+const imageInputRef = ref<HTMLInputElement>()
 
 onMounted(async () => {
   users.value = await fetchUsers()
@@ -72,6 +77,9 @@ const editor = useEditor({
     }),
     Underline,
     FontSize,
+    Image.configure({
+      HTMLAttributes: { class: 'rounded-lg max-w-full' },
+    }),
     Mention.configure({
       HTMLAttributes: {
         class: 'mention bg-primary-50 text-primary-600 px-1 py-0.5 rounded font-medium',
@@ -148,6 +156,24 @@ const setFontSize = (e: Event) => {
     editor.value?.chain().focus().setFontSize(size).run()
   } else {
     editor.value?.chain().focus().unsetFontSize().run()
+  }
+}
+
+const insertImage = () => {
+  imageInputRef.value?.click()
+}
+
+const handleImageSelect = async (e: Event) => {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  uploadingImage.value = true
+  try {
+    const path = `richtext/${Date.now()}-${file.name}`
+    const url = await uploadFile(path, file)
+    editor.value?.chain().focus().setImage({ src: url }).run()
+  } finally {
+    uploadingImage.value = false
+    if (imageInputRef.value) imageInputRef.value.value = ''
   }
 }
 
@@ -260,6 +286,17 @@ onBeforeUnmount(() => {
       >
         <Icon name="heroicons:link-slash" class="h-4 w-4" />
       </button>
+      <button
+        type="button"
+        @click="insertImage"
+        :disabled="uploadingImage"
+        class="p-1.5 rounded hover:bg-gray-200 text-gray-500 transition-colors disabled:opacity-40"
+        title="画像を挿入"
+      >
+        <Icon v-if="uploadingImage" name="heroicons:arrow-path" class="h-4 w-4 animate-spin" />
+        <Icon v-else name="heroicons:photo" class="h-4 w-4" />
+      </button>
+      <input ref="imageInputRef" type="file" accept="image/*" class="hidden" @change="handleImageSelect" />
 
       <div class="w-px h-4 bg-gray-300 mx-1"></div>
 

@@ -242,7 +242,8 @@ const unreadNotifCount = computed(() => MOCK_NOTIFICATIONS.filter(n => !n.isRead
               class="flex items-center justify-between rounded-lg px-3 py-2 text-sm hover:bg-gray-50 transition"
             >
               <div class="flex items-center gap-2 min-w-0">
-                <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-bold" :class="space.color">
+                <img v-if="space.headerImage" :src="space.headerImage" alt="" class="h-6 w-6 shrink-0 rounded-md object-cover" />
+                <div v-else class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-bold" :class="space.color">
                   {{ space.name.charAt(0) }}
                 </div>
                 <span class="truncate text-gray-700 text-xs">{{ space.name }}</span>
