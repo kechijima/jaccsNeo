@@ -25,6 +25,8 @@ export default defineNuxtPlugin(() => {
   const app = getApps().length ? getApp() : initializeApp(firebaseConfig)
 
   const auth      = getAuth(app)
+  // パスワードリセット等のFirebase Auth既定メールテンプレートを日本語で送信する
+  auth.languageCode = 'ja'
   const db        = getFirestore(app)
   const storage   = getStorage(app)
   // Cloud Functionsのデプロイリージョン（functions/index.jsのsetGlobalOptionsと揃える）
