@@ -89,7 +89,7 @@ const submitComment = async (postId: string) => {
   await store.addComment(postId, content)
 }
 
-// ── 編集モーダル ──────────────────────────────────────────────────────
+// ── 編集（インライン） ────────────────────────────────────────────────
 const editingPostId = ref<string | null>(null)
 const editContent = ref('')
 
@@ -254,8 +254,16 @@ const getGroupLabel = (groupId?: string) => {
                 </button>
               </div>
 
+              <!-- 本文（編集モード） -->
+              <div v-if="editingPostId === post.id" class="mt-2 space-y-2">
+                <RichTextEditor v-model="editContent" class="min-h-[140px]" />
+                <div class="flex justify-end gap-2">
+                  <button class="btn-secondary text-sm" @click="editingPostId = null">キャンセル</button>
+                  <button class="btn-primary text-sm" :disabled="!editContent.trim()" @click="saveEdit">保存する</button>
+                </div>
+              </div>
               <!-- 本文 -->
-              <NuxtLink :to="`/portal/spaces/${spaceId}/posts/${post.id}`" class="block mt-2">
+              <NuxtLink v-else :to="`/portal/spaces/${spaceId}/posts/${post.id}`" class="block mt-2">
                 <div
                   class="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none"
                   v-html="post.content"
@@ -373,32 +381,6 @@ const getGroupLabel = (groupId?: string) => {
 
     <!-- 絵文字ピッカー外クリックで閉じる -->
     <div v-if="showEmojiPicker" class="fixed inset-0 z-10" @click="showEmojiPicker = null" />
-
-    <!-- 編集モーダル -->
-    <Teleport to="body">
-      <div
-        v-if="editingPostId"
-        class="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40"
-        @click.self="editingPostId = null"
-      >
-        <div class="bg-white w-full md:max-w-lg rounded-t-2xl md:rounded-2xl p-5 space-y-4 shadow-xl">
-          <div class="flex items-center justify-between">
-            <h3 class="font-bold text-gray-900">投稿を編集</h3>
-            <button class="p-1.5 rounded-lg hover:bg-gray-100 transition" @click="editingPostId = null">
-              <Icon name="heroicons:x-mark" class="h-5 w-5 text-gray-500" />
-            </button>
-          </div>
-          <RichTextEditor
-            v-model="editContent"
-            class="min-h-[200px]"
-          />
-          <div class="flex gap-3">
-            <button class="flex-1 btn-secondary" @click="editingPostId = null">キャンセル</button>
-            <button class="flex-1 btn-primary" :disabled="!editContent.trim()" @click="saveEdit">保存する</button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
 
   </div>
 </template>

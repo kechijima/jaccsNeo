@@ -128,8 +128,16 @@ const deletePost = async () => {
               </div>
             </div>
 
+            <!-- 本文（編集モード） -->
+            <div v-if="isEditing" class="mt-3 space-y-2">
+              <RichTextEditor v-model="editContent" class="min-h-[160px]" />
+              <div class="flex justify-end gap-2">
+                <button class="btn-secondary text-sm" @click="isEditing = false">キャンセル</button>
+                <button class="btn-primary text-sm" :disabled="!editContent.trim()" @click="saveEdit">保存する</button>
+              </div>
+            </div>
             <!-- 本文 -->
-            <div class="mt-3 text-sm text-gray-800 leading-relaxed prose prose-sm max-w-none" v-html="post.content" />
+            <div v-else class="mt-3 text-sm text-gray-800 leading-relaxed prose prose-sm max-w-none" v-html="post.content" />
           </div>
         </div>
 
@@ -221,29 +229,6 @@ const deletePost = async () => {
 
     <!-- 絵文字ピッカー外クリックで閉じる -->
     <div v-if="showEmojiPicker" class="fixed inset-0 z-10" @click="showEmojiPicker = false" />
-
-    <!-- 編集モーダル -->
-    <Teleport to="body">
-      <div
-        v-if="isEditing"
-        class="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40"
-        @click.self="isEditing = false"
-      >
-        <div class="bg-white w-full md:max-w-lg rounded-t-2xl md:rounded-2xl p-5 space-y-4 shadow-xl">
-          <div class="flex items-center justify-between">
-            <h3 class="font-bold text-gray-900">投稿を編集</h3>
-            <button class="p-1.5 rounded-lg hover:bg-gray-100 transition" @click="isEditing = false">
-              <Icon name="heroicons:x-mark" class="h-5 w-5 text-gray-500" />
-            </button>
-          </div>
-          <textarea v-model="editContent" rows="7" class="input-field resize-none text-sm" />
-          <div class="flex gap-3">
-            <button class="flex-1 btn-secondary" @click="isEditing = false">キャンセル</button>
-            <button class="flex-1 btn-primary" :disabled="!editContent.trim()" @click="saveEdit">保存する</button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
 
   </div>
 </template>
