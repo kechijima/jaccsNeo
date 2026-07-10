@@ -2,14 +2,12 @@
 import { ref, computed, watch } from 'vue'
 import { MOCK_EVENTS } from '~/data/mock'
 import { usePortalStore } from '~/composables/usePortalStore'
-import { useCurrentUser } from '~/composables/useCurrentUser'
-import { useNotifications } from '~/composables/useNotifications'
+import { useAuthorProfileModal } from '~/composables/useAuthorProfileModal'
 
 definePageMeta({ middleware: ['auth'] })
 
-const { user } = useCurrentUser()
 const store = usePortalStore()
-const { sendMentionNotifications } = useNotifications()
+const { openAuthorProfile } = useAuthorProfileModal()
 
 await store.fetchAllPosts()
 
@@ -69,34 +67,6 @@ const filteredPosts = computed(() => {
 
   return list
 })
-
-// ── 投稿モーダル ──────────────────────────────────────────────────────
-const showCompose = ref(false)
-const composeSpaceIdRaw = ref('')
-const composeSpaceId = computed({
-  get: () => composeSpaceIdRaw.value || store.spaces.value[0]?.id || '',
-  set: (v: string) => { composeSpaceIdRaw.value = v },
-})
-const composeContent = ref('')
-const composeSubmitting = ref(false)
-
-const handleCompose = async () => {
-  if (!composeContent.value.trim()) return
-  composeSubmitting.value = true
-  const postId = await store.addPost(composeSpaceId.value, composeContent.value)
-  if (postId) {
-    await sendMentionNotifications(
-      composeContent.value,
-      user.value?.displayName ?? 'テストユーザー',
-      composeSpaceId.value,
-      postId,
-      'post',
-    )
-  }
-  composeContent.value = ''
-  showCompose.value = false
-  composeSubmitting.value = false
-}
 
 // ── リアクション ─────────────────────────────────────────────────────
 const EMOJIS = ['👍', '❤️', '🎉', '😊', '👏', '🔥']
@@ -270,21 +240,6 @@ const eventColorMap: Record<string, string> = {
       <!-- 投稿フィード（左2カラム） -->
       <div class="md:col-span-2 space-y-4">
 
-        <!-- 投稿ボタン -->
-        <div class="card p-4">
-          <div class="flex items-center gap-3">
-            <div class="flex h-9 w-9 items-center justify-center rounded-full bg-primary-100 text-primary-700 font-semibold text-sm shrink-0">
-              {{ user?.displayName?.charAt(0) ?? 'T' }}
-            </div>
-            <button
-              class="flex-1 rounded-full bg-gray-100 px-4 py-2.5 text-sm text-gray-400 hover:bg-gray-200 transition text-left"
-              @click="showCompose = true"
-            >
-              投稿する...
-            </button>
-          </div>
-        </div>
-
         <!-- 検索結果なし -->
         <div v-if="isFiltering && filteredPosts.length === 0" class="card p-10 text-center">
           <Icon name="heroicons:magnifying-glass" class="h-10 w-10 text-gray-200 mx-auto mb-2" />
@@ -299,9 +254,13 @@ const eventColorMap: Record<string, string> = {
           class="card p-5"
         >
           <div class="flex items-start gap-3">
-            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 font-semibold text-sm">
+            <button
+              type="button"
+              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 font-semibold text-sm hover:ring-2 hover:ring-indigo-300 transition"
+              @click="openAuthorProfile(post.authorId, post.authorName)"
+            >
               {{ post.authorInitial }}
-            </div>
+            </button>
             <div class="flex-1 min-w-0">
               <!-- メタ情報 -->
               <div class="flex items-center gap-2 flex-wrap">
@@ -459,49 +418,6 @@ const eventColorMap: Record<string, string> = {
 
       </div>
     </div>
-
-    <!-- 投稿モーダル -->
-    <Teleport to="body">
-      <div
-        v-if="showCompose"
-        class="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40"
-        @click.self="showCompose = false"
-      >
-        <div class="bg-white w-full md:max-w-lg rounded-t-2xl md:rounded-2xl p-5 space-y-4 shadow-xl max-h-[90vh] overflow-y-auto">
-          <div class="flex items-center justify-between">
-            <h3 class="font-bold text-gray-900">投稿する</h3>
-            <button class="p-1.5 rounded-lg hover:bg-gray-100 transition" @click="showCompose = false">
-              <Icon name="heroicons:x-mark" class="h-5 w-5 text-gray-500" />
-            </button>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-500 mb-1.5">投稿先スペース</label>
-            <select v-model="composeSpaceId" class="input-field text-sm">
-              <option v-for="s in store.spaces.value" :key="s.id" :value="s.id">{{ s.name }}</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-500 mb-1.5">内容</label>
-            <RichTextEditor
-              v-model="composeContent"
-              placeholder="投稿内容を入力してください..."
-              class="min-h-[160px]"
-            />
-          </div>
-          <div class="flex gap-3">
-            <button class="flex-1 btn-secondary" @click="showCompose = false">キャンセル</button>
-            <button
-              class="flex-1 btn-primary"
-              :disabled="!composeContent.trim() || composeSubmitting"
-              @click="handleCompose"
-            >
-              <Icon v-if="composeSubmitting" name="heroicons:arrow-path" class="h-4 w-4 animate-spin mr-1" />
-              投稿する
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
 
     <!-- 絵文字ピッカー外クリックで閉じる -->
     <div v-if="showEmojiPicker" class="fixed inset-0 z-10" @click="showEmojiPicker = null" />

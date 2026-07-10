@@ -2,6 +2,7 @@
 import { usePortalStore } from '~/composables/usePortalStore'
 import { useNotifications } from '~/composables/useNotifications'
 import { useUsers } from '~/composables/useUsers'
+import { useAuthorProfileModal } from '~/composables/useAuthorProfileModal'
 import type { AppUser } from '~/types/user'
 
 definePageMeta({ middleware: ['auth'] })
@@ -12,6 +13,7 @@ const { user } = useCurrentUser()
 const store = usePortalStore()
 const { sendMentionNotifications } = useNotifications()
 const { fetchUsers } = useUsers()
+const { openAuthorProfile } = useAuthorProfileModal()
 
 await store.fetchPostsForSpace(spaceId.value)
 const members = ref<AppUser[]>([])
@@ -180,9 +182,13 @@ const getGroupLabel = (groupId?: string) => {
           </div>
           <NuxtLink :to="`/portal/spaces/${spaceId}/posts/${pinnedPost.id}`" class="block p-4 hover:bg-gray-50 transition">
             <div class="flex items-start gap-3">
-              <div class="h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-semibold shrink-0 bg-amber-400">
+              <button
+                type="button"
+                class="h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-semibold shrink-0 bg-amber-400 hover:ring-2 hover:ring-amber-300 transition"
+                @click.stop.prevent="openAuthorProfile(pinnedPost.authorId, pinnedPost.authorName)"
+              >
                 {{ pinnedPost.authorInitial }}
-              </div>
+              </button>
               <div class="flex-1 min-w-0">
                 <p class="text-sm font-semibold text-gray-900">{{ pinnedPost.authorName }}</p>
                 <div class="text-sm text-gray-700 mt-1 line-clamp-3 leading-relaxed prose prose-sm max-w-none" v-html="pinnedPost.content" />
@@ -224,12 +230,14 @@ const getGroupLabel = (groupId?: string) => {
         >
           <!-- 投稿ヘッダー -->
           <div class="px-4 pt-4 pb-3 flex items-start gap-3">
-            <div
-              class="h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-semibold shrink-0"
+            <button
+              type="button"
+              class="h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-semibold shrink-0 hover:ring-2 hover:ring-primary-300 transition"
               :class="getGroupColor(members.find(u => u.uid === post.authorId)?.groupId)"
+              @click="openAuthorProfile(post.authorId, post.authorName)"
             >
               {{ post.authorInitial }}
-            </div>
+            </button>
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2 flex-wrap">
                 <span class="text-sm font-semibold text-gray-900">{{ post.authorName }}</span>

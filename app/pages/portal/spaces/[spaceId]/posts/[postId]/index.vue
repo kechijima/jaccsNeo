@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { usePortalStore } from '~/composables/usePortalStore'
+import { useAuthorProfileModal } from '~/composables/useAuthorProfileModal'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -9,6 +10,7 @@ const spaceId = computed(() => route.params.spaceId as string)
 const postId = computed(() => route.params.postId as string)
 const { user } = useCurrentUser()
 const store = usePortalStore()
+const { openAuthorProfile } = useAuthorProfileModal()
 
 await store.fetchPostsForSpace(spaceId.value)
 const postRef = store.getPost(postId)
@@ -89,9 +91,13 @@ const deletePost = async () => {
       <!-- 投稿カード -->
       <div class="card p-5">
         <div class="flex items-start gap-3">
-          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 font-semibold">
+          <button
+            type="button"
+            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 font-semibold hover:ring-2 hover:ring-indigo-300 transition"
+            @click="openAuthorProfile(post.authorId, post.authorName)"
+          >
             {{ post.authorInitial }}
-          </div>
+          </button>
           <div class="flex-1 min-w-0">
             <!-- メタ -->
             <div class="flex items-start justify-between gap-2">

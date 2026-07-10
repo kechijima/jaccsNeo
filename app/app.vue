@@ -13,6 +13,7 @@ await initAuth()
       <NuxtPage />
     </NuxtLayout>
     <AppToast />
+    <AuthorProfileModal />
     <!-- 認証初期化中はスプラッシュ表示 -->
     <Transition name="fade">
       <div v-if="!initialized" class="fixed inset-0 z-50 flex items-center justify-center bg-white">
