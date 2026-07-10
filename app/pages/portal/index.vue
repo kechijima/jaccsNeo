@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { MOCK_SPACES, MOCK_EVENTS } from '~/data/mock'
+import { MOCK_EVENTS } from '~/data/mock'
 import { usePortalStore } from '~/composables/usePortalStore'
 import { useCurrentUser } from '~/composables/useCurrentUser'
 import { useNotifications } from '~/composables/useNotifications'
@@ -10,6 +10,8 @@ definePageMeta({ middleware: ['auth'] })
 const { user } = useCurrentUser()
 const store = usePortalStore()
 const { sendMentionNotifications } = useNotifications()
+
+await store.fetchAllPosts()
 
 // ── 検索・フィルター ──────────────────────────────────────────────────
 const searchQuery  = ref('')
@@ -70,20 +72,18 @@ const filteredPosts = computed(() => {
 
 // ── 投稿モーダル ──────────────────────────────────────────────────────
 const showCompose = ref(false)
-const composeSpaceId = ref(MOCK_SPACES[0]?.id ?? '')
+const composeSpaceIdRaw = ref('')
+const composeSpaceId = computed({
+  get: () => composeSpaceIdRaw.value || store.spaces.value[0]?.id || '',
+  set: (v: string) => { composeSpaceIdRaw.value = v },
+})
 const composeContent = ref('')
 const composeSubmitting = ref(false)
 
 const handleCompose = async () => {
   if (!composeContent.value.trim()) return
   composeSubmitting.value = true
-  await new Promise(r => setTimeout(r, 300))
-  const postId = store.addPost(
-    composeSpaceId.value,
-    composeContent.value,
-    user.value?.displayName ?? 'テストユーザー',
-    user.value?.uid ?? 'mock-user-123',
-  )
+  const postId = await store.addPost(composeSpaceId.value, composeContent.value)
   if (postId) {
     await sendMentionNotifications(
       composeContent.value,
@@ -110,11 +110,11 @@ const onReaction = (postId: string, emoji: string) => {
 // ── コメント ──────────────────────────────────────────────────────────
 const commentInputs = ref<Record<string, string>>({})
 
-const submitComment = (postId: string) => {
+const submitComment = async (postId: string) => {
   const content = commentInputs.value[postId]?.trim()
   if (!content) return
-  store.addComment(postId, content, user.value?.displayName ?? 'テストユーザー', user.value?.uid ?? 'mock-user-123')
   commentInputs.value[postId] = ''
+  await store.addComment(postId, content)
 }
 
 // ── スペース / イベント ───────────────────────────────────────────────
@@ -126,7 +126,7 @@ const spaceColorMap: Record<string, string> = {
 }
 
 const allSpaces = computed(() =>
-  MOCK_SPACES.map(s => ({
+  store.spaces.value.map(s => ({
     id:     s.id,
     name:   s.name,
     unread: s.id === 's002' ? 2 : s.id === 's001' ? 1 : 0,
@@ -230,7 +230,7 @@ const eventColorMap: Record<string, string> = {
             <label class="text-xs font-medium text-gray-500">スペース</label>
             <select v-model="filterSpaceId" class="input-field text-sm py-1.5">
               <option value="">すべてのスペース</option>
-              <option v-for="s in MOCK_SPACES" :key="s.id" :value="s.id">{{ s.name }}</option>
+              <option v-for="s in store.spaces.value" :key="s.id" :value="s.id">{{ s.name }}</option>
             </select>
           </div>
           <!-- 開始日 -->
@@ -254,7 +254,7 @@ const eventColorMap: Record<string, string> = {
           {{ filteredPosts.length }}件
         </span>
         <span v-if="filterSpaceId" class="inline-flex items-center gap-1 rounded-full bg-primary-100 px-3 py-1 text-xs text-primary-700 font-medium">
-          {{ MOCK_SPACES.find(s => s.id === filterSpaceId)?.name }}
+          {{ store.spaces.value.find(s => s.id === filterSpaceId)?.name }}
           <button @click="filterSpaceId = ''"><Icon name="heroicons:x-mark" class="h-3 w-3" /></button>
         </span>
         <span v-if="filterDateFrom || filterDateTo" class="inline-flex items-center gap-1 rounded-full bg-primary-100 px-3 py-1 text-xs text-primary-700 font-medium">
@@ -477,7 +477,7 @@ const eventColorMap: Record<string, string> = {
           <div>
             <label class="block text-xs font-medium text-gray-500 mb-1.5">投稿先スペース</label>
             <select v-model="composeSpaceId" class="input-field text-sm">
-              <option v-for="s in MOCK_SPACES" :key="s.id" :value="s.id">{{ s.name }}</option>
+              <option v-for="s in store.spaces.value" :key="s.id" :value="s.id">{{ s.name }}</option>
             </select>
           </div>
           <div>

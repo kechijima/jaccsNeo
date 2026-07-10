@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { MOCK_SPACES } from '~/data/mock'
+import type { Space } from '~/types/portal'
+import { useSpaces } from '~/composables/useSpaces'
 
 definePageMeta({ middleware: ['auth', 'admin'] })
+
+const { fetchAllSpaces, archiveSpace } = useSpaces()
 
 const typeLabelMap: Record<string, string> = {
   all:     '全体',
@@ -21,6 +24,20 @@ const typeColors: Record<string, string> = {
   special: 'bg-rose-100 text-rose-700',
 }
 
+const allSpaces = ref<Space[]>([])
+const loading = ref(true)
+const loadError = ref('')
+
+onMounted(async () => {
+  try {
+    allSpaces.value = await fetchAllSpaces()
+  } catch (e: any) {
+    loadError.value = e.message ?? 'スペース一覧の取得に失敗しました'
+  } finally {
+    loading.value = false
+  }
+})
+
 // ── フィルター ────────────────────────────────────────────────────────
 const showArchived  = ref(false)
 const filterType    = ref('')
@@ -29,7 +46,7 @@ const searchQuery   = ref('')
 const TYPES = Object.keys(typeLabelMap)
 
 const spaces = computed(() => {
-  let list = MOCK_SPACES
+  let list = allSpaces.value
 
   if (!showArchived.value) list = list.filter(s => !s.isArchived)
 
@@ -41,13 +58,22 @@ const spaces = computed(() => {
   return list
 })
 
-const activeCount    = computed(() => MOCK_SPACES.filter(s => !s.isArchived).length)
-const archivedCount  = computed(() => MOCK_SPACES.filter(s => s.isArchived).length)
+const activeCount    = computed(() => allSpaces.value.filter(s => !s.isArchived).length)
+const archivedCount  = computed(() => allSpaces.value.filter(s => s.isArchived).length)
+const memberCount    = (s: Space) => s.memberUids?.length ?? 0
 
-// ── アーカイブ切り替え（モック用ローカル状態） ─────────────────────────
-const toggleArchive = (id: string) => {
-  const s = MOCK_SPACES.find(s => s.id === id)
-  if (s) s.isArchived = !s.isArchived
+// ── アーカイブ切り替え ────────────────────────────────────────────────
+const togglingId = ref<string | null>(null)
+const toggleArchive = async (id: string) => {
+  const s = allSpaces.value.find(sp => sp.id === id)
+  if (!s) return
+  togglingId.value = id
+  try {
+    await archiveSpace(id, !s.isArchived)
+    s.isArchived = !s.isArchived
+  } finally {
+    togglingId.value = null
+  }
 }
 </script>
 
@@ -97,8 +123,20 @@ const toggleArchive = (id: string) => {
       </label>
     </div>
 
+    <!-- 読み込み中 -->
+    <div v-if="loading" class="card p-12 text-center">
+      <Icon name="heroicons:arrow-path" class="h-8 w-8 text-gray-300 mx-auto mb-2 animate-spin" />
+      <p class="text-sm text-gray-400">読み込み中...</p>
+    </div>
+
+    <!-- エラー -->
+    <div v-else-if="loadError" class="card p-12 text-center">
+      <Icon name="heroicons:exclamation-circle" class="h-8 w-8 text-red-300 mx-auto mb-2" />
+      <p class="text-sm text-red-500">{{ loadError }}</p>
+    </div>
+
     <!-- テーブル -->
-    <div class="card overflow-hidden">
+    <div v-else class="card overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
           <thead>
@@ -136,7 +174,7 @@ const toggleArchive = (id: string) => {
                 </span>
               </td>
               <td class="px-4 py-3 text-gray-500 text-xs max-w-[220px] truncate">{{ space.description || '—' }}</td>
-              <td class="px-4 py-3 text-center text-gray-600 whitespace-nowrap">{{ space.memberCount }}名</td>
+              <td class="px-4 py-3 text-center text-gray-600 whitespace-nowrap">{{ memberCount(space) }}名</td>
               <td class="px-4 py-3 whitespace-nowrap">
                 <span class="badge text-xs" :class="space.isArchived ? 'bg-gray-100 text-gray-500' : 'bg-green-100 text-green-700'">
                   {{ space.isArchived ? 'アーカイブ' : 'アクティブ' }}
@@ -146,7 +184,8 @@ const toggleArchive = (id: string) => {
                 <div class="flex items-center justify-end gap-3">
                   <NuxtLink :to="`/portal/spaces/${space.id}/settings`" class="text-xs text-primary-600 hover:underline">設定</NuxtLink>
                   <button
-                    class="text-xs hover:underline"
+                    class="text-xs hover:underline disabled:opacity-40"
+                    :disabled="togglingId === space.id"
                     :class="space.isArchived ? 'text-green-600' : 'text-gray-400'"
                     @click="toggleArchive(space.id)"
                   >

@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { MOCK_SPACES } from '~/data/mock'
+import { usePortalStore } from '~/composables/usePortalStore'
 
 definePageMeta({ middleware: ['auth'] })
+
+const store = usePortalStore()
+await store.fetchSpaces()
 
 const typeLabelMap: Record<string, string> = {
   all:     '全体スペース',
@@ -14,13 +17,13 @@ const unreadMap: Record<string, number> = { s001: 1, s002: 2 }
 
 const spaceGroups = computed(() => {
   const groupMap = new Map<string, any[]>()
-  for (const s of MOCK_SPACES) {
+  for (const s of store.spaces.value) {
     const key = s.type
     if (!groupMap.has(key)) groupMap.set(key, [])
     groupMap.get(key)!.push({
       id:          s.id,
       name:        s.name,
-      memberCount: s.memberCount,
+      memberCount: s.memberUids?.length ?? 0,
       description: s.description,
       isPinned:    s.isPinned,
       unread:      unreadMap[s.id] ?? 0,

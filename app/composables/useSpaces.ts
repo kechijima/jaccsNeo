@@ -4,6 +4,7 @@ import {
   getDoc,
   getDocs,
   addDoc,
+  setDoc,
   updateDoc,
   deleteDoc,
   query,
@@ -16,12 +17,13 @@ import {
   arrayRemove,
   increment,
   runTransaction,
+  writeBatch,
   type DocumentData,
   type Unsubscribe,
 } from 'firebase/firestore'
 import type { Space, SpaceSummary, Post, Comment, SpaceForm, PostForm } from '~/types/portal'
 import { useAuthStore } from '~/stores/auth'
-import { MOCK_SPACES } from '~/data/mock'
+import { MOCK_SPACES, MOCK_POSTS } from '~/data/mock'
 
 const toSpace = (id: string, data: DocumentData): Space => ({ id, ...data }) as Space
 const toPost  = (id: string, data: DocumentData): Post  => ({ id, ...data }) as Post
@@ -170,6 +172,14 @@ export const useSpaces = () => {
     return ref.id
   }
 
+  // ===== 投稿更新 =====
+  const updatePost = async (spaceId: string, postId: string, content: string): Promise<void> => {
+    await updateDoc(doc($db, 'spaces', spaceId, 'posts', postId), {
+      content,
+      updatedAt: serverTimestamp(),
+    })
+  }
+
   // ===== 投稿削除 =====
   const deletePost = async (spaceId: string, postId: string): Promise<void> => {
     await deleteDoc(doc($db, 'spaces', spaceId, 'posts', postId))
@@ -190,8 +200,8 @@ export const useSpaces = () => {
     })
   }
 
-  // ===== リアクション =====
-  const toggleReaction = async (spaceId: string, postId: string, emoji: string): Promise<void> => {
+  // ===== リアクション（戻り値: 反応後の状態。true = 追加した / false = 解除した） =====
+  const toggleReaction = async (spaceId: string, postId: string, emoji: string): Promise<boolean> => {
     const reactionRef = doc($db, 'spaces', spaceId, 'posts', postId, 'reactions', `${authStore.user?.uid}_${emoji}`)
     const reactionSnap = await getDoc(reactionRef)
     const postRef = doc($db, 'spaces', spaceId, 'posts', postId)
@@ -199,13 +209,15 @@ export const useSpaces = () => {
     if (reactionSnap.exists()) {
       await deleteDoc(reactionRef)
       await updateDoc(postRef, { [`reactionCounts.${emoji}`]: increment(-1) })
+      return false
     } else {
-      await updateDoc(reactionRef as any, {
+      await setDoc(reactionRef, {
         emoji,
         uid: authStore.user?.uid,
         createdAt: serverTimestamp(),
       })
       await updateDoc(postRef, { [`reactionCounts.${emoji}`]: increment(1) })
+      return true
     }
   }
 
@@ -232,6 +244,54 @@ export const useSpaces = () => {
     })
   }
 
+  // ===== 初回移行：モックのスペース・投稿データをFirestoreへ一括投入 =====
+  // 全体スペース(s001)・Reteraceグループ活動報告(s002)を含む既存6スペースを
+  // data/mock.ts の内容のまま登録する（固定ID・冪等）
+  const seedFromMock = async (): Promise<{ spaces: number; posts: number }> => {
+    const uid = authStore.user?.uid ?? 'system'
+    let spaceCount = 0
+    let postCount = 0
+
+    for (const s of MOCK_SPACES) {
+      await setDoc(doc($db, 'spaces', s.id), {
+        name:        s.name,
+        description: s.description ?? '',
+        type:        s.type,
+        memberUids:  [uid],
+        adminUids:   [uid],
+        isArchived:  s.isArchived ?? false,
+        isPinned:    s.isPinned ?? false,
+        headerImage: s.headerImage || '',
+        createdBy:   uid,
+        createdAt:   serverTimestamp(),
+        updatedAt:   serverTimestamp(),
+      })
+      spaceCount++
+
+      const spacePosts = MOCK_POSTS[s.id] ?? []
+      if (spacePosts.length > 0) {
+        const batch = writeBatch($db)
+        for (const p of spacePosts) {
+          batch.set(doc($db, 'spaces', s.id, 'posts', p.id), {
+            spaceId:        s.id,
+            authorUid:      p.authorId,
+            authorName:     p.authorName,
+            content:        p.content,
+            reactionCounts: p.reactions ?? {},
+            commentCount:   0,
+            isPinned:       p.isPinned ?? false,
+            createdAt:      p.createdAt.toDate(),
+            updatedAt:      p.createdAt.toDate(),
+          })
+          postCount++
+        }
+        await batch.commit()
+      }
+    }
+
+    return { spaces: spaceCount, posts: postCount }
+  }
+
   return {
     fetchSpaces,
     fetchSpace,
@@ -245,10 +305,12 @@ export const useSpaces = () => {
     subscribePosts,
     fetchPosts,
     createPost,
+    updatePost,
     deletePost,
     pinPost,
     toggleReaction,
     fetchComments,
     createComment,
+    seedFromMock,
   }
 }

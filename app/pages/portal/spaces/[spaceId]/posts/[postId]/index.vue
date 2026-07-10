@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { MOCK_SPACES } from '~/data/mock'
 import { usePortalStore } from '~/composables/usePortalStore'
 
 definePageMeta({ middleware: ['auth'] })
@@ -11,10 +10,11 @@ const postId = computed(() => route.params.postId as string)
 const { user } = useCurrentUser()
 const store = usePortalStore()
 
+await store.fetchPostsForSpace(spaceId.value)
 const postRef = store.getPost(postId)
 const post = postRef
 
-const space = computed(() => MOCK_SPACES.find(s => s.id === spaceId.value))
+const space = computed(() => store.spaces.value.find(s => s.id === spaceId.value))
 
 const isOwn = computed(() =>
   post.value?.authorId === (user.value?.uid ?? 'mock-user-123'),
@@ -33,15 +33,11 @@ const onReaction = (emoji: string) => {
 // ── コメント ──────────────────────────────────────────────────────────
 const commentInput = ref('')
 
-const submitComment = () => {
+const submitComment = async () => {
   if (!commentInput.value.trim() || !post.value) return
-  store.addComment(
-    post.value.id,
-    commentInput.value,
-    user.value?.displayName ?? 'テストユーザー',
-    user.value?.uid ?? 'mock-user-123',
-  )
+  const content = commentInput.value
   commentInput.value = ''
+  await store.addComment(post.value.id, content)
 }
 
 // ── 編集 ─────────────────────────────────────────────────────────────
@@ -54,17 +50,17 @@ const openEdit = () => {
   isEditing.value = true
 }
 
-const saveEdit = () => {
+const saveEdit = async () => {
   if (!post.value || !editContent.value.trim()) return
-  store.editPost(post.value.id, editContent.value)
+  await store.editPost(post.value.id, editContent.value)
   isEditing.value = false
 }
 
 // ── 削除 ─────────────────────────────────────────────────────────────
-const deletePost = () => {
+const deletePost = async () => {
   if (!post.value) return
   if (!confirm('この投稿を削除しますか？')) return
-  store.deletePost(post.value.id)
+  await store.deletePost(post.value.id)
   router.back()
 }
 </script>

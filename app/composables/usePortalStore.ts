@@ -1,8 +1,9 @@
 /**
- * ポータル投稿のグローバル共有ストア
- * useState() を使ってNuxt 4のコンテキスト内で安全に状態を共有する
+ * 掲示板（スペース・投稿）のグローバル共有ストア
+ * Firestore（spaces / spaces/{id}/posts / .../comments）を app/composables/useSpaces.ts 経由で読み書きする
  */
-import { MOCK_POSTS, MOCK_SPACES } from '~/data/mock'
+import type { Space, Post, Comment as SpaceComment } from '~/types/portal'
+import { useSpaces } from '~/composables/useSpaces'
 
 const spaceColorMap: Record<string, string> = {
   all:     'bg-green-100 text-green-700',
@@ -39,117 +40,132 @@ export interface PostView {
   createdAt: Date
 }
 
-const buildPost = (p: any, space: any): PostView => ({
+const toDate = (val: any): Date => val?.toDate?.() ?? (val instanceof Date ? val : new Date())
+
+const toCommentView = (c: SpaceComment): CommentView => ({
+  id:            c.id,
+  authorId:      c.authorUid,
+  authorName:    c.authorName,
+  authorInitial: (c.authorName ?? '?').charAt(0),
+  content:       c.content,
+  postedAt:      toDate(c.createdAt).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' }),
+})
+
+const buildPostView = (space: Space | undefined, p: Post, comments: CommentView[]): PostView => ({
   id:            p.id,
-  spaceId:       space.id,
-  spaceName:     space.name,
-  spaceColor:    spaceColorMap[space.type] ?? 'bg-indigo-100 text-indigo-700',
-  authorId:      p.authorId ?? '',
-  authorName:    p.authorName,
-  authorInitial: p.authorName.charAt(0),
+  spaceId:       p.spaceId,
+  spaceName:     space?.name ?? '',
+  spaceColor:    spaceColorMap[space?.type ?? ''] ?? 'bg-indigo-100 text-indigo-700',
+  authorId:      p.authorUid ?? '',
+  authorName:    p.authorName ?? '',
+  authorInitial: (p.authorName ?? '?').charAt(0),
   content:       p.content,
-  reactions:     { ...(p.reactions ?? {}) },
+  reactions:     { ...(p.reactionCounts ?? {}) },
   myReactions:   [],
-  commentCount:  p.commentCount ?? 0,
-  comments:      [],
+  commentCount:  p.commentCount ?? comments.length,
+  comments,
   showComments:  false,
   isPinned:      p.isPinned ?? false,
-  postedAt:      p.createdAt.toDate().toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-  createdAt:     p.createdAt.toDate(),
+  postedAt:      toDate(p.createdAt).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+  createdAt:     toDate(p.createdAt),
 })
 
 export const usePortalStore = () => {
-  // useState() でNuxtコンテキスト内に状態を保持（ref()のモジュールレベル呼び出しを排除）
-  const posts = useState<PostView[]>('portal:posts', () => [])
-  const initialized = useState<boolean>('portal:initialized', () => false)
+  const spacesApi = useSpaces()
 
-  if (!initialized.value) {
-    const raw: PostView[] = []
-    for (const space of MOCK_SPACES) {
-      for (const p of (MOCK_POSTS[space.id] ?? [])) {
-        raw.push(buildPost(p, space))
-      }
-    }
-    raw.sort((a, b) => {
+  const spaces        = useState<Space[]>('portal:spaces', () => [])
+  const spacesLoaded   = useState<boolean>('portal:spacesLoaded', () => false)
+  const posts          = useState<PostView[]>('portal:posts', () => [])
+  const loadedSpaceIds = useState<string[]>('portal:loadedSpaceIds', () => [])
+
+  // ── スペース一覧（アーカイブ済みを除く） ────────────────────────────
+  const fetchSpaces = async (force = false) => {
+    if (spacesLoaded.value && !force) return
+    spaces.value = (await spacesApi.fetchAllSpaces()).filter(s => !s.isArchived)
+    spacesLoaded.value = true
+  }
+
+  // ── 投稿一覧（スペースごとに取得しキャッシュへマージ） ───────────────
+  const fetchPostsForSpace = async (spaceId: string, force = false) => {
+    if (loadedSpaceIds.value.includes(spaceId) && !force) return
+    await fetchSpaces()
+    const space = spaces.value.find(s => s.id === spaceId)
+    const rawPosts = await spacesApi.fetchPosts(spaceId)
+
+    const views = await Promise.all(rawPosts.map(async (p) => {
+      const comments = await spacesApi.fetchComments(spaceId, p.id).catch(() => [] as SpaceComment[])
+      return buildPostView(space, p, comments.map(toCommentView))
+    }))
+
+    posts.value = [...posts.value.filter(p => p.spaceId !== spaceId), ...views].sort((a, b) => {
       if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1
       return b.createdAt.getTime() - a.createdAt.getTime()
     })
-    posts.value = raw
-    initialized.value = true
+    if (!loadedSpaceIds.value.includes(spaceId)) loadedSpaceIds.value = [...loadedSpaceIds.value, spaceId]
   }
 
-  // Ref<string> | string の両方を受け取れるよう unref() を使用
+  // ── 全スペースの投稿をまとめて取得（掲示板トップ・ダッシュボード用） ──
+  const fetchAllPosts = async (force = false) => {
+    await fetchSpaces(force)
+    await Promise.all(spaces.value.map(s => fetchPostsForSpace(s.id, force)))
+  }
+
   const getPostsBySpace = (spaceId: Ref<string> | string) =>
     computed(() => posts.value.filter(p => p.spaceId === unref(spaceId)))
 
   const getPost = (postId: Ref<string> | string) =>
     computed(() => posts.value.find(p => p.id === unref(postId)) ?? null)
 
-  const addPost = (spaceId: string, content: string, authorName: string, authorId: string) => {
-    const space = MOCK_SPACES.find(s => s.id === spaceId)
-    if (!space) return null
-    const now = new Date()
-    const newPost: PostView = {
-      id:            `local-${Date.now()}`,
-      spaceId,
-      spaceName:     space.name,
-      spaceColor:    spaceColorMap[space.type] ?? 'bg-indigo-100 text-indigo-700',
-      authorId,
-      authorName,
-      authorInitial: authorName.charAt(0),
-      content,
-      reactions:     {},
-      myReactions:   [],
-      commentCount:  0,
-      comments:      [],
-      showComments:  false,
-      isPinned:      false,
-      postedAt:      now.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-      createdAt:     now,
-    }
-    posts.value.unshift(newPost)
-    return newPost.id
+  const addPost = async (spaceId: string, content: string): Promise<string | null> => {
+    const postId = await spacesApi.createPost(spaceId, { content })
+    await fetchPostsForSpace(spaceId, true)
+    return postId
   }
 
-  const toggleReaction = (postId: string, emoji: string) => {
+  // サーバー側の状態を正として反応の追加/解除を行い、結果をローカルへ反映する
+  const toggleReaction = async (postId: string, emoji: string): Promise<void> => {
     const post = posts.value.find(p => p.id === postId)
     if (!post) return
+    const nowReacted = await spacesApi.toggleReaction(post.spaceId, postId, emoji)
     const idx = post.myReactions.indexOf(emoji)
-    if (idx >= 0) {
+    if (nowReacted && idx < 0) {
+      post.myReactions.push(emoji)
+      post.reactions[emoji] = (post.reactions[emoji] ?? 0) + 1
+    } else if (!nowReacted && idx >= 0) {
       post.myReactions.splice(idx, 1)
       post.reactions[emoji] = Math.max(0, (post.reactions[emoji] ?? 1) - 1)
       if (post.reactions[emoji] === 0) delete post.reactions[emoji]
-    } else {
-      post.myReactions.push(emoji)
-      post.reactions[emoji] = (post.reactions[emoji] ?? 0) + 1
     }
   }
 
-  const addComment = (postId: string, content: string, authorName: string, authorId: string) => {
+  const addComment = async (postId: string, content: string): Promise<void> => {
     const post = posts.value.find(p => p.id === postId)
     if (!post) return
-    const now = new Date()
-    post.comments.push({
-      id:            `c-${Date.now()}`,
-      authorId,
-      authorName,
-      authorInitial: authorName.charAt(0),
-      content,
-      postedAt:      now.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' }),
-    })
+    await spacesApi.createComment(post.spaceId, postId, content)
+    const comments = await spacesApi.fetchComments(post.spaceId, postId)
+    post.comments = comments.map(toCommentView)
     post.commentCount = post.comments.length
     post.showComments = true
   }
 
-  const editPost = (postId: string, newContent: string) => {
+  const editPost = async (postId: string, newContent: string): Promise<void> => {
     const post = posts.value.find(p => p.id === postId)
-    if (post) post.content = newContent
+    if (!post) return
+    await spacesApi.updatePost(post.spaceId, postId, newContent)
+    post.content = newContent
   }
 
-  const deletePost = (postId: string) => {
-    const idx = posts.value.findIndex(p => p.id === postId)
-    if (idx >= 0) posts.value.splice(idx, 1)
+  const deletePost = async (postId: string): Promise<void> => {
+    const post = posts.value.find(p => p.id === postId)
+    if (!post) return
+    await spacesApi.deletePost(post.spaceId, postId)
+    posts.value = posts.value.filter(p => p.id !== postId)
   }
 
-  return { posts, getPostsBySpace, getPost, addPost, toggleReaction, addComment, editPost, deletePost }
+  return {
+    spaces, spacesLoaded, posts,
+    fetchSpaces, fetchPostsForSpace, fetchAllPosts,
+    getPostsBySpace, getPost,
+    addPost, toggleReaction, addComment, editPost, deletePost,
+  }
 }

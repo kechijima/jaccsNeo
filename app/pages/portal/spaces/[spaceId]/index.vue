@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { MOCK_SPACES, MOCK_ADMIN_USERS } from '~/data/mock'
 import { usePortalStore } from '~/composables/usePortalStore'
 import { useNotifications } from '~/composables/useNotifications'
+import { useUsers } from '~/composables/useUsers'
+import type { AppUser } from '~/types/user'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -10,17 +11,24 @@ const spaceId = computed(() => route.params.spaceId as string)
 const { user } = useCurrentUser()
 const store = usePortalStore()
 const { sendMentionNotifications } = useNotifications()
+const { fetchUsers } = useUsers()
+
+await store.fetchPostsForSpace(spaceId.value)
+const members = ref<AppUser[]>([])
+onMounted(async () => {
+  members.value = await fetchUsers().catch(() => [])
+})
 
 // ── スペース情報 ──────────────────────────────────────────────────────
 const space = computed(() => {
-  const s = MOCK_SPACES.find(sp => sp.id === spaceId.value)
+  const s = store.spaces.value.find(sp => sp.id === spaceId.value)
   if (!s) return { id: '', name: '', description: '', memberCount: 0, isAdmin: false, isPinned: false, type: '', headerImage: '' }
   return {
     id:          s.id,
     name:        s.name,
     description: s.description,
-    memberCount: s.memberCount,
-    isAdmin:     (s.admins ?? []).includes('mock-user-123'),
+    memberCount: s.memberUids?.length ?? 0,
+    isAdmin:     (s.adminUids ?? []).includes(user.value?.uid ?? ''),
     isPinned:    s.isPinned,
     type:        s.type,
     headerImage: s.headerImage ?? '',
@@ -41,13 +49,7 @@ const submitting = ref(false)
 const handlePostSubmit = async () => {
   if (!newPostContent.value.trim()) return
   submitting.value = true
-  await new Promise(r => setTimeout(r, 300))
-  const postId = store.addPost(
-    spaceId.value,
-    newPostContent.value,
-    user.value?.displayName ?? 'テストユーザー',
-    user.value?.uid ?? 'mock-user-123',
-  )
+  const postId = await store.addPost(spaceId.value, newPostContent.value)
   if (postId) {
     await sendMentionNotifications(
       newPostContent.value,
@@ -73,11 +75,11 @@ const onReaction = (postId: string, emoji: string) => {
 // ── コメント ──────────────────────────────────────────────────────────
 const commentInputs = ref<Record<string, string>>({})
 
-const submitComment = (postId: string) => {
+const submitComment = async (postId: string) => {
   const content = commentInputs.value[postId]?.trim()
   if (!content) return
-  store.addComment(postId, content, user.value?.displayName ?? 'テストユーザー', user.value?.uid ?? 'mock-user-123')
   commentInputs.value[postId] = ''
+  await store.addComment(postId, content)
 }
 
 // ── 編集モーダル ──────────────────────────────────────────────────────
@@ -89,9 +91,9 @@ const openEdit = (post: { id: string; content: string }) => {
   editContent.value = post.content
 }
 
-const saveEdit = () => {
+const saveEdit = async () => {
   if (!editingPostId.value || !editContent.value.trim()) return
-  store.editPost(editingPostId.value, editContent.value)
+  await store.editPost(editingPostId.value, editContent.value)
   editingPostId.value = null
   editContent.value = ''
 }
@@ -224,7 +226,7 @@ const getGroupLabel = (groupId?: string) => {
           <div class="px-4 pt-4 pb-3 flex items-start gap-3">
             <div
               class="h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-semibold shrink-0"
-              :class="getGroupColor(MOCK_ADMIN_USERS.find(u => u.uid === post.authorId)?.groupId)"
+              :class="getGroupColor(members.find(u => u.uid === post.authorId)?.groupId)"
             >
               {{ post.authorInitial }}
             </div>
@@ -232,10 +234,10 @@ const getGroupLabel = (groupId?: string) => {
               <div class="flex items-center gap-2 flex-wrap">
                 <span class="text-sm font-semibold text-gray-900">{{ post.authorName }}</span>
                 <span
-                  v-if="MOCK_ADMIN_USERS.find(u => u.uid === post.authorId)?.groupId"
+                  v-if="members.find(u => u.uid === post.authorId)?.groupId"
                   class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 font-medium"
                 >
-                  {{ getGroupLabel(MOCK_ADMIN_USERS.find(u => u.uid === post.authorId)?.groupId) }}
+                  {{ getGroupLabel(members.find(u => u.uid === post.authorId)?.groupId) }}
                 </span>
                 <span class="text-xs text-gray-400 ml-auto">{{ post.postedAt }}</span>
                 <button
@@ -347,7 +349,7 @@ const getGroupLabel = (groupId?: string) => {
       <!-- アバターグリッド -->
       <div class="grid grid-cols-3 gap-1.5">
         <div
-          v-for="u in MOCK_ADMIN_USERS"
+          v-for="u in members"
           :key="u.uid"
           class="flex flex-col items-center gap-0.5"
           :title="u.displayName"

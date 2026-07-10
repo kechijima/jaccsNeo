@@ -1,16 +1,17 @@
 <script setup lang="ts">
-import { MOCK_SPACES } from '~/data/mock'
+import type { SpaceForm } from '~/types/portal'
+import { useSpaces } from '~/composables/useSpaces'
 
 definePageMeta({ middleware: ['auth'] })
 
 const route = useRoute()
 const spaceId = computed(() => route.params.spaceId as string)
+const { fetchSpace, updateSpace } = useSpaces()
 
+const loading = ref(true)
 const error = ref('')
 const saving = ref(false)
 const saved = ref(false)
-
-const spaceData = computed(() => MOCK_SPACES.find(s => s.id === spaceId.value))
 
 const form = ref({
   name:        '',
@@ -19,15 +20,21 @@ const form = ref({
   headerImage: '',
 })
 
-watchEffect(() => {
-  const s = spaceData.value
-  if (s) {
-    form.value = {
-      name:        s.name,
-      description: s.description ?? '',
-      type:        s.type,
-      headerImage: s.headerImage ?? '',
+onMounted(async () => {
+  try {
+    const s = await fetchSpace(spaceId.value)
+    if (s) {
+      form.value = {
+        name:        s.name,
+        description: s.description ?? '',
+        type:        s.type,
+        headerImage: s.headerImage ?? '',
+      }
     }
+  } catch (e: any) {
+    error.value = e.message ?? 'スペース情報の取得に失敗しました'
+  } finally {
+    loading.value = false
   }
 })
 
@@ -35,18 +42,20 @@ const handleSave = async () => {
   saving.value = true
   error.value = ''
   saved.value = false
-  await new Promise(r => setTimeout(r, 400))
-  // モックデータを直接更新（実際はFirestore updateを呼ぶ）
-  const s = MOCK_SPACES.find(sp => sp.id === spaceId.value)
-  if (s) {
-    s.name = form.value.name
-    s.description = form.value.description
-    s.type = form.value.type as any
-    s.headerImage = form.value.headerImage
+  try {
+    await updateSpace(spaceId.value, {
+      name:        form.value.name,
+      description: form.value.description,
+      type:        form.value.type as SpaceForm['type'],
+      headerImage: form.value.headerImage,
+    })
+    saved.value = true
+    setTimeout(() => { saved.value = false }, 3000)
+  } catch (e: any) {
+    error.value = e.message ?? '保存に失敗しました'
+  } finally {
+    saving.value = false
   }
-  saving.value = false
-  saved.value = true
-  setTimeout(() => { saved.value = false }, 3000)
 }
 </script>
 
@@ -74,8 +83,14 @@ const handleSave = async () => {
       {{ error }}
     </div>
 
+    <!-- 読み込み中 -->
+    <div v-if="loading" class="card p-12 text-center">
+      <Icon name="heroicons:arrow-path" class="h-8 w-8 text-gray-300 mx-auto mb-2 animate-spin" />
+      <p class="text-sm text-gray-400">読み込み中...</p>
+    </div>
+
     <!-- 基本設定 -->
-    <form class="card p-6 space-y-5" @submit.prevent="handleSave">
+    <form v-else class="card p-6 space-y-5" @submit.prevent="handleSave">
       <h2 class="font-semibold text-gray-900">基本情報</h2>
 
       <div>

@@ -13,6 +13,8 @@ export interface Space {
   memberUids: string[]
   adminUids: string[]
   isArchived: boolean
+  isPinned?: boolean
+  headerImage?: string
   pinnedPostId?: string
   createdBy: string
   createdAt: Timestamp
@@ -72,6 +74,8 @@ export interface SpaceForm {
   type: SpaceType
   groupId?: GroupId
   kumiaiId?: string
+  isPinned?: boolean
+  headerImage?: string
 }
 
 export interface PostForm {

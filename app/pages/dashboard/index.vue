@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { MOCK_NOTIFICATIONS, MOCK_SPACES } from '~/data/mock'
+import { MOCK_NOTIFICATIONS } from '~/data/mock'
 import { usePortalStore } from '~/composables/usePortalStore'
 import { useCustomerStore } from '~/composables/useCustomerStore'
 import { useAnnouncementStore } from '~/composables/useAnnouncementStore'
@@ -22,6 +22,7 @@ const greeting = computed(() => {
 
 // ── お知らせ（管理者がグループ別に公開した情報） ─────────────────────────
 await announcementStore.fetchAll()
+await portalStore.fetchAllPosts()
 const groupAnnouncements = announcementStore.getForGroup(computed(() => user.value?.groupId))
 const allAnnouncements = computed(() => groupAnnouncements.value.slice(0, 5))
 
@@ -63,7 +64,7 @@ const excerpt = (html: string) => {
   return text.length > 80 ? text.slice(0, 80) + '...' : text
 }
 const pinnedSpaces = computed(() =>
-  MOCK_SPACES.filter(s => s.isPinned).map(s => ({
+  portalStore.spaces.value.filter(s => s.isPinned).map(s => ({
     ...s,
     color: spaceColorMap[s.type] ?? 'bg-indigo-100 text-indigo-700',
     unread: s.id === 's002' ? 2 : s.id === 's001' ? 1 : 0,

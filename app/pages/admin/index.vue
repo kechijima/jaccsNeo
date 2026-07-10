@@ -65,6 +65,13 @@ const adminMenus = [
     description: 'kintoneインポート済みの生命保険案件データをFirestoreへ一括投入',
     color: 'text-sky-600 bg-sky-50',
   },
+  {
+    to: '/admin/seed-spaces',
+    icon: 'heroicons:chat-bubble-left-right',
+    label: 'スペースデータ投入',
+    description: '全体スペース・Reteraceグループ活動報告など既存の掲示板データをFirestoreへ一括投入',
+    color: 'text-indigo-600 bg-indigo-50',
+  },
 ]
 
 const { fetchUsers } = useUsers()
