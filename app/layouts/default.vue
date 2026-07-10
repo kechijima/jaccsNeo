@@ -177,7 +177,7 @@ const groupLabel = computed(() => {
           </div>
           <span class="text-sm font-bold text-gray-900">jaccsNeo</span>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-1">
           <NuxtLink to="/notifications" class="relative rounded-lg p-2 text-gray-500 hover:bg-gray-100">
             <Icon name="heroicons:bell" class="h-5 w-5" />
             <span
@@ -187,6 +187,13 @@ const groupLabel = computed(() => {
               {{ notificationCount > 9 ? '9+' : notificationCount }}
             </span>
           </NuxtLink>
+          <button
+            type="button"
+            class="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+            @click="isMobileMenuOpen = true"
+          >
+            <Icon name="heroicons:bars-3" class="h-5 w-5" />
+          </button>
         </div>
       </header>
 
@@ -213,6 +220,101 @@ const groupLabel = computed(() => {
         </NuxtLink>
       </div>
     </nav>
+
+    <!-- ========== SPメニュー（マイページ・管理者設定・ログアウト） ========== -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition duration-200"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition duration-150"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div
+          v-if="isMobileMenuOpen"
+          class="md:hidden fixed inset-0 z-50 bg-black/40"
+          @click.self="isMobileMenuOpen = false"
+        >
+          <Transition
+            enter-active-class="transition duration-200"
+            enter-from-class="translate-x-full"
+            enter-to-class="translate-x-0"
+            leave-active-class="transition duration-150"
+            leave-from-class="translate-x-0"
+            leave-to-class="translate-x-full"
+          >
+            <div v-if="isMobileMenuOpen" class="absolute right-0 top-0 h-full w-72 max-w-[85vw] bg-white shadow-2xl flex flex-col">
+              <!-- ユーザー情報 -->
+              <div class="flex items-center gap-3 border-b border-gray-200 p-4">
+                <div
+                  class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
+                  :class="groupColorClass"
+                >
+                  {{ displayName.charAt(0) }}
+                </div>
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-sm font-medium text-gray-900">{{ displayName }}</p>
+                  <p class="truncate text-xs text-gray-500">{{ groupLabel }}</p>
+                </div>
+                <button type="button" class="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100" @click="isMobileMenuOpen = false">
+                  <Icon name="heroicons:x-mark" class="h-5 w-5" />
+                </button>
+              </div>
+
+              <!-- ナビゲーション -->
+              <nav class="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
+                <NuxtLink
+                  to="/mypage"
+                  class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
+                  :class="isActive('/mypage') ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100'"
+                  @click="isMobileMenuOpen = false"
+                >
+                  <Icon name="heroicons:user-circle" class="h-5 w-5 shrink-0" />
+                  マイページ
+                </NuxtLink>
+                <NuxtLink
+                  to="/team"
+                  class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
+                  :class="isActive('/team') ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100'"
+                  @click="isMobileMenuOpen = false"
+                >
+                  <Icon name="heroicons:chart-bar" class="h-5 w-5 shrink-0" />
+                  チーム
+                </NuxtLink>
+
+                <template v-if="authStore.isSystemAdmin">
+                  <div class="pt-3 pb-1">
+                    <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">管理者</p>
+                  </div>
+                  <NuxtLink
+                    to="/admin"
+                    class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
+                    :class="isActive('/admin') ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100'"
+                    @click="isMobileMenuOpen = false"
+                  >
+                    <Icon name="heroicons:cog-6-tooth" class="h-5 w-5 shrink-0" />
+                    管理者設定
+                  </NuxtLink>
+                </template>
+              </nav>
+
+              <!-- ログアウト -->
+              <div class="border-t border-gray-200 p-3">
+                <button
+                  type="button"
+                  class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100 transition"
+                  @click="isMobileMenuOpen = false; logout()"
+                >
+                  <Icon name="heroicons:arrow-right-on-rectangle" class="h-5 w-5 shrink-0" />
+                  ログアウト
+                </button>
+              </div>
+            </div>
+          </Transition>
+        </div>
+      </Transition>
+    </Teleport>
 
   </div>
 </template>
