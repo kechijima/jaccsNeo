@@ -171,18 +171,12 @@ const toggleSpecialTeam = (team: string) => {
       <div class="grid sm:grid-cols-2 gap-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">メインサポート</label>
-          <select v-model="form.mainSupporterUid" class="input-field">
-            <option value="">（なし）</option>
-            <option v-for="u in existingUsers" :key="u.uid" :value="u.uid">{{ u.displayName }}</option>
-          </select>
+          <SearchableUserSelect v-model="form.mainSupporterUid" :users="existingUsers" />
           <p class="mt-1 text-xs text-gray-400">組織図でこのメンバーの上位に表示されます</p>
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">サブサポート（任意）</label>
-          <select v-model="form.subSupporterUid" class="input-field">
-            <option value="">（なし）</option>
-            <option v-for="u in existingUsers" :key="u.uid" :value="u.uid">{{ u.displayName }}</option>
-          </select>
+          <SearchableUserSelect v-model="form.subSupporterUid" :users="existingUsers" />
         </div>
       </div>
 

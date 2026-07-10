@@ -28,6 +28,8 @@ export const toAppUser = (uid: string, data: Record<string, any>, fallbackEmail 
   snsUrl:          data.snsUrl,
 
   supportPerson: data.supportPerson,
+  mainSupporterUid: data.mainSupporterUid,
+  subSupporterUid:  data.subSupporterUid,
 
   businessContent: data.businessContent,
   salaryContent:   data.salaryContent,
