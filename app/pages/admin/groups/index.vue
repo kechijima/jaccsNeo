@@ -1,22 +1,29 @@
 <script setup lang="ts">
-import { MOCK_ADMIN_GROUPS } from '~/data/mock'
+import { useGroups } from '~/composables/useGroups'
+import type { Group, Kumiai } from '~/types/group'
+import type { GroupId } from '~/types/user'
 
 definePageMeta({ middleware: ['auth', 'admin'] })
 
-// ── ローカル状態（モックデータをディープコピーして操作） ──────────────
-const groups = ref(
-  MOCK_ADMIN_GROUPS.map(g => ({
-    id:          g.id,
-    name:        g.name,
-    memberCount: g.memberCount ?? 0,
-    kumiai: g.kumiai.map((k: any) => ({
-      id:          k.id,
-      name:        k.name,
-      adminName:   k.adminName ?? '',
-      memberCount: k.memberCount ?? 0,
-    })),
-  }))
-)
+const { fetchGroups, updateGroup, createKumiai, updateKumiai, deleteKumiai: removeKumiai } = useGroups()
+
+const groups = ref<Group[]>([])
+const loading = ref(true)
+const loadError = ref('')
+
+const loadGroups = async () => {
+  loading.value = true
+  loadError.value = ''
+  try {
+    groups.value = await fetchGroups()
+  } catch (e: any) {
+    loadError.value = e.message ?? 'グループ情報の取得に失敗しました'
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(loadGroups)
 
 const colorMap: Record<string, string> = {
   reterace: 'bg-indigo-500',
@@ -25,81 +32,107 @@ const colorMap: Record<string, string> = {
 }
 const getColor = (id: string) => colorMap[id] ?? 'bg-gray-500'
 
-// ── グループ追加モーダル ───────────────────────────────────────────────
-const showAddGroup   = ref(false)
-const newGroup       = ref({ name: '', memberCount: 0 })
-const addGroupError  = ref('')
-
-const submitAddGroup = () => {
-  if (!newGroup.value.name.trim()) { addGroupError.value = 'グループ名を入力してください'; return }
-  const id = `group-${Date.now()}`
-  groups.value.push({ id, name: newGroup.value.name.trim(), memberCount: newGroup.value.memberCount, kumiai: [] })
-  newGroup.value = { name: '', memberCount: 0 }
-  addGroupError.value = ''
-  showAddGroup.value = false
-}
-
 // ── グループ編集モーダル ───────────────────────────────────────────────
-const editGroupTarget = ref<typeof groups.value[0] | null>(null)
+const editGroupTarget = ref<Group | null>(null)
 const editGroupForm   = ref({ name: '', memberCount: 0 })
+const editGroupSaving = ref(false)
 
-const openEditGroup = (g: typeof groups.value[0]) => {
+const openEditGroup = (g: Group) => {
   editGroupTarget.value = g
   editGroupForm.value = { name: g.name, memberCount: g.memberCount }
 }
 
-const submitEditGroup = () => {
+const submitEditGroup = async () => {
   if (!editGroupTarget.value || !editGroupForm.value.name.trim()) return
-  editGroupTarget.value.name        = editGroupForm.value.name.trim()
-  editGroupTarget.value.memberCount = editGroupForm.value.memberCount
-  editGroupTarget.value = null
+  editGroupSaving.value = true
+  try {
+    await updateGroup(editGroupTarget.value.id, {
+      name: editGroupForm.value.name.trim(),
+      memberCount: editGroupForm.value.memberCount,
+    })
+    editGroupTarget.value.name = editGroupForm.value.name.trim()
+    editGroupTarget.value.memberCount = editGroupForm.value.memberCount
+    editGroupTarget.value = null
+  } finally {
+    editGroupSaving.value = false
+  }
 }
 
 // ── 組合追加モーダル ──────────────────────────────────────────────────
-const addKumiaiGroup = ref<typeof groups.value[0] | null>(null)
+const addKumiaiGroup = ref<Group | null>(null)
 const newKumiai      = ref({ name: '', adminName: '', memberCount: 0 })
 const addKumiaiError = ref('')
+const addKumiaiSaving = ref(false)
 
-const openAddKumiai = (g: typeof groups.value[0]) => {
+const openAddKumiai = (g: Group) => {
   addKumiaiGroup.value = g
   newKumiai.value = { name: '', adminName: '', memberCount: 0 }
   addKumiaiError.value = ''
 }
 
-const submitAddKumiai = () => {
+const submitAddKumiai = async () => {
   if (!newKumiai.value.name.trim()) { addKumiaiError.value = '組合名を入力してください'; return }
-  addKumiaiGroup.value?.kumiai.push({
-    id:          `k-${Date.now()}`,
-    name:        newKumiai.value.name.trim(),
-    adminName:   newKumiai.value.adminName.trim(),
-    memberCount: newKumiai.value.memberCount,
-  })
-  addKumiaiGroup.value = null
+  if (!addKumiaiGroup.value) return
+  addKumiaiSaving.value = true
+  try {
+    const id = await createKumiai(addKumiaiGroup.value.id as GroupId, {
+      name: newKumiai.value.name.trim(),
+      adminName: newKumiai.value.adminName.trim(),
+      memberCount: newKumiai.value.memberCount,
+    }, addKumiaiGroup.value.kumiai.length)
+    addKumiaiGroup.value.kumiai.push({
+      id,
+      groupId: addKumiaiGroup.value.id as GroupId,
+      name: newKumiai.value.name.trim(),
+      adminName: newKumiai.value.adminName.trim(),
+      memberCount: newKumiai.value.memberCount,
+      displayOrder: addKumiaiGroup.value.kumiai.length,
+    } as Kumiai)
+    addKumiaiGroup.value = null
+  } catch (e: any) {
+    addKumiaiError.value = e.message ?? '追加に失敗しました'
+  } finally {
+    addKumiaiSaving.value = false
+  }
 }
 
 // ── 組合編集モーダル ──────────────────────────────────────────────────
-const editKumiaiGroup  = ref<typeof groups.value[0] | null>(null)
-const editKumiaiTarget = ref<typeof groups.value[0]['kumiai'][0] | null>(null)
+const editKumiaiGroup  = ref<Group | null>(null)
+const editKumiaiTarget = ref<Kumiai | null>(null)
 const editKumiaiForm   = ref({ name: '', adminName: '', memberCount: 0 })
+const editKumiaiSaving = ref(false)
 
-const openEditKumiai = (g: typeof groups.value[0], k: typeof g.kumiai[0]) => {
+const openEditKumiai = (g: Group, k: Kumiai) => {
   editKumiaiGroup.value  = g
   editKumiaiTarget.value = k
-  editKumiaiForm.value   = { name: k.name, adminName: k.adminName, memberCount: k.memberCount }
+  editKumiaiForm.value   = { name: k.name, adminName: k.adminName ?? '', memberCount: k.memberCount }
 }
 
-const submitEditKumiai = () => {
-  if (!editKumiaiTarget.value || !editKumiaiForm.value.name.trim()) return
-  editKumiaiTarget.value.name        = editKumiaiForm.value.name.trim()
-  editKumiaiTarget.value.adminName   = editKumiaiForm.value.adminName.trim()
-  editKumiaiTarget.value.memberCount = editKumiaiForm.value.memberCount
-  editKumiaiTarget.value = null
-  editKumiaiGroup.value  = null
+const submitEditKumiai = async () => {
+  if (!editKumiaiTarget.value || !editGroupTargetGroupId() || !editKumiaiForm.value.name.trim()) return
+  editKumiaiSaving.value = true
+  try {
+    await updateKumiai(editGroupTargetGroupId()!, editKumiaiTarget.value.id, {
+      name: editKumiaiForm.value.name.trim(),
+      adminName: editKumiaiForm.value.adminName.trim(),
+      memberCount: editKumiaiForm.value.memberCount,
+    })
+    editKumiaiTarget.value.name        = editKumiaiForm.value.name.trim()
+    editKumiaiTarget.value.adminName   = editKumiaiForm.value.adminName.trim()
+    editKumiaiTarget.value.memberCount = editKumiaiForm.value.memberCount
+    editKumiaiTarget.value = null
+    editKumiaiGroup.value  = null
+  } finally {
+    editKumiaiSaving.value = false
+  }
 }
+
+const editGroupTargetGroupId = () => editKumiaiGroup.value?.id as GroupId | undefined
 
 // ── 組合削除 ──────────────────────────────────────────────────────────
-const deleteKumiai = (g: typeof groups.value[0], kumiaiId: string) => {
+const deleteKumiai = async (g: Group, kumiaiId: string) => {
   if (!confirm(`「${g.kumiai.find(k => k.id === kumiaiId)?.name}」を削除してよろしいですか？`)) return
+  await removeKumiai(g.id as GroupId, kumiaiId)
   g.kumiai = g.kumiai.filter(k => k.id !== kumiaiId)
 }
 </script>
@@ -116,14 +149,26 @@ const deleteKumiai = (g: typeof groups.value[0], kumiaiId: string) => {
 
     <!-- ヘッダー -->
     <div class="flex items-start justify-between gap-3">
-      <h1 class="text-xl font-bold text-gray-900">グループ・組合マスタ</h1>
-      <button class="btn-primary text-sm flex items-center gap-1.5" @click="showAddGroup = true">
-        <Icon name="heroicons:plus" class="h-4 w-4" />
-        グループを追加
-      </button>
+      <div>
+        <h1 class="text-xl font-bold text-gray-900">グループ・組合マスタ</h1>
+        <p class="text-sm text-gray-500 mt-0.5">Reterace / Miraito / Asset の3グループと、各グループの組合を管理します</p>
+      </div>
+    </div>
+
+    <!-- 読み込み中 -->
+    <div v-if="loading" class="card p-12 text-center">
+      <Icon name="heroicons:arrow-path" class="h-8 w-8 text-gray-300 mx-auto mb-2 animate-spin" />
+      <p class="text-sm text-gray-400">読み込み中...</p>
+    </div>
+
+    <!-- エラー -->
+    <div v-else-if="loadError" class="card p-12 text-center">
+      <Icon name="heroicons:exclamation-circle" class="h-8 w-8 text-red-300 mx-auto mb-2" />
+      <p class="text-sm text-red-500">{{ loadError }}</p>
     </div>
 
     <!-- グループ別 -->
+    <template v-else>
     <div v-for="group in groups" :key="group.id" class="card overflow-hidden">
       <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
         <div class="flex items-center gap-3">
@@ -170,6 +215,7 @@ const deleteKumiai = (g: typeof groups.value[0], kumiaiId: string) => {
         </div>
       </div>
     </div>
+    </template>
 
     <!-- 専門チーム -->
     <div class="card overflow-hidden">
@@ -200,37 +246,6 @@ const deleteKumiai = (g: typeof groups.value[0], kumiaiId: string) => {
     <!-- ──────── モーダル群 ──────── -->
     <Teleport to="body">
 
-      <!-- グループ追加 -->
-      <div
-        v-if="showAddGroup"
-        class="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40"
-        @click.self="showAddGroup = false"
-      >
-        <div class="bg-white w-full md:max-w-md rounded-t-2xl md:rounded-2xl p-6 space-y-4 shadow-xl max-h-[85vh] overflow-y-auto">
-          <div class="flex items-center justify-between">
-            <h3 class="font-bold text-gray-900">グループを追加</h3>
-            <button class="p-1.5 hover:bg-gray-100 rounded-lg" @click="showAddGroup = false">
-              <Icon name="heroicons:x-mark" class="h-5 w-5 text-gray-500" />
-            </button>
-          </div>
-          <div class="space-y-3">
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">グループ名 <span class="text-red-500">*</span></label>
-              <input v-model="newGroup.name" type="text" placeholder="例: NewGroup" class="input-field" />
-              <p v-if="addGroupError" class="mt-1 text-xs text-red-500">{{ addGroupError }}</p>
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">メンバー数</label>
-              <input v-model.number="newGroup.memberCount" type="number" min="0" class="input-field" />
-            </div>
-          </div>
-          <div class="flex gap-3 pt-2">
-            <button class="flex-1 btn-secondary" @click="showAddGroup = false">キャンセル</button>
-            <button class="flex-1 btn-primary" @click="submitAddGroup">追加する</button>
-          </div>
-        </div>
-      </div>
-
       <!-- グループ編集 -->
       <div
         v-if="editGroupTarget"
@@ -256,7 +271,10 @@ const deleteKumiai = (g: typeof groups.value[0], kumiaiId: string) => {
           </div>
           <div class="flex gap-3 pt-2">
             <button class="flex-1 btn-secondary" @click="editGroupTarget = null">キャンセル</button>
-            <button class="flex-1 btn-primary" @click="submitEditGroup">保存する</button>
+            <button class="flex-1 btn-primary" :disabled="editGroupSaving" @click="submitEditGroup">
+              <Icon v-if="editGroupSaving" name="heroicons:arrow-path" class="h-4 w-4 animate-spin mr-1" />
+              保存する
+            </button>
           </div>
         </div>
       </div>
@@ -294,7 +312,10 @@ const deleteKumiai = (g: typeof groups.value[0], kumiaiId: string) => {
           </div>
           <div class="flex gap-3 pt-2">
             <button class="flex-1 btn-secondary" @click="addKumiaiGroup = null">キャンセル</button>
-            <button class="flex-1 btn-primary" @click="submitAddKumiai">追加する</button>
+            <button class="flex-1 btn-primary" :disabled="addKumiaiSaving" @click="submitAddKumiai">
+              <Icon v-if="addKumiaiSaving" name="heroicons:arrow-path" class="h-4 w-4 animate-spin mr-1" />
+              追加する
+            </button>
           </div>
         </div>
       </div>
@@ -331,7 +352,10 @@ const deleteKumiai = (g: typeof groups.value[0], kumiaiId: string) => {
           </div>
           <div class="flex gap-3 pt-2">
             <button class="flex-1 btn-secondary" @click="editKumiaiTarget = null; editKumiaiGroup = null">キャンセル</button>
-            <button class="flex-1 btn-primary" @click="submitEditKumiai">保存する</button>
+            <button class="flex-1 btn-primary" :disabled="editKumiaiSaving" @click="submitEditKumiai">
+              <Icon v-if="editKumiaiSaving" name="heroicons:arrow-path" class="h-4 w-4 animate-spin mr-1" />
+              保存する
+            </button>
           </div>
         </div>
       </div>

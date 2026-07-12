@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { MOCK_NOTIFICATIONS } from '~/data/mock'
 import { usePortalStore } from '~/composables/usePortalStore'
 import { useCustomerStore } from '~/composables/useCustomerStore'
 import { useAnnouncementStore } from '~/composables/useAnnouncementStore'
+import { useNotifications } from '~/composables/useNotifications'
 import { ANNOUNCEMENT_SCOPE_LABELS, ANNOUNCEMENT_SCOPE_COLORS } from '~/types/announcement'
 
 definePageMeta({ middleware: ['auth'] })
@@ -11,6 +11,7 @@ const { user, displayName } = useCurrentUser()
 const portalStore = usePortalStore()
 const customerStore = useCustomerStore()
 const announcementStore = useAnnouncementStore()
+const { subscribeUnreadCount } = useNotifications()
 
 const now = new Date()
 const greeting = computed(() => {
@@ -73,7 +74,12 @@ const pinnedSpaces = computed(() =>
 
 // ── KPI ───────────────────────────────────────────────────────────────────
 const totalCustomers = computed(() => customerStore.customers.value.length)
-const unreadNotifCount = computed(() => MOCK_NOTIFICATIONS.filter(n => !n.isRead).length)
+const unreadNotifCount = ref(0)
+let unsubscribeNotifCount: (() => void) | null = null
+onMounted(() => {
+  unsubscribeNotifCount = subscribeUnreadCount((count) => { unreadNotifCount.value = count })
+})
+onBeforeUnmount(() => unsubscribeNotifCount?.())
 </script>
 
 <template>

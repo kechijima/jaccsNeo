@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { useAuthStore } from '~/stores/auth'
-import { MOCK_NOTIFICATIONS } from '~/data/mock'
+import { useNotifications } from '~/composables/useNotifications'
 
 const { logout } = useAuth()
 const { displayName, user } = useCurrentUser()
 const authStore = useAuthStore()
 const route = useRoute()
+const { subscribeUnreadCount } = useNotifications()
 
 const navItems = [
   { label: 'ダッシュボード',   icon: 'heroicons:home',                   to: '/dashboard' },
@@ -29,8 +30,14 @@ const isActive = (to: string) => route.path.startsWith(to)
 
 const isMobileMenuOpen = ref(false)
 
-// 通知（モック: ダッシュボードの未読数と揃える）
-const notificationCount = computed(() => MOCK_NOTIFICATIONS.filter(n => !n.isRead).length)
+// 通知未読数（リアルタイム）
+const notificationCount = ref(0)
+let unsubscribeNotifCount: (() => void) | null = null
+onMounted(() => {
+  if (!authStore.user?.uid) return
+  unsubscribeNotifCount = subscribeUnreadCount((count) => { notificationCount.value = count })
+})
+onBeforeUnmount(() => unsubscribeNotifCount?.())
 
 const groupColorClass = computed(() => {
   switch (user.value?.groupId) {

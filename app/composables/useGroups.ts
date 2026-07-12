@@ -5,6 +5,8 @@ import {
   getDocs,
   addDoc,
   updateDoc,
+  deleteDoc,
+  setDoc,
   query,
   orderBy,
   type DocumentData,
@@ -13,7 +15,8 @@ import {
 import type { Group, Kumiai } from '~/types/group'
 import type { GroupId } from '~/types/user'
 import { useAuthStore } from '~/stores/auth'
-import { MOCK_ADMIN_GROUPS } from '~/data/mock'
+
+const GROUP_IDS: GroupId[] = ['reterace', 'miraito', 'asset']
 
 const GROUP_NAMES: Record<GroupId, string> = {
   reterace: 'Reterace',
@@ -33,34 +36,33 @@ export const useGroups = () => {
 
   const kumiaiCol = (groupId: GroupId) => collection($db, 'groups', groupId, 'kumiai')
 
-  // ===== 全グループ・組合取得 =====
+  // ===== 全グループ・組合取得（Reterace/Miraito/Asset の3グループ固定） =====
   const fetchGroups = async (): Promise<Group[]> => {
-    try {
-      const groupIds: GroupId[] = ['reterace', 'miraito', 'asset']
+    return Promise.all(GROUP_IDS.map(async (groupId) => {
+      const [groupSnap, kumiaiSnap] = await Promise.all([
+        getDoc(doc($db, 'groups', groupId)),
+        getDocs(query(kumiaiCol(groupId), orderBy('displayOrder', 'asc'))),
+      ])
+      const groupData = groupSnap.exists() ? groupSnap.data() : {}
+      const kumiai: Kumiai[] = kumiaiSnap.docs.map(d => ({ id: d.id, groupId, ...d.data() }) as Kumiai)
 
-      const groups = await Promise.all(groupIds.map(async (groupId) => {
-        const q = query(kumiaiCol(groupId), orderBy('displayOrder', 'asc'))
-        const snap = await getDocs(q)
-        const kumiai: Kumiai[] = snap.docs.map(d => ({ id: d.id, groupId, ...d.data() }) as Kumiai)
+      return {
+        id: groupId,
+        name: groupData.name ?? GROUP_NAMES[groupId],
+        color: GROUP_COLORS[groupId],
+        kumiai,
+        memberCount: groupData.memberCount ?? 0,
+      } as Group
+    }))
+  }
 
-        return {
-          id: groupId,
-          name: GROUP_NAMES[groupId],
-          color: GROUP_COLORS[groupId],
-          kumiai,
-          memberCount: 0, // populated separately if needed
-        } as Group
-      }))
-
-      return groups
-    } catch (e) {
-      console.warn('Using mock groups')
-      return MOCK_ADMIN_GROUPS.map(g => ({
-        ...g,
-        color: GROUP_COLORS[g.id as GroupId],
-        kumiai: g.kumiai.map((k: any) => ({ ...k, groupId: g.id, displayOrder: 0, createdAt: new Date(), updatedAt: new Date() }))
-      })) as Group[]
-    }
+  // ===== グループ更新（名称・メンバー数） =====
+  const updateGroup = async (groupId: GroupId, data: { name?: string; memberCount?: number }): Promise<void> => {
+    if (!authStore.isSystemAdmin) throw new Error('権限がありません')
+    await setDoc(doc($db, 'groups', groupId), {
+      ...data,
+      updatedAt: serverTimestamp(),
+    }, { merge: true })
   }
 
   // ===== 組合一覧（グループ指定） =====
@@ -71,11 +73,17 @@ export const useGroups = () => {
   }
 
   // ===== 組合作成 =====
-  const createKumiai = async (groupId: GroupId, name: string, displayOrder: number): Promise<string> => {
+  const createKumiai = async (
+    groupId: GroupId,
+    data: { name: string; adminName?: string; memberCount?: number },
+    displayOrder = 0,
+  ): Promise<string> => {
     if (!authStore.isSystemAdmin) throw new Error('権限がありません')
     const ref = await addDoc(kumiaiCol(groupId), {
       groupId,
-      name,
+      name: data.name,
+      adminName: data.adminName ?? '',
+      memberCount: data.memberCount ?? 0,
       displayOrder,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -84,7 +92,11 @@ export const useGroups = () => {
   }
 
   // ===== 組合更新 =====
-  const updateKumiai = async (groupId: GroupId, kumiaiId: string, data: { name?: string; displayOrder?: number }): Promise<void> => {
+  const updateKumiai = async (
+    groupId: GroupId,
+    kumiaiId: string,
+    data: { name?: string; adminName?: string; memberCount?: number; displayOrder?: number },
+  ): Promise<void> => {
     if (!authStore.isSystemAdmin) throw new Error('権限がありません')
     await updateDoc(doc($db, 'groups', groupId, 'kumiai', kumiaiId), {
       ...data,
@@ -92,11 +104,19 @@ export const useGroups = () => {
     })
   }
 
+  // ===== 組合削除 =====
+  const deleteKumiai = async (groupId: GroupId, kumiaiId: string): Promise<void> => {
+    if (!authStore.isSystemAdmin) throw new Error('権限がありません')
+    await deleteDoc(doc($db, 'groups', groupId, 'kumiai', kumiaiId))
+  }
+
   return {
     fetchGroups,
+    updateGroup,
     fetchKumiai,
     createKumiai,
     updateKumiai,
+    deleteKumiai,
     GROUP_NAMES,
   }
 }

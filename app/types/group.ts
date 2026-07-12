@@ -5,6 +5,8 @@ export interface Kumiai {
   id: string
   groupId: GroupId
   name: string
+  adminName?: string
+  memberCount: number
   displayOrder: number
   createdAt: Timestamp
   updatedAt: Timestamp

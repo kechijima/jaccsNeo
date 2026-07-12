@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { MOCK_NOTIFICATIONS } from '~/data/mock'
+import { useNotifications } from '~/composables/useNotifications'
+import type { Notification } from '~/types/notification'
 
 definePageMeta({ middleware: ['auth'] })
+
+const { subscribeNotifications, markAsRead, markAllAsRead } = useNotifications()
 
 const typeIconMap: Record<string, { icon: string; iconColor: string }> = {
   post_comment:      { icon: 'heroicons:chat-bubble-left',        iconColor: 'bg-green-100 text-green-600' },
@@ -14,33 +17,45 @@ const typeIconMap: Record<string, { icon: string; iconColor: string }> = {
   mention:           { icon: 'heroicons:at-symbol',               iconColor: 'bg-rose-100 text-rose-600' },
 }
 
-// モックデータをローカル状態に（既読操作に対応）
-const notifications = ref(
-  MOCK_NOTIFICATIONS.map(n => ({
+const notifications = ref<Notification[]>([])
+const loading = ref(true)
+const error = ref('')
+
+let unsubscribe: (() => void) | null = null
+onMounted(() => {
+  unsubscribe = subscribeNotifications(
+    (notifs) => { notifications.value = notifs; loading.value = false },
+    () => { error.value = '通知の取得に失敗しました'; loading.value = false },
+  )
+})
+onBeforeUnmount(() => unsubscribe?.())
+
+const displayWithIcon = computed(() =>
+  notifications.value.map(n => ({
     ...n,
     ...(typeIconMap[n.type] ?? { icon: 'heroicons:bell', iconColor: 'bg-gray-100 text-gray-600' }),
-  }))
+  })),
 )
 
 const activeTab = ref<'all' | 'unread'>('all')
 
 const displayed = computed(() =>
   activeTab.value === 'unread'
-    ? notifications.value.filter(n => !n.isRead)
-    : notifications.value
+    ? displayWithIcon.value.filter(n => !n.isRead)
+    : displayWithIcon.value,
 )
 
 const unreadCount = computed(() => notifications.value.filter(n => !n.isRead).length)
 
 // 通知タップ：既読にして該当ページへ遷移
-const handleTap = (n: typeof notifications.value[0]) => {
-  if (!n.isRead) n.isRead = true
+const handleTap = async (n: typeof displayWithIcon.value[0]) => {
+  if (!n.isRead) await markAsRead(n.id)
   if (n.linkUrl) navigateTo(n.linkUrl)
 }
 
 // 全て既読
 const markAllRead = () => {
-  notifications.value.forEach(n => { n.isRead = true })
+  markAllAsRead()
 }
 
 // 日付フォーマット
@@ -106,8 +121,20 @@ const formatDate = (ts: any): string => {
       </button>
     </div>
 
+    <!-- 読み込み中 -->
+    <div v-if="loading" class="card p-12 text-center">
+      <Icon name="heroicons:arrow-path" class="h-8 w-8 text-gray-300 mx-auto mb-2 animate-spin" />
+      <p class="text-sm text-gray-400">読み込み中...</p>
+    </div>
+
+    <!-- エラー -->
+    <div v-else-if="error" class="card p-12 text-center">
+      <Icon name="heroicons:exclamation-circle" class="h-8 w-8 text-red-300 mx-auto mb-2" />
+      <p class="text-sm text-red-500">{{ error }}</p>
+    </div>
+
     <!-- 通知リスト -->
-    <div class="card divide-y divide-gray-50 overflow-hidden">
+    <div v-else class="card divide-y divide-gray-50 overflow-hidden">
       <div v-if="displayed.length === 0" class="p-12 text-center">
         <Icon name="heroicons:bell-slash" class="h-12 w-12 text-gray-300 mx-auto mb-3" />
         <p class="text-sm text-gray-400">

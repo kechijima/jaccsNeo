@@ -4,10 +4,13 @@ import type { CustomerForm } from '~/types/customer'
 definePageMeta({ middleware: ['auth'] })
 
 const { createCustomer } = useCustomers()
+const { user } = useCurrentUser()
 
 const form = ref<Partial<CustomerForm>>({
   type: 'individual',
   familyMembers: [],
+  assignedFpId:   user.value?.uid,
+  assignedFpName: user.value?.displayName,
 })
 const loading = ref(false)
 const error   = ref('')
