@@ -3,7 +3,9 @@ import { MOCK_ADMIN_USERS } from '~/data/mock'
 import { useUsers } from '~/composables/useUsers'
 import { useStorage } from '~/composables/useStorage'
 import { useAuthStore } from '~/stores/auth'
+import { useGroups } from '~/composables/useGroups'
 import type { AppUser } from '~/types/user'
+import type { Group } from '~/types/group'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -11,6 +13,10 @@ const { user } = useCurrentUser()
 const authStore = useAuthStore()
 const { updateMyProfile } = useUsers()
 const { uploadFile } = useStorage()
+const { fetchGroups } = useGroups()
+
+const groups = ref<Group[]>([])
+onMounted(async () => { groups.value = await fetchGroups().catch(() => []) })
 
 // ログイン中の実ユーザーを優先し、未取得時のみモックデータにフォールバックする
 const mockUser = computed(() =>
@@ -167,14 +173,7 @@ const handlePhotoSelect = async (e: Event) => {
 }
 
 // ── グループ表示 ──────────────────────────────────────────────────────────
-const groupLabel = computed(() => {
-  const map: Record<string, string> = {
-    reterace: 'Reterace',
-    miraito:  'Miraito',
-    asset:    'Asset',
-  }
-  return map[form.groupId] ?? form.groupId
-})
+const groupLabel = computed(() => groups.value.find(g => g.id === form.groupId)?.name ?? form.groupId)
 </script>
 
 <template>
@@ -302,9 +301,7 @@ const groupLabel = computed(() => {
             <label class="block text-xs font-medium text-gray-500 mb-1">組織 / グループ</label>
             <select v-model="form.groupId" class="input-field text-sm">
               <option value="">選択してください</option>
-              <option value="reterace">Reterace</option>
-              <option value="miraito">Miraito</option>
-              <option value="asset">Asset</option>
+              <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option>
             </select>
           </div>
 

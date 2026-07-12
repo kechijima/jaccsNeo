@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import type { UserRole, SpecialTeam, GroupId } from '~/types/user'
+import type { Group } from '~/types/group'
+import { useGroups } from '~/composables/useGroups'
 
 definePageMeta({ middleware: ['auth', 'admin'] })
 
 const { createAuthUser, updateUser, fetchUsers } = useUsers()
+const { fetchGroups } = useGroups()
 const { sendPasswordReset } = useAuth()
 
 const genTempPassword = () =>
@@ -24,9 +27,15 @@ const form = ref({
 })
 
 const existingUsers = ref<Array<{ uid: string; displayName: string }>>([])
+const groups = ref<Group[]>([])
 onMounted(async () => {
   existingUsers.value = await fetchUsers().catch(() => [])
+  groups.value = await fetchGroups().catch(() => [])
 })
+
+// 所属グループが変わったら、そのグループの組合一覧から選び直す
+const availableKumiai = computed(() => groups.value.find(g => g.id === form.value.groupId)?.kumiai ?? [])
+watch(() => form.value.groupId, () => { form.value.kumiaiId = '' })
 
 const submitting = ref(false)
 const error = ref('')
@@ -48,9 +57,11 @@ const handleSubmit = async () => {
       position:     form.value.position || undefined,
     })
 
-    // 組織図（メインサポート・サブサポート）はクライアント側で追加登録する
-    if (form.value.mainSupporterUid || form.value.subSupporterUid) {
+    // 組合名・組織図（メインサポート・サブサポート）はクライアント側で追加登録する
+    const kumiaiName = availableKumiai.value.find(k => k.id === form.value.kumiaiId)?.name
+    if (kumiaiName || form.value.mainSupporterUid || form.value.subSupporterUid) {
       await updateUser(uid, {
+        kumiaiName: kumiaiName || null,
         mainSupporterUid: form.value.mainSupporterUid || null,
         subSupporterUid:  form.value.subSupporterUid || null,
       })
@@ -151,14 +162,18 @@ const toggleSpecialTeam = (team: string) => {
           <label class="block text-sm font-medium text-gray-700 mb-1.5">所属グループ</label>
           <select v-model="form.groupId" class="input-field">
             <option value="">（なし）</option>
-            <option value="reterace">Reterace</option>
-            <option value="miraito">Miraito</option>
-            <option value="asset">Asset</option>
+            <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option>
           </select>
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">所属組合</label>
-          <input v-model="form.kumiaiId" type="text" placeholder="組合ID" class="input-field" />
+          <select v-model="form.kumiaiId" class="input-field" :disabled="!form.groupId">
+            <option value="">（なし）</option>
+            <option v-for="k in availableKumiai" :key="k.id" :value="k.id">{{ k.name }}</option>
+          </select>
+          <p v-if="form.groupId && availableKumiai.length === 0" class="mt-1 text-xs text-gray-400">
+            このグループに組合が登録されていません
+          </p>
         </div>
       </div>
 

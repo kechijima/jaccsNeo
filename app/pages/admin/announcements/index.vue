@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { useAnnouncementStore } from '~/composables/useAnnouncementStore'
+import { useAnnouncementScope } from '~/composables/useAnnouncementScope'
 import { useStorage } from '~/composables/useStorage'
-import { ANNOUNCEMENT_SCOPE_LABELS, ANNOUNCEMENT_SCOPE_COLORS } from '~/types/announcement'
+import { useGroups } from '~/composables/useGroups'
 import type { Announcement, AnnouncementScope } from '~/types/announcement'
 
 definePageMeta({ middleware: ['auth', 'admin'] })
@@ -9,28 +10,26 @@ definePageMeta({ middleware: ['auth', 'admin'] })
 const { user } = useCurrentUser()
 const store = useAnnouncementStore()
 const { uploadFile } = useStorage()
+const { fetchGroups } = useGroups()
+const { scopeLabel, scopeBadgeClass, ensureLoaded: ensureScopeLoaded } = useAnnouncementScope()
 
 const loading = ref(true)
 const loadError = ref('')
 
+// ── グループタブ ──────────────────────────────────────────────────────
+const TABS = ref<{ key: AnnouncementScope; label: string }[]>([{ key: 'all', label: '全体' }])
+const activeTab = ref<AnnouncementScope>('all')
+
 onMounted(async () => {
   try {
-    await store.fetchAll()
+    const [, groups] = await Promise.all([store.fetchAll(), fetchGroups(), ensureScopeLoaded()])
+    TABS.value = [{ key: 'all', label: '全体' }, ...groups.map(g => ({ key: g.id, label: g.name }))]
   } catch (e: any) {
     loadError.value = e.message ?? 'お知らせの取得に失敗しました'
   } finally {
     loading.value = false
   }
 })
-
-// ── グループタブ ──────────────────────────────────────────────────────
-const TABS: { key: AnnouncementScope; label: string }[] = [
-  { key: 'all',      label: '全体' },
-  { key: 'reterace', label: 'Reterace' },
-  { key: 'miraito',  label: 'Miraito' },
-  { key: 'asset',    label: 'Asset' },
-]
-const activeTab = ref<AnnouncementScope>('all')
 
 const tabCount = (scope: AnnouncementScope) =>
   store.announcements.value.filter(a => a.scope === scope).length
@@ -215,7 +214,7 @@ const fmt = (d: Date) => d.toLocaleDateString('ja-JP', { year: 'numeric', month:
     <template v-else>
       <div v-if="filtered.length === 0" class="card p-12 text-center">
         <Icon name="heroicons:megaphone" class="h-10 w-10 text-gray-200 mx-auto mb-2" />
-        <p class="text-gray-400 text-sm">{{ ANNOUNCEMENT_SCOPE_LABELS[activeTab] }}向けのお知らせはまだありません</p>
+        <p class="text-gray-400 text-sm">{{ scopeLabel(activeTab) }}向けのお知らせはまだありません</p>
       </div>
 
       <div v-else class="space-y-3">
@@ -224,7 +223,7 @@ const fmt = (d: Date) => d.toLocaleDateString('ja-JP', { year: 'numeric', month:
             <img v-if="a.imageUrl" :src="a.imageUrl" alt="" class="h-16 w-16 rounded-lg object-cover shrink-0" />
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2 flex-wrap mb-1">
-                <span class="badge text-xs" :class="ANNOUNCEMENT_SCOPE_COLORS[a.scope]">{{ ANNOUNCEMENT_SCOPE_LABELS[a.scope] }}</span>
+                <span class="badge text-xs" :class="scopeBadgeClass(a.scope)">{{ scopeLabel(a.scope) }}</span>
                 <span
                   class="badge text-xs"
                   :class="a.isPublished ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-500'"
@@ -340,7 +339,7 @@ const fmt = (d: Date) => d.toLocaleDateString('ja-JP', { year: 'numeric', month:
             <div>
               <label class="block text-xs font-medium text-gray-500 mb-1.5">公開範囲</label>
               <select v-model="form.scope" class="input-field text-sm">
-                <option v-for="(label, key) in ANNOUNCEMENT_SCOPE_LABELS" :key="key" :value="key">{{ label }}</option>
+                <option v-for="tab in TABS" :key="tab.key" :value="tab.key">{{ tab.label }}</option>
               </select>
             </div>
             <div>

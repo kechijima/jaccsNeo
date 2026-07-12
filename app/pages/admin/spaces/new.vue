@@ -1,10 +1,16 @@
 <script setup lang="ts">
 import type { SpaceForm } from '~/types/portal'
 import type { GroupId } from '~/types/user'
+import type { Group } from '~/types/group'
+import { useGroups } from '~/composables/useGroups'
 
 definePageMeta({ middleware: ['auth', 'admin'] })
 
 const { createSpace } = useSpaces()
+const { fetchGroups } = useGroups()
+
+const groups = ref<Group[]>([])
+onMounted(async () => { groups.value = await fetchGroups().catch(() => []) })
 
 const form = ref({
   name:        '',
@@ -80,9 +86,7 @@ const handleSubmit = async () => {
           <label class="block text-sm font-medium text-gray-700 mb-1.5">関連グループ</label>
           <select v-model="form.groupId" class="input-field">
             <option value="">（なし）</option>
-            <option value="reterace">Reterace</option>
-            <option value="miraito">Miraito</option>
-            <option value="asset">Asset</option>
+            <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option>
           </select>
         </div>
         <div v-if="form.type === 'kumiai'">

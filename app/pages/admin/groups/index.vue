@@ -1,13 +1,19 @@
 <script setup lang="ts">
 import { useGroups } from '~/composables/useGroups'
+import { useGroupLabels } from '~/composables/useGroupLabels'
+import { useUsers } from '~/composables/useUsers'
 import type { Group, Kumiai } from '~/types/group'
 import type { GroupId } from '~/types/user'
+import type { AppUser } from '~/types/user'
 
 definePageMeta({ middleware: ['auth', 'admin'] })
 
-const { fetchGroups, updateGroup, createKumiai, updateKumiai, deleteKumiai: removeKumiai } = useGroups()
+const { fetchGroups, createGroup, updateGroup, createKumiai, updateKumiai, deleteKumiai: removeKumiai } = useGroups()
+const { getGroupColor, ensureLoaded: ensureGroupLabelsLoaded } = useGroupLabels()
+const { fetchUsers } = useUsers()
 
 const groups = ref<Group[]>([])
+const users  = ref<AppUser[]>([])
 const loading = ref(true)
 const loadError = ref('')
 
@@ -15,7 +21,10 @@ const loadGroups = async () => {
   loading.value = true
   loadError.value = ''
   try {
-    groups.value = await fetchGroups()
+    const [g, u] = await Promise.all([fetchGroups(), fetchUsers()])
+    groups.value = g
+    users.value = u
+    await ensureGroupLabelsLoaded(true)
   } catch (e: any) {
     loadError.value = e.message ?? 'グループ情報の取得に失敗しました'
   } finally {
@@ -25,34 +34,58 @@ const loadGroups = async () => {
 
 onMounted(loadGroups)
 
-const colorMap: Record<string, string> = {
-  reterace: 'bg-indigo-500',
-  miraito:  'bg-sky-500',
-  asset:    'bg-amber-500',
+const getColor = (id: string) => getGroupColor(id)
+
+// 実際に割り当てられているユーザー数から算出する（手入力ではなく常に最新の実数）
+const groupMemberCount = (groupId: string) => users.value.filter(u => u.groupId === groupId).length
+const kumiaiMemberCount = (kumiaiId: string) => users.value.filter(u => u.kumiaiId === kumiaiId).length
+
+// ── グループ追加モーダル ───────────────────────────────────────────────
+const showAddGroup = ref(false)
+const newGroupName = ref('')
+const addGroupError = ref('')
+const addGroupSaving = ref(false)
+
+const openAddGroup = () => {
+  newGroupName.value = ''
+  addGroupError.value = ''
+  showAddGroup.value = true
 }
-const getColor = (id: string) => colorMap[id] ?? 'bg-gray-500'
+
+const submitAddGroup = async () => {
+  if (!newGroupName.value.trim()) { addGroupError.value = 'グループ名を入力してください'; return }
+  addGroupSaving.value = true
+  addGroupError.value = ''
+  try {
+    const id = await createGroup(newGroupName.value.trim())
+    groups.value.push({ id, name: newGroupName.value.trim(), color: id, kumiai: [], memberCount: 0 })
+    await ensureGroupLabelsLoaded(true)
+    showAddGroup.value = false
+  } catch (e: any) {
+    addGroupError.value = e.message ?? '作成に失敗しました'
+  } finally {
+    addGroupSaving.value = false
+  }
+}
 
 // ── グループ編集モーダル ───────────────────────────────────────────────
 const editGroupTarget = ref<Group | null>(null)
-const editGroupForm   = ref({ name: '', memberCount: 0 })
+const editGroupForm   = ref({ name: '' })
 const editGroupSaving = ref(false)
 
 const openEditGroup = (g: Group) => {
   editGroupTarget.value = g
-  editGroupForm.value = { name: g.name, memberCount: g.memberCount }
+  editGroupForm.value = { name: g.name }
 }
 
 const submitEditGroup = async () => {
   if (!editGroupTarget.value || !editGroupForm.value.name.trim()) return
   editGroupSaving.value = true
   try {
-    await updateGroup(editGroupTarget.value.id, {
-      name: editGroupForm.value.name.trim(),
-      memberCount: editGroupForm.value.memberCount,
-    })
+    await updateGroup(editGroupTarget.value.id, { name: editGroupForm.value.name.trim() })
     editGroupTarget.value.name = editGroupForm.value.name.trim()
-    editGroupTarget.value.memberCount = editGroupForm.value.memberCount
     editGroupTarget.value = null
+    await ensureGroupLabelsLoaded(true)
   } finally {
     editGroupSaving.value = false
   }
@@ -60,13 +93,13 @@ const submitEditGroup = async () => {
 
 // ── 組合追加モーダル ──────────────────────────────────────────────────
 const addKumiaiGroup = ref<Group | null>(null)
-const newKumiai      = ref({ name: '', adminName: '', memberCount: 0 })
+const newKumiai      = ref({ name: '', adminName: '' })
 const addKumiaiError = ref('')
 const addKumiaiSaving = ref(false)
 
 const openAddKumiai = (g: Group) => {
   addKumiaiGroup.value = g
-  newKumiai.value = { name: '', adminName: '', memberCount: 0 }
+  newKumiai.value = { name: '', adminName: '' }
   addKumiaiError.value = ''
 }
 
@@ -78,14 +111,13 @@ const submitAddKumiai = async () => {
     const id = await createKumiai(addKumiaiGroup.value.id as GroupId, {
       name: newKumiai.value.name.trim(),
       adminName: newKumiai.value.adminName.trim(),
-      memberCount: newKumiai.value.memberCount,
     }, addKumiaiGroup.value.kumiai.length)
     addKumiaiGroup.value.kumiai.push({
       id,
       groupId: addKumiaiGroup.value.id as GroupId,
       name: newKumiai.value.name.trim(),
       adminName: newKumiai.value.adminName.trim(),
-      memberCount: newKumiai.value.memberCount,
+      memberCount: 0,
       displayOrder: addKumiaiGroup.value.kumiai.length,
     } as Kumiai)
     addKumiaiGroup.value = null
@@ -99,13 +131,13 @@ const submitAddKumiai = async () => {
 // ── 組合編集モーダル ──────────────────────────────────────────────────
 const editKumiaiGroup  = ref<Group | null>(null)
 const editKumiaiTarget = ref<Kumiai | null>(null)
-const editKumiaiForm   = ref({ name: '', adminName: '', memberCount: 0 })
+const editKumiaiForm   = ref({ name: '', adminName: '' })
 const editKumiaiSaving = ref(false)
 
 const openEditKumiai = (g: Group, k: Kumiai) => {
   editKumiaiGroup.value  = g
   editKumiaiTarget.value = k
-  editKumiaiForm.value   = { name: k.name, adminName: k.adminName ?? '', memberCount: k.memberCount }
+  editKumiaiForm.value   = { name: k.name, adminName: k.adminName ?? '' }
 }
 
 const submitEditKumiai = async () => {
@@ -115,11 +147,9 @@ const submitEditKumiai = async () => {
     await updateKumiai(editGroupTargetGroupId()!, editKumiaiTarget.value.id, {
       name: editKumiaiForm.value.name.trim(),
       adminName: editKumiaiForm.value.adminName.trim(),
-      memberCount: editKumiaiForm.value.memberCount,
     })
-    editKumiaiTarget.value.name        = editKumiaiForm.value.name.trim()
-    editKumiaiTarget.value.adminName   = editKumiaiForm.value.adminName.trim()
-    editKumiaiTarget.value.memberCount = editKumiaiForm.value.memberCount
+    editKumiaiTarget.value.name      = editKumiaiForm.value.name.trim()
+    editKumiaiTarget.value.adminName = editKumiaiForm.value.adminName.trim()
     editKumiaiTarget.value = null
     editKumiaiGroup.value  = null
   } finally {
@@ -151,8 +181,12 @@ const deleteKumiai = async (g: Group, kumiaiId: string) => {
     <div class="flex items-start justify-between gap-3">
       <div>
         <h1 class="text-xl font-bold text-gray-900">グループ・組合マスタ</h1>
-        <p class="text-sm text-gray-500 mt-0.5">Reterace / Miraito / Asset の3グループと、各グループの組合を管理します</p>
+        <p class="text-sm text-gray-500 mt-0.5">グループとその配下の組合を管理します。人数はユーザー管理での所属設定から自動集計されます</p>
       </div>
+      <button class="btn-primary text-sm flex items-center gap-1.5" @click="openAddGroup">
+        <Icon name="heroicons:plus" class="h-4 w-4" />
+        グループを追加
+      </button>
     </div>
 
     <!-- 読み込み中 -->
@@ -174,7 +208,7 @@ const deleteKumiai = async (g: Group, kumiaiId: string) => {
         <div class="flex items-center gap-3">
           <div class="h-4 w-4 rounded-full" :class="getColor(group.id)" />
           <h2 class="font-semibold text-gray-900">{{ group.name }}</h2>
-          <span class="text-xs text-gray-400">{{ group.memberCount }}名</span>
+          <span class="text-xs text-gray-400">{{ groupMemberCount(group.id) }}名</span>
         </div>
         <div class="flex items-center gap-3">
           <button
@@ -205,7 +239,7 @@ const deleteKumiai = async (g: Group, kumiaiId: string) => {
             <p class="text-sm font-medium text-gray-900">{{ k.name }}</p>
             <p class="text-xs text-gray-400 mt-0.5">
               <span v-if="k.adminName">管理者: {{ k.adminName }} · </span>
-              {{ k.memberCount }}名
+              {{ kumiaiMemberCount(k.id) }}名
             </p>
           </div>
           <div class="flex items-center gap-3">
@@ -246,6 +280,34 @@ const deleteKumiai = async (g: Group, kumiaiId: string) => {
     <!-- ──────── モーダル群 ──────── -->
     <Teleport to="body">
 
+      <!-- グループ追加 -->
+      <div
+        v-if="showAddGroup"
+        class="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40"
+        @click.self="showAddGroup = false"
+      >
+        <div class="bg-white w-full md:max-w-md rounded-t-2xl md:rounded-2xl p-6 space-y-4 shadow-xl max-h-[85vh] overflow-y-auto">
+          <div class="flex items-center justify-between">
+            <h3 class="font-bold text-gray-900">グループを追加</h3>
+            <button class="p-1.5 hover:bg-gray-100 rounded-lg" @click="showAddGroup = false">
+              <Icon name="heroicons:x-mark" class="h-5 w-5 text-gray-500" />
+            </button>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">グループ名 <span class="text-red-500">*</span></label>
+            <input v-model="newGroupName" type="text" placeholder="例: NewGroup" class="input-field" @keydown.enter="submitAddGroup" />
+            <p v-if="addGroupError" class="mt-1 text-xs text-red-500">{{ addGroupError }}</p>
+          </div>
+          <div class="flex gap-3 pt-2">
+            <button class="flex-1 btn-secondary" @click="showAddGroup = false">キャンセル</button>
+            <button class="flex-1 btn-primary" :disabled="addGroupSaving" @click="submitAddGroup">
+              <Icon v-if="addGroupSaving" name="heroicons:arrow-path" class="h-4 w-4 animate-spin mr-1" />
+              追加する
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- グループ編集 -->
       <div
         v-if="editGroupTarget"
@@ -259,15 +321,9 @@ const deleteKumiai = async (g: Group, kumiaiId: string) => {
               <Icon name="heroicons:x-mark" class="h-5 w-5 text-gray-500" />
             </button>
           </div>
-          <div class="space-y-3">
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">グループ名</label>
-              <input v-model="editGroupForm.name" type="text" class="input-field" />
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">メンバー数</label>
-              <input v-model.number="editGroupForm.memberCount" type="number" min="0" class="input-field" />
-            </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">グループ名</label>
+            <input v-model="editGroupForm.name" type="text" class="input-field" />
           </div>
           <div class="flex gap-3 pt-2">
             <button class="flex-1 btn-secondary" @click="editGroupTarget = null">キャンセル</button>
@@ -305,10 +361,6 @@ const deleteKumiai = async (g: Group, kumiaiId: string) => {
               <label class="block text-xs font-medium text-gray-600 mb-1">管理者名</label>
               <input v-model="newKumiai.adminName" type="text" placeholder="例: 山田 一郎" class="input-field" />
             </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">メンバー数</label>
-              <input v-model.number="newKumiai.memberCount" type="number" min="0" class="input-field" />
-            </div>
           </div>
           <div class="flex gap-3 pt-2">
             <button class="flex-1 btn-secondary" @click="addKumiaiGroup = null">キャンセル</button>
@@ -344,10 +396,6 @@ const deleteKumiai = async (g: Group, kumiaiId: string) => {
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1">管理者名</label>
               <input v-model="editKumiaiForm.adminName" type="text" class="input-field" />
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">メンバー数</label>
-              <input v-model.number="editKumiaiForm.memberCount" type="number" min="0" class="input-field" />
             </div>
           </div>
           <div class="flex gap-3 pt-2">

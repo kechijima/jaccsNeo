@@ -3,7 +3,7 @@ import { usePortalStore } from '~/composables/usePortalStore'
 import { useCustomerStore } from '~/composables/useCustomerStore'
 import { useAnnouncementStore } from '~/composables/useAnnouncementStore'
 import { useNotifications } from '~/composables/useNotifications'
-import { ANNOUNCEMENT_SCOPE_LABELS, ANNOUNCEMENT_SCOPE_COLORS } from '~/types/announcement'
+import { useAnnouncementScope } from '~/composables/useAnnouncementScope'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -12,6 +12,7 @@ const portalStore = usePortalStore()
 const customerStore = useCustomerStore()
 const announcementStore = useAnnouncementStore()
 const { subscribeUnreadCount } = useNotifications()
+const { scopeLabel, scopeBadgeClass, ensureLoaded: ensureScopeLoaded } = useAnnouncementScope()
 
 const now = new Date()
 const greeting = computed(() => {
@@ -22,7 +23,7 @@ const greeting = computed(() => {
 })
 
 // ── お知らせ（管理者がグループ別に公開した情報） ─────────────────────────
-await announcementStore.fetchAll()
+await Promise.all([announcementStore.fetchAll(), ensureScopeLoaded()])
 await portalStore.fetchAllPosts()
 const groupAnnouncements = announcementStore.getForGroup(computed(() => user.value?.groupId))
 const allAnnouncements = computed(() => groupAnnouncements.value.slice(0, 5))
@@ -172,8 +173,8 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
             <img v-if="a.imageUrl" :src="a.imageUrl" alt="" class="h-10 w-10 rounded-lg object-cover shrink-0 mt-0.5" />
             <div class="mt-0.5 flex-1 min-w-0">
               <div class="flex items-center gap-2 flex-wrap">
-                <span class="badge text-[10px] font-semibold px-1.5" :class="ANNOUNCEMENT_SCOPE_COLORS[a.scope]">
-                  {{ ANNOUNCEMENT_SCOPE_LABELS[a.scope] }}
+                <span class="badge text-[10px] font-semibold px-1.5" :class="scopeBadgeClass(a.scope)">
+                  {{ scopeLabel(a.scope) }}
                 </span>
                 <span class="text-[10px] text-gray-400">{{ announcementFmt(a.publishedAt) }}</span>
               </div>

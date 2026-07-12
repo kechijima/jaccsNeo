@@ -55,6 +55,7 @@ export const useUsers = () => {
     specialTeams?: SpecialTeam[]
     groupId?: GroupId | null
     kumiaiId?: string | null
+    kumiaiName?: string | null
     position?: string | null
     isDisabled?: boolean
     mainSupporterUid?: string | null

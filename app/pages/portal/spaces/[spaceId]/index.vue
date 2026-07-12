@@ -4,6 +4,7 @@ import { useNotifications } from '~/composables/useNotifications'
 import { useUsers } from '~/composables/useUsers'
 import { useAuthorProfileModal } from '~/composables/useAuthorProfileModal'
 import { resolveSpaceMembers } from '~/composables/useSpaces'
+import { useGroupLabels } from '~/composables/useGroupLabels'
 import type { AppUser } from '~/types/user'
 
 definePageMeta({ middleware: ['auth'] })
@@ -15,11 +16,13 @@ const store = usePortalStore()
 const { sendMentionNotifications } = useNotifications()
 const { fetchUsers } = useUsers()
 const { openAuthorProfile } = useAuthorProfileModal()
+const { getGroupLabel, getGroupColor: getGroupColorClass, ensureLoaded: ensureGroupLabelsLoaded } = useGroupLabels()
 
 await store.fetchPostsForSpace(spaceId.value)
 const members = ref<AppUser[]>([])
 onMounted(async () => {
   members.value = await fetchUsers().catch(() => [])
+  await ensureGroupLabelsLoaded()
 })
 
 // ── スペース情報 ──────────────────────────────────────────────────────
@@ -106,18 +109,7 @@ const saveEdit = async () => {
 }
 
 // ── メンバーカラー ────────────────────────────────────────────────────
-const groupColors: Record<string, string> = {
-  reterace: 'bg-indigo-400',
-  miraito:  'bg-sky-400',
-  asset:    'bg-amber-400',
-}
-const getGroupColor = (groupId?: string) =>
-  groupId ? (groupColors[groupId] ?? 'bg-gray-400') : 'bg-gray-400'
-
-const getGroupLabel = (groupId?: string) => {
-  const map: Record<string, string> = { reterace: 'Reterace', miraito: 'Miraito', asset: 'Asset' }
-  return groupId ? (map[groupId] ?? '') : ''
-}
+const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId) : 'bg-gray-400'
 </script>
 
 <template>

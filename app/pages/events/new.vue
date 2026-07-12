@@ -1,9 +1,15 @@
 <script setup lang="ts">
 import type { EventForm } from '~/types/event'
+import type { Group } from '~/types/group'
+import { useGroups } from '~/composables/useGroups'
 
 definePageMeta({ middleware: ['auth'] })
 
 const { createEvent } = useEvents()
+const { fetchGroups } = useGroups()
+
+const groups = ref<Group[]>([])
+onMounted(async () => { groups.value = await fetchGroups().catch(() => []) })
 
 const form = ref({
   title: '',
@@ -103,9 +109,7 @@ const handleSubmit = async () => {
         <label class="block text-sm font-medium text-gray-700 mb-1.5">対象スコープ</label>
         <select v-model="form.targetScope" class="input-field">
           <option value="all">全体</option>
-          <option value="reterace">Reterace グループ</option>
-          <option value="miraito">Miraito グループ</option>
-          <option value="asset">Asset グループ</option>
+          <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }} グループ</option>
           <option value="kumiai">特定の組合</option>
         </select>
       </div>

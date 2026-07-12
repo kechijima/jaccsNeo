@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { UserRole, SpecialTeam, GroupId } from '~/types/user'
+import type { Group } from '~/types/group'
+import { useGroups } from '~/composables/useGroups'
 
 definePageMeta({ middleware: ['auth', 'admin'] })
 
@@ -7,6 +9,7 @@ const route = useRoute()
 const uid = computed(() => route.params.uid as string)
 
 const { fetchUser, updateUser, fetchUsers } = useUsers()
+const { fetchGroups } = useGroups()
 const { sendPasswordReset } = useAuth()
 
 const loading = ref(false)
@@ -27,12 +30,23 @@ const form = ref({
 })
 
 const existingUsers = ref<Array<{ uid: string; displayName: string }>>([])
+const groups = ref<Group[]>([])
+
+// 所属グループが変わったら、そのグループの組合一覧から選び直す（初期読み込み時はリセットしない）
+const formReady = ref(false)
+const availableKumiai = computed(() => groups.value.find(g => g.id === form.value.groupId)?.kumiai ?? [])
+watch(() => form.value.groupId, () => {
+  if (formReady.value) form.value.kumiaiId = ''
+})
 
 onMounted(async () => {
   loading.value = true
   try {
-    const [user, users] = await Promise.all([fetchUser(uid.value), fetchUsers().catch(() => [])])
+    const [user, users, fetchedGroups] = await Promise.all([
+      fetchUser(uid.value), fetchUsers().catch(() => []), fetchGroups().catch(() => []),
+    ])
     existingUsers.value = users.filter(u => u.uid !== uid.value)
+    groups.value = fetchedGroups
     if (user) {
       form.value = {
         name:         user.displayName,
@@ -51,6 +65,8 @@ onMounted(async () => {
     error.value = e.message ?? 'ユーザー情報の取得に失敗しました'
   } finally {
     loading.value = false
+    await nextTick()
+    formReady.value = true
   }
 })
 
@@ -58,12 +74,14 @@ const handleSubmit = async () => {
   submitting.value = true
   error.value = ''
   try {
+    const kumiaiName = availableKumiai.value.find(k => k.id === form.value.kumiaiId)?.name
     await updateUser(uid.value, {
       displayName:  form.value.name,
       role:         form.value.role,
       specialTeams: form.value.specialTeams,
       groupId:      (form.value.groupId as GroupId) || null,
       kumiaiId:     form.value.kumiaiId || null,
+      kumiaiName:   kumiaiName || null,
       position:     form.value.position || null,
       mainSupporterUid: form.value.mainSupporterUid || null,
       subSupporterUid:  form.value.subSupporterUid || null,
@@ -159,14 +177,18 @@ const toggleSpecialTeam = (team: string) => {
           <label class="block text-sm font-medium text-gray-700 mb-1.5">所属グループ</label>
           <select v-model="form.groupId" class="input-field">
             <option value="">（なし）</option>
-            <option value="reterace">Reterace</option>
-            <option value="miraito">Miraito</option>
-            <option value="asset">Asset</option>
+            <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option>
           </select>
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">所属組合ID</label>
-          <input v-model="form.kumiaiId" type="text" class="input-field" />
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">所属組合</label>
+          <select v-model="form.kumiaiId" class="input-field" :disabled="!form.groupId">
+            <option value="">（なし）</option>
+            <option v-for="k in availableKumiai" :key="k.id" :value="k.id">{{ k.name }}</option>
+          </select>
+          <p v-if="form.groupId && availableKumiai.length === 0" class="mt-1 text-xs text-gray-400">
+            このグループに組合が登録されていません
+          </p>
         </div>
       </div>
 

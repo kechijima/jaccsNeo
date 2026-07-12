@@ -3,11 +3,10 @@ import { useCustomerStore } from '~/composables/useCustomerStore'
 import { usePortalStore } from '~/composables/usePortalStore'
 import { useAppServices } from '~/composables/useAppServices'
 import { useLifeInsuranceCases } from '~/composables/useLifeInsuranceCases'
+import { useGroups } from '~/composables/useGroups'
+import { useGroupLabels } from '~/composables/useGroupLabels'
 import { SERVICE_LABELS } from '~/types/service'
 import type { AppUser, GroupId } from '~/types/user'
-
-const GROUP_LABELS: Record<GroupId, string> = { reterace: 'Reterace', miraito: 'Miraito', asset: 'Asset' }
-const GROUP_COLORS: Record<GroupId, string> = { reterace: 'bg-indigo-500', miraito: 'bg-sky-500', asset: 'bg-amber-500' }
 
 const isThisMonth = (val: any): boolean => {
   if (!val) return false
@@ -52,6 +51,8 @@ export const useTeamStats = () => {
   const portalStore = usePortalStore()
   const { getCasesForType, countForType } = useAppServices()
   const { cases: liCases, fetchAll: fetchLiCases } = useLifeInsuranceCases()
+  const { fetchGroups } = useGroups()
+  const { getGroupColor, ensureLoaded: ensureGroupLabelsLoaded } = useGroupLabels()
 
   const loading = useState<boolean>('teamStats:loading', () => false)
   const loaded  = useState<boolean>('teamStats:loaded', () => false)
@@ -64,13 +65,14 @@ export const useTeamStats = () => {
     if (loaded.value && !force) return
     loading.value = true
     try {
-      await Promise.all([fetchLiCases(), portalStore.fetchAllPosts()])
+      const [allGroups] = await Promise.all([fetchGroups(), fetchLiCases(), portalStore.fetchAllPosts(), ensureGroupLabelsLoaded()])
       users.value = await fetchUsers()
 
       const byName = new Map(users.value.map(u => [u.displayName, u]))
+      const groupLabelById = new Map(allGroups.map(g => [g.id, g.name]))
 
       // ── グループ別: 人数・当月新規パーソナルデータ・当月活動報告件数 ──
-      const groupIds: GroupId[] = ['reterace', 'miraito', 'asset']
+      const groupIds: GroupId[] = allGroups.map(g => g.id)
       groupStats.value = groupIds.map((gid) => {
         const members = users.value.filter(u => u.groupId === gid)
         const memberUids  = new Set(members.map(u => u.uid))
@@ -86,8 +88,8 @@ export const useTeamStats = () => {
 
         return {
           id: gid,
-          label: GROUP_LABELS[gid],
-          color: GROUP_COLORS[gid],
+          label: groupLabelById.get(gid) ?? gid,
+          color: getGroupColor(gid),
           memberCount: members.length,
           newPersonalData,
           activityReports,
@@ -121,7 +123,7 @@ export const useTeamStats = () => {
           return {
             uid:        u?.uid ?? null,
             name,
-            groupLabel: u?.groupId ? GROUP_LABELS[u.groupId] : '',
+            groupLabel: u?.groupId ? (groupLabelById.get(u.groupId) ?? u.groupId) : '',
             position:   u?.position ?? '',
             contracts,
           }

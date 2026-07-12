@@ -1,9 +1,13 @@
 <script setup lang="ts">
+import { useGroups } from '~/composables/useGroups'
+
 definePageMeta({ middleware: ['auth', 'admin'] })
 
 const { fetchUsers } = useUsers()
+const { fetchGroups } = useGroups()
 
 const allUsers = ref<Awaited<ReturnType<typeof fetchUsers>>>([])
+const groups   = ref<Array<{ id: string; name: string }>>([])
 const loading  = ref(true)
 const loadError = ref('')
 
@@ -11,7 +15,9 @@ const loadUsers = async () => {
   loading.value = true
   loadError.value = ''
   try {
-    allUsers.value = await fetchUsers()
+    const [users, fetchedGroups] = await Promise.all([fetchUsers(), fetchGroups()])
+    allUsers.value = users
+    groups.value = fetchedGroups
   } catch (e: any) {
     loadError.value = e.message ?? 'ユーザー一覧の取得に失敗しました'
   } finally {
@@ -35,19 +41,15 @@ const roleColors: Record<string, string> = {
   general:      'bg-gray-100 text-gray-600',
 }
 
-const groupLabels: Record<string, string> = {
-  reterace: 'Reterace',
-  miraito:  'Miraito',
-  asset:    'Asset',
-}
+const groupLabels = computed<Record<string, string>>(() =>
+  Object.fromEntries(groups.value.map(g => [g.id, g.name])),
+)
 
 // ── フィルター ────────────────────────────────────────────────────────
 const searchQuery  = ref('')
 const filterGroup  = ref('')
 const filterRole   = ref('')
 const showFilter   = ref(false)
-
-const GROUPS = ['reterace', 'miraito', 'asset']
 
 const activeCount = computed(() =>
   [filterGroup.value, filterRole.value].filter(Boolean).length
@@ -151,7 +153,7 @@ const openDetail = (u: any) => { selectedUser.value = u }
           <label class="text-xs font-medium text-gray-500">グループ</label>
           <select v-model="filterGroup" class="input-field text-sm py-1.5">
             <option value="">すべて</option>
-            <option v-for="g in GROUPS" :key="g" :value="g">{{ groupLabels[g] }}</option>
+            <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option>
           </select>
         </div>
         <div class="space-y-1">

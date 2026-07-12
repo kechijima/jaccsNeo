@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { AppUser } from '~/types/user'
+import { useGroupLabels } from '~/composables/useGroupLabels'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -8,6 +9,8 @@ const uid = computed(() => route.params.uid as string)
 
 const { fetchUser } = useUsers()
 const { user: currentUser } = useCurrentUser()
+const { getGroupLabel, ensureLoaded: ensureGroupLabelsLoaded } = useGroupLabels()
+onMounted(() => { ensureGroupLabelsLoaded() })
 
 const profile = ref<AppUser | null>(null)
 const loading = ref(true)
@@ -30,10 +33,7 @@ onMounted(loadProfile)
 
 const isOwnProfile = computed(() => currentUser.value?.uid === uid.value)
 
-const groupLabel = computed(() => {
-  const map: Record<string, string> = { reterace: 'Reterace', miraito: 'Miraito', asset: 'Asset' }
-  return profile.value?.groupId ? (map[profile.value.groupId] ?? profile.value.groupId) : 'なし'
-})
+const groupLabel = computed(() => profile.value?.groupId ? getGroupLabel(profile.value.groupId) : 'なし')
 
 const roleLabels: Record<string, string> = {
   system_admin: 'システム管理者',

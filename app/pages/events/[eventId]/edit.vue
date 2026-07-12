@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { EventForm } from '~/types/event'
+import type { Group } from '~/types/group'
+import { useGroups } from '~/composables/useGroups'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -7,6 +9,9 @@ const route = useRoute()
 const eventId = computed(() => route.params.eventId as string)
 
 const { fetchEvent, updateEvent, deleteEvent } = useEvents()
+const { fetchGroups } = useGroups()
+
+const groups = ref<Group[]>([])
 
 const loading = ref(false)
 const error = ref('')
@@ -28,7 +33,10 @@ const form = ref({
 onMounted(async () => {
   loading.value = true
   try {
-    const ev = await fetchEvent(eventId.value)
+    const [ev] = await Promise.all([
+      fetchEvent(eventId.value),
+      fetchGroups().then(g => { groups.value = g }).catch(() => {}),
+    ])
     if (ev) {
       const start = ev.startAt.toDate()
       const end   = ev.endAt?.toDate()
@@ -132,9 +140,7 @@ const handleDelete = async () => {
         <label class="block text-sm font-medium text-gray-700 mb-1.5">対象スコープ</label>
         <select v-model="form.targetScope" class="input-field">
           <option value="all">全体</option>
-          <option value="reterace">Reterace グループ</option>
-          <option value="miraito">Miraito グループ</option>
-          <option value="asset">Asset グループ</option>
+          <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }} グループ</option>
           <option value="kumiai">特定の組合</option>
         </select>
       </div>

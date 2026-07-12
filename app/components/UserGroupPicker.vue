@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useUsers } from '~/composables/useUsers'
+import { useGroups } from '~/composables/useGroups'
 import type { AppUser, GroupId, UserRole } from '~/types/user'
 
 export interface AudienceSelection {
@@ -19,6 +20,7 @@ const emit = defineEmits<{
 }>()
 
 const { fetchUsers } = useUsers()
+const { fetchGroups } = useGroups()
 
 const ROLE_LABELS: Record<UserRole, string> = {
   system_admin: 'システム管理者',
@@ -26,17 +28,13 @@ const ROLE_LABELS: Record<UserRole, string> = {
   em2_above:    'EM2以上',
   general:      '一般',
 }
-const GROUP_LABELS: Record<GroupId, string> = {
-  reterace: 'Reteraceグループ',
-  miraito:  'Miraitoグループ',
-  asset:    'Assetグループ',
-}
 
 type GroupOption = { key: string; label: string; kind: 'role' | 'group'; value: UserRole | GroupId }
-const GROUP_OPTIONS: GroupOption[] = [
+const allGroups = ref<{ id: GroupId; name: string }[]>([])
+const GROUP_OPTIONS = computed<GroupOption[]>(() => [
   ...(Object.keys(ROLE_LABELS) as UserRole[]).map(v => ({ key: `role:${v}`, label: ROLE_LABELS[v], kind: 'role' as const, value: v })),
-  ...(Object.keys(GROUP_LABELS) as GroupId[]).map(v => ({ key: `group:${v}`, label: GROUP_LABELS[v], kind: 'group' as const, value: v })),
-]
+  ...allGroups.value.map(g => ({ key: `group:${g.id}`, label: `${g.name}グループ`, kind: 'group' as const, value: g.id })),
+])
 
 const activeTab = ref<'org' | 'group'>('org')
 const searchQuery = ref('')
@@ -62,6 +60,9 @@ watch(() => props.open, async (isOpen) => {
     } finally {
       loadingUsers.value = false
     }
+  }
+  if (allGroups.value.length === 0) {
+    allGroups.value = (await fetchGroups().catch(() => [])).map(g => ({ id: g.id, name: g.name }))
   }
 })
 
@@ -97,7 +98,7 @@ const allSelectedInTab = computed(() => {
   if (activeTab.value === 'org') {
     return filteredUsers.value.length > 0 && filteredUsers.value.every(u => isUserChecked(u.uid))
   }
-  return GROUP_OPTIONS.every(o => isGroupOptionChecked(o))
+  return GROUP_OPTIONS.value.every(o => isGroupOptionChecked(o))
 })
 
 const toggleSelectAll = () => {
@@ -114,8 +115,8 @@ const toggleSelectAll = () => {
       staged.value.roles = []
       staged.value.groupIds = []
     } else {
-      staged.value.roles = GROUP_OPTIONS.filter(o => o.kind === 'role').map(o => o.value as UserRole)
-      staged.value.groupIds = GROUP_OPTIONS.filter(o => o.kind === 'group').map(o => o.value as GroupId)
+      staged.value.roles = GROUP_OPTIONS.value.filter(o => o.kind === 'role').map(o => o.value as UserRole)
+      staged.value.groupIds = GROUP_OPTIONS.value.filter(o => o.kind === 'group').map(o => o.value as GroupId)
     }
   }
 }
@@ -127,7 +128,7 @@ const stagedChips = computed(() => {
     label: users.value.find(u => u.uid === uid)?.displayName ?? uid,
     remove: () => toggleUser(uid),
   }))
-  const groupChips = GROUP_OPTIONS
+  const groupChips = GROUP_OPTIONS.value
     .filter(o => isGroupOptionChecked(o))
     .map(o => ({ key: o.key, label: o.label, remove: () => toggleGroupOption(o) }))
   return [...groupChips, ...userChips]

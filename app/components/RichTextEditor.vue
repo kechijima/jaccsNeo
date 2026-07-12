@@ -9,6 +9,7 @@ import tippy from 'tippy.js'
 import MentionList from '~/components/MentionList.vue'
 import { useUsers } from '~/composables/useUsers'
 import { useStorage } from '~/composables/useStorage'
+import { useGroupLabels } from '~/composables/useGroupLabels'
 import { MOCK_ADMIN_USERS } from '~/data/mock'
 import type { MentionItem } from '~/components/MentionList.vue'
 import { FontSize } from '~/tiptap/fontSize'
@@ -30,12 +31,14 @@ const emit = defineEmits(['update:modelValue', 'submit'])
 
 const { fetchUsers } = useUsers()
 const { uploadFile } = useStorage()
+const { groups: groupLabelList, getGroupLabel, getGroupColor, ensureLoaded: ensureGroupLabelsLoaded } = useGroupLabels()
 const users = ref<any[]>([])
 const uploadingImage = ref(false)
 const imageInputRef = ref<HTMLInputElement>()
 
 onMounted(async () => {
   users.value = await fetchUsers()
+  await ensureGroupLabelsLoaded()
 })
 
 // メンション候補（全体・グループ・ユーザー）
@@ -43,17 +46,17 @@ const buildMentionItems = (query: string): MentionItem[] => {
   const q = query.toLowerCase()
 
   const fixed: MentionItem[] = [
-    { type: 'all',   id: 'all',             label: '全体',    sublabel: '全員に通知' },
-    { type: 'group', id: 'group:reterace',  label: 'Reterace', sublabel: 'グループ全員', color: 'bg-indigo-500' },
-    { type: 'group', id: 'group:miraito',   label: 'Miraito',  sublabel: 'グループ全員', color: 'bg-sky-500' },
-    { type: 'group', id: 'group:asset',     label: 'Asset',    sublabel: 'グループ全員', color: 'bg-amber-500' },
+    { type: 'all', id: 'all', label: '全体', sublabel: '全員に通知' },
+    ...groupLabelList.value.map(g => ({
+      type: 'group' as const, id: `group:${g.id}`, label: g.name, sublabel: 'グループ全員', color: getGroupColor(g.id),
+    })),
   ]
 
   const userItems: MentionItem[] = (users.value.length ? users.value : MOCK_ADMIN_USERS).map(u => ({
     type:     'user' as const,
     id:       u.uid,
     label:    u.displayName,
-    sublabel: [u.groupId ? { reterace: 'Reterace', miraito: 'Miraito', asset: 'Asset' }[u.groupId] ?? '' : '', u.position].filter(Boolean).join(' · '),
+    sublabel: [u.groupId ? getGroupLabel(u.groupId) : '', u.position].filter(Boolean).join(' · '),
     avatar:   u.displayName?.[0] ?? '?',
   }))
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useAnnouncementStore } from '~/composables/useAnnouncementStore'
-import { ANNOUNCEMENT_SCOPE_LABELS, ANNOUNCEMENT_SCOPE_COLORS } from '~/types/announcement'
+import { useAnnouncementScope } from '~/composables/useAnnouncementScope'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -9,13 +9,14 @@ const id = computed(() => route.params.id as string)
 
 const store = useAnnouncementStore()
 const announcement = store.getById(id)
+const { scopeLabel, scopeBadgeClass, ensureLoaded: ensureScopeLoaded } = useAnnouncementScope()
 
 const loading = ref(true)
 const error = ref('')
 
 onMounted(async () => {
   try {
-    await store.fetchAll()
+    await Promise.all([store.fetchAll(), ensureScopeLoaded()])
     if (!announcement.value) error.value = 'お知らせが見つかりませんでした'
   } catch (e: any) {
     error.value = e.message ?? 'お知らせの取得に失敗しました'
@@ -56,8 +57,8 @@ const fmt = (d: Date) => d.toLocaleDateString('ja-JP', { year: 'numeric', month:
 
         <div class="p-5 md:p-6 space-y-4">
           <div class="flex items-center gap-2 flex-wrap">
-            <span class="badge text-xs" :class="ANNOUNCEMENT_SCOPE_COLORS[announcement.scope]">
-              {{ ANNOUNCEMENT_SCOPE_LABELS[announcement.scope] }}
+            <span class="badge text-xs" :class="scopeBadgeClass(announcement.scope)">
+              {{ scopeLabel(announcement.scope) }}
             </span>
             <span class="text-xs text-gray-400">{{ fmt(announcement.publishedAt) }}</span>
           </div>

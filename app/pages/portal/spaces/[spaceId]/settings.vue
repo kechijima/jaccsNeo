@@ -4,6 +4,7 @@ import type { AppUser } from '~/types/user'
 import { useSpaces, resolveSpaceMembers } from '~/composables/useSpaces'
 import { useUsers } from '~/composables/useUsers'
 import { useStorage } from '~/composables/useStorage'
+import { useGroupLabels } from '~/composables/useGroupLabels'
 import type { AudienceSelection } from '~/components/UserGroupPicker.vue'
 
 definePageMeta({ middleware: ['auth'] })
@@ -13,6 +14,7 @@ const spaceId = computed(() => route.params.spaceId as string)
 const { fetchSpace, updateSpace, fetchPost, createPost, updatePost, pinPost } = useSpaces()
 const { fetchUsers } = useUsers()
 const { uploadFile } = useStorage()
+const { getGroupLabel, ensureLoaded: ensureGroupLabelsLoaded } = useGroupLabels()
 
 const loading = ref(true)
 const error = ref('')
@@ -36,15 +38,9 @@ const ROLE_LABELS: Record<string, string> = {
   em2_above:    'EM2以上',
   general:      '一般',
 }
-const GROUP_LABELS: Record<string, string> = {
-  reterace: 'Reteraceグループ',
-  miraito:  'Miraitoグループ',
-  asset:    'Assetグループ',
-}
-
 const audienceChips = computed(() => [
   ...audience.value.roles.map(r => ({ key: `role:${r}`, label: ROLE_LABELS[r] ?? r, remove: () => { audience.value.roles = audience.value.roles.filter(v => v !== r) } })),
-  ...audience.value.groupIds.map(g => ({ key: `group:${g}`, label: GROUP_LABELS[g] ?? g, remove: () => { audience.value.groupIds = audience.value.groupIds.filter(v => v !== g) } })),
+  ...audience.value.groupIds.map(g => ({ key: `group:${g}`, label: `${getGroupLabel(g)}グループ`, remove: () => { audience.value.groupIds = audience.value.groupIds.filter(v => v !== g) } })),
   ...audience.value.uids.map(uid => ({ key: `uid:${uid}`, label: allUsers.value.find(u => u.uid === uid)?.displayName ?? uid, remove: () => { audience.value.uids = audience.value.uids.filter(v => v !== uid) } })),
 ])
 
@@ -106,7 +102,7 @@ const handleSaveThumbnail = async () => {
 
 onMounted(async () => {
   try {
-    const [s, users] = await Promise.all([fetchSpace(spaceId.value), fetchUsers().catch(() => [])])
+    const [s, users] = await Promise.all([fetchSpace(spaceId.value), fetchUsers().catch(() => []), ensureGroupLabelsLoaded()])
     allUsers.value = users
     if (s) {
       form.value = {

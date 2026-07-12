@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { useAuthStore } from '~/stores/auth'
 import { useNotifications } from '~/composables/useNotifications'
+import { useGroupLabels } from '~/composables/useGroupLabels'
 
 const { logout } = useAuth()
 const { displayName, user } = useCurrentUser()
 const authStore = useAuthStore()
 const route = useRoute()
 const { subscribeUnreadCount } = useNotifications()
+const { getGroupLabel, getGroupColor, ensureLoaded: ensureGroupLabelsLoaded } = useGroupLabels()
+onMounted(() => { ensureGroupLabelsLoaded() })
 
 const navItems = [
   { label: 'ダッシュボード',   icon: 'heroicons:home',                   to: '/dashboard' },
@@ -39,23 +42,8 @@ onMounted(() => {
 })
 onBeforeUnmount(() => unsubscribeNotifCount?.())
 
-const groupColorClass = computed(() => {
-  switch (user.value?.groupId) {
-    case 'reterace': return 'bg-reterace'
-    case 'miraito':  return 'bg-miraito'
-    case 'asset':    return 'bg-asset'
-    default:         return 'bg-primary-600'
-  }
-})
-
-const groupLabel = computed(() => {
-  switch (user.value?.groupId) {
-    case 'reterace': return 'Reterace'
-    case 'miraito':  return 'Miraito'
-    case 'asset':    return 'Asset'
-    default:         return ''
-  }
-})
+const groupColorClass = computed(() => user.value?.groupId ? getGroupColor(user.value.groupId) : 'bg-primary-600')
+const groupLabel = computed(() => getGroupLabel(user.value?.groupId))
 </script>
 
 <template>

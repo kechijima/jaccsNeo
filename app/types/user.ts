@@ -2,7 +2,8 @@ export type UserRole = 'system_admin' | 'board' | 'em2_above' | 'general'
 
 export type SpecialTeam = 'real_estate' | 'non_life_insurance'
 
-export type GroupId = 'reterace' | 'miraito' | 'asset'
+// グループはFirestoreの groups コレクションで動的に追加できるため、固定の列挙型ではなくstringとする
+export type GroupId = string
 
 export interface AppUser {
   uid:          string
