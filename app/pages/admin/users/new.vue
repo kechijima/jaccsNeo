@@ -33,9 +33,10 @@ onMounted(async () => {
   groups.value = await fetchGroups().catch(() => [])
 })
 
-// 所属グループが変わったら、そのグループの組合一覧から選び直す
-const availableKumiai = computed(() => groups.value.find(g => g.id === form.value.groupId)?.kumiai ?? [])
-watch(() => form.value.groupId, () => { form.value.kumiaiId = '' })
+// 所属組合は所属グループとは独立して選択できる（別グループの組合に所属するケースがあるため）
+const allKumiai = computed(() =>
+  groups.value.flatMap(g => g.kumiai.map(k => ({ ...k, groupName: g.name })))
+)
 
 const submitting = ref(false)
 const error = ref('')
@@ -58,7 +59,7 @@ const handleSubmit = async () => {
     })
 
     // 組合名・組織図（メインサポート・サブサポート）はクライアント側で追加登録する
-    const kumiaiName = availableKumiai.value.find(k => k.id === form.value.kumiaiId)?.name
+    const kumiaiName = allKumiai.value.find(k => k.id === form.value.kumiaiId)?.name
     if (kumiaiName || form.value.mainSupporterUid || form.value.subSupporterUid) {
       await updateUser(uid, {
         kumiaiName: kumiaiName || null,
@@ -167,13 +168,11 @@ const toggleSpecialTeam = (team: string) => {
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">所属組合</label>
-          <select v-model="form.kumiaiId" class="input-field" :disabled="!form.groupId">
+          <select v-model="form.kumiaiId" class="input-field">
             <option value="">（なし）</option>
-            <option v-for="k in availableKumiai" :key="k.id" :value="k.id">{{ k.name }}</option>
+            <option v-for="k in allKumiai" :key="k.id" :value="k.id">{{ k.name }}（{{ k.groupName }}）</option>
           </select>
-          <p v-if="form.groupId && availableKumiai.length === 0" class="mt-1 text-xs text-gray-400">
-            このグループに組合が登録されていません
-          </p>
+          <p class="mt-1 text-xs text-gray-400">所属グループとは別のグループの組合も選択できます</p>
         </div>
       </div>
 
