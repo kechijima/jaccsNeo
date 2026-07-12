@@ -4,6 +4,9 @@ import {
 } from 'firebase/firestore'
 import { LIFE_INSURANCE_CASES } from '~/data/lifeInsuranceData'
 import type { LifeInsuranceCase, LifeInsuranceCaseInput } from '~/types/lifeInsurance'
+import { useAppDefs } from '~/composables/useAppDefs'
+import { useNotifications } from '~/composables/useNotifications'
+import { useAuthStore } from '~/stores/auth'
 
 const COLLECTION = 'lifeInsuranceCases'
 
@@ -24,6 +27,27 @@ const stripUndefined = <T extends Record<string, any>>(obj: T): T => {
     if (obj[key] !== undefined) result[key] = obj[key]
   }
   return result
+}
+
+// 連携アプリのアプリ責任者へ、案件の登録・編集を通知する
+const notifyAppOwner = async (action: '登録' | '編集', caseName: string, caseId: string) => {
+  try {
+    const { appDefs, fetchAll: fetchAppDefs } = useAppDefs()
+    await fetchAppDefs()
+    const app = appDefs.value.find(a => a.sourceServiceType === 'lifeInsurance' && a.ownerUid)
+    if (!app?.ownerUid) return
+    const authStore = useAuthStore()
+    if (app.ownerUid === authStore.user?.uid) return // 自分自身の操作には通知しない
+    await useNotifications().sendNotification(app.ownerUid, {
+      type: 'system',
+      title: `生命保険案件が${action}されました`,
+      body: `${authStore.user?.displayName ?? '担当者'} さんが「${caseName}」の案件を${action}しました。`,
+      linkUrl: `/services/lifeInsurance/${caseId}`,
+      relatedId: caseId,
+    })
+  } catch (e) {
+    console.error('アプリ責任者への通知に失敗しました', e)
+  }
 }
 
 export const useLifeInsuranceCases = () => {
@@ -61,6 +85,7 @@ export const useLifeInsuranceCases = () => {
     })
     const now = new Date()
     cases.value = [{ id: ref.id, ...payload, createdAt: now, updatedAt: now } as LifeInsuranceCase, ...cases.value]
+    notifyAppOwner('登録', payload.name ?? '', ref.id)
     return ref.id
   }
 
@@ -69,6 +94,7 @@ export const useLifeInsuranceCases = () => {
     await updateDoc(doc($db, COLLECTION, id), { ...payload, updatedAt: serverTimestamp() })
     const idx = cases.value.findIndex(c => c.id === id)
     if (idx >= 0) cases.value[idx] = { ...cases.value[idx], ...payload, updatedAt: new Date() }
+    notifyAppOwner('編集', cases.value[idx]?.name ?? payload.name ?? '', id)
   }
 
   // kintone CSVから取り込んだ既存61件をFirestoreへ一括投入する初回移行処理（管理者操作）
