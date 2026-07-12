@@ -37,6 +37,9 @@ onMounted(async () => {
 const allKumiai = computed(() =>
   groups.value.flatMap(g => g.kumiai.map(k => ({ ...k, groupName: g.name })))
 )
+const kumiaiOptions = computed(() =>
+  allKumiai.value.map(k => ({ id: k.id, label: k.name, sublabel: k.groupName }))
+)
 
 const submitting = ref(false)
 const error = ref('')
@@ -168,10 +171,7 @@ const toggleSpecialTeam = (team: string) => {
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">所属組合</label>
-          <select v-model="form.kumiaiId" class="input-field">
-            <option value="">（なし）</option>
-            <option v-for="k in allKumiai" :key="k.id" :value="k.id">{{ k.name }}（{{ k.groupName }}）</option>
-          </select>
+          <SearchableSelect v-model="form.kumiaiId" :items="kumiaiOptions" search-placeholder="組合名で検索..." />
           <p class="mt-1 text-xs text-gray-400">所属グループとは別のグループの組合も選択できます</p>
         </div>
       </div>
