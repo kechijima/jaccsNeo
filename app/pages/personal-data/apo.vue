@@ -25,9 +25,6 @@ const nextWeek = new Date(now.getTime() + 7 * 86400000)
 
 const parse = (dateStr?: string) => (dateStr ? new Date(dateStr) : null)
 
-// ── フィルター ────────────────────────────────────────────────────────────────
-const filterFp = ref('')
-
 // ── アポ対象顧客（appointment1 or appointment2 を持つ、またはアポ調整中。閲覧範囲で絞り込み） ────
 const apoCustomers = computed<Customer[]>(() => {
   let list = customers.value.filter(c =>
@@ -47,6 +44,25 @@ const scopedAllCustomers = computed<Customer[]>(() => {
   return customers.value.filter(c => scopedFpNames.value!.has(c.assignedFpName ?? ''))
 })
 
+// ── 分析対象FP（管理者・EM2以上は閲覧範囲内の特定ユーザーを選んで分析できる） ──
+const selectedFp = ref('')  // '' = 閲覧範囲すべて
+
+// 分析対象の選択肢（閲覧範囲内の全顧客の担当FP名から動的に生成）
+const fpOptions = computed(() =>
+  [...new Set(scopedAllCustomers.value.map(c => c.assignedFpName || '担当未設定'))].sort()
+)
+const showFpSelector = computed(() => fpOptions.value.length > 1)
+
+// 分析対象で絞り込んだ顧客（性別・段数構成、サマリー、アポ一覧に反映）
+const targetAllCustomers = computed<Customer[]>(() => {
+  if (!selectedFp.value) return scopedAllCustomers.value
+  return scopedAllCustomers.value.filter(c => (c.assignedFpName || '担当未設定') === selectedFp.value)
+})
+const targetApoCustomers = computed<Customer[]>(() => {
+  if (!selectedFp.value) return apoCustomers.value
+  return apoCustomers.value.filter(c => (c.assignedFpName || '担当未設定') === selectedFp.value)
+})
+
 const BAR_COLORS = ['bg-primary-500', 'bg-sky-500', 'bg-amber-400', 'bg-emerald-500', 'bg-rose-400', 'bg-purple-400', 'bg-gray-400']
 
 const toRatioRows = (list: Customer[], getLabel: (c: Customer) => string) => {
@@ -64,7 +80,7 @@ const toRatioRows = (list: Customer[], getLabel: (c: Customer) => string) => {
 // ── 性別構成（男 → 女 → その他の順、未設定は末尾） ────────────────────────
 const GENDER_ORDER = ['男', '女']
 const genderStats = computed(() => {
-  const rows = toRatioRows(scopedAllCustomers.value, c => c.gender ?? '')
+  const rows = toRatioRows(targetAllCustomers.value, c => c.gender ?? '')
   return rows.sort((a, b) => {
     const ai = GENDER_ORDER.indexOf(a.label)
     const bi = GENDER_ORDER.indexOf(b.label)
@@ -77,7 +93,7 @@ const genderStats = computed(() => {
 
 // ── 段数別構成（数字順、未設定は末尾） ────────────────────────────────────
 const stageStats = computed(() => {
-  const rows = toRatioRows(scopedAllCustomers.value, c => c.stage ?? '')
+  const rows = toRatioRows(targetAllCustomers.value, c => c.stage ?? '')
   return rows.sort((a, b) => {
     const an = Number(a.label)
     const bn = Number(b.label)
@@ -102,7 +118,7 @@ const classify = (c: Customer): 'future' | 'adjusting' | 'done' => {
 
 // ── サマリー集計 ─────────────────────────────────────────────────────────────
 const summary = computed(() => {
-  const all = apoCustomers.value
+  const all = targetApoCustomers.value
   const future    = all.filter(c => classify(c) === 'future')
   const adjusting = all.filter(c => classify(c) === 'adjusting')
   const done      = all.filter(c => classify(c) === 'done')
@@ -142,11 +158,9 @@ const fpStats = computed(() => {
 
 const maxFpTotal = computed(() => Math.max(...fpStats.value.map(f => f.total), 1))
 
-// ── アポ一覧（フィルタリング済み） ───────────────────────────────────────────
+// ── アポ一覧（分析対象で絞り込み済み） ───────────────────────────────────────
 const filteredList = computed<Customer[]>(() => {
-  let list = apoCustomers.value
-
-  if (filterFp.value) list = list.filter(c => (c.assignedFpName || '担当未設定') === filterFp.value)
+  const list = targetApoCustomers.value
 
   // 日付順にソート（確定分は近い順、調整中は末尾）
   return [...list].sort((a, b) => {
@@ -179,11 +193,6 @@ const apoPlace = (c: Customer): string =>
 
 const apoNote = (c: Customer): string =>
   c.appointment2?.note ?? c.appointment1?.note ?? ''
-
-// 担当者の選択肢（アポ対象顧客の担当者名から動的に生成）
-const fpOptions = computed(() =>
-  [...new Set(apoCustomers.value.map(c => c.assignedFpName || '担当未設定'))].sort()
-)
 </script>
 
 <template>
@@ -208,6 +217,15 @@ const fpOptions = computed(() =>
         <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
         フォロー表出力
       </button>
+    </div>
+
+    <!-- 分析対象FP（閲覧範囲内で複数人いる場合のみ表示） -->
+    <div v-if="showFpSelector" class="flex items-center gap-2">
+      <span class="text-xs text-gray-400 shrink-0">分析対象</span>
+      <select v-model="selectedFp" class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-primary-300">
+        <option value="">{{ scopedFpNames === null ? '全員' : '自分がサポートする範囲すべて' }}</option>
+        <option v-for="fp in fpOptions" :key="fp" :value="fp">{{ fp }}</option>
+      </select>
     </div>
 
     <!-- サマリーカード -->
@@ -293,7 +311,7 @@ const fpOptions = computed(() =>
         <h2 class="font-semibold text-gray-900 flex items-center gap-2">
           <Icon name="heroicons:user-group" class="h-5 w-5 text-primary-500" />
           性別構成
-          <span class="text-gray-400 font-normal text-xs ml-1">{{ scopedAllCustomers.length }}件</span>
+          <span class="text-gray-400 font-normal text-xs ml-1">{{ targetAllCustomers.length }}件</span>
         </h2>
         <div v-if="genderStats.length === 0" class="text-sm text-gray-400 text-center py-6">データがありません</div>
         <div v-else class="space-y-2.5">
@@ -317,7 +335,7 @@ const fpOptions = computed(() =>
         <h2 class="font-semibold text-gray-900 flex items-center gap-2">
           <Icon name="heroicons:chart-pie" class="h-5 w-5 text-primary-500" />
           段数別構成
-          <span class="text-gray-400 font-normal text-xs ml-1">{{ scopedAllCustomers.length }}件</span>
+          <span class="text-gray-400 font-normal text-xs ml-1">{{ targetAllCustomers.length }}件</span>
         </h2>
         <div v-if="stageStats.length === 0" class="text-sm text-gray-400 text-center py-6">データがありません</div>
         <div v-else class="space-y-2.5">
@@ -340,20 +358,13 @@ const fpOptions = computed(() =>
 
     <!-- アポ一覧 -->
     <div class="card overflow-hidden">
-      <!-- フィルター行 -->
-      <div class="flex items-center gap-3 px-5 py-3 border-b border-gray-100 bg-gray-50 flex-wrap">
+      <!-- 見出し -->
+      <div class="flex items-center gap-3 px-5 py-3 border-b border-gray-100 bg-gray-50">
         <h2 class="font-semibold text-gray-900 text-sm flex items-center gap-1.5 shrink-0">
           <Icon name="heroicons:calendar-days" class="h-4 w-4 text-primary-500" />
           アポ一覧
           <span class="text-gray-400 font-normal text-xs ml-1">{{ filteredList.length }}件</span>
         </h2>
-        <div class="flex items-center gap-2 ml-auto flex-wrap">
-          <!-- FP フィルター -->
-          <select v-model="filterFp" class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-primary-300">
-            <option value="">全担当者</option>
-            <option v-for="fp in fpOptions" :key="fp" :value="fp">{{ fp }}</option>
-          </select>
-        </div>
       </div>
 
       <!-- PC テーブル -->
