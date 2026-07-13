@@ -4,6 +4,7 @@ const props = defineProps<{
   items: Array<{ id: string; label: string; sublabel?: string }>
   placeholder?: string
   searchPlaceholder?: string
+  clearLabel?: string
 }>()
 
 const emit = defineEmits<{ 'update:modelValue': [string] }>()
@@ -82,7 +83,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onClickOutside))
           type="button"
           class="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 text-gray-400"
           @click="clear"
-        >（なし）</button>
+        >{{ clearLabel ?? '（なし）' }}</button>
         <button
           v-for="i in filtered"
           :key="i.id"

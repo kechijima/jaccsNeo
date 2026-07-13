@@ -52,6 +52,7 @@ const fpOptions = computed(() =>
   [...new Set(scopedAllCustomers.value.map(c => c.assignedFpName || '担当未設定'))].sort()
 )
 const showFpSelector = computed(() => fpOptions.value.length > 1)
+const fpSelectOptions = computed(() => fpOptions.value.map(fp => ({ id: fp, label: fp })))
 
 // 分析対象で絞り込んだ顧客（性別・段数構成、サマリー、アポ一覧に反映）
 const targetAllCustomers = computed<Customer[]>(() => {
@@ -219,13 +220,18 @@ const apoNote = (c: Customer): string =>
       </button>
     </div>
 
-    <!-- 分析対象FP（閲覧範囲内で複数人いる場合のみ表示） -->
+    <!-- 分析対象FP（閲覧範囲内で複数人いる場合のみ表示。件数が多くても検索できるコンボボックス） -->
     <div v-if="showFpSelector" class="flex items-center gap-2">
       <span class="text-xs text-gray-400 shrink-0">分析対象</span>
-      <select v-model="selectedFp" class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-primary-300">
-        <option value="">{{ scopedFpNames === null ? '全員' : '自分がサポートする範囲すべて' }}</option>
-        <option v-for="fp in fpOptions" :key="fp" :value="fp">{{ fp }}</option>
-      </select>
+      <div class="w-64">
+        <SearchableSelect
+          v-model="selectedFp"
+          :items="fpSelectOptions"
+          :placeholder="scopedFpNames === null ? '全員' : '自分がサポートする範囲すべて'"
+          :clear-label="scopedFpNames === null ? '全員' : '自分がサポートする範囲すべて'"
+          search-placeholder="担当者名で検索..."
+        />
+      </div>
     </div>
 
     <!-- サマリーカード -->
