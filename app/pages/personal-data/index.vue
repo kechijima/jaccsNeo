@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useCustomerStore } from '~/composables/useCustomerStore'
 import { useSavedSearchStore } from '~/composables/useSavedSearchStore'
+import { useDataScope } from '~/composables/useDataScope'
 import { exportApoToCsv, downloadCsv } from '~/utils/csvCustomer'
 import type { Customer } from '~/types/customer'
 import type { FilterOperator, FilterCondition, SavedSearch } from '~/types/savedSearch'
@@ -10,6 +11,20 @@ definePageMeta({ middleware: ['auth'] })
 const store = useCustomerStore()
 const router = useRouter()
 const { user } = useCurrentUser()
+
+// ── 閲覧範囲（ロールに応じて担当FPで絞り込む） ──────────────────────────
+const { scopedFpNames, ensureScope } = useDataScope()
+await ensureScope()
+
+// 自分の権限で閲覧できる担当FP名の範囲に、まず絞り込む（一般・EM2以上はここで強制的に制限される）
+const scopedCustomers = computed(() => {
+  if (scopedFpNames.value === null) return store.customers.value
+  return store.customers.value.filter(c => scopedFpNames.value!.has(c.assignedFpName ?? ''))
+})
+
+// 「自分の担当のみ」/「自分の閲覧範囲すべて」の切り替え（デフォルトは自分の担当のみ）
+const fpFilter = ref<'me' | 'scope'>('me')
+const showFpScopeToggle = computed(() => scopedFpNames.value === null || (scopedFpNames.value?.size ?? 0) > 1)
 
 // ── 絞り込み条件（項目を選択 → 条件を入力） ─────────────────────────────
 type Operator = FilterOperator
@@ -97,7 +112,10 @@ const activeConditionCount = computed(() =>
 )
 
 const filtered = computed(() => {
-  let list = store.customers.value
+  let list = scopedCustomers.value
+  if (fpFilter.value === 'me' && user.value?.displayName) {
+    list = list.filter(c => c.assignedFpName === user.value!.displayName)
+  }
   if (filterType.value !== 'all') {
     list = list.filter(c => c.type === filterType.value)
   }
@@ -182,7 +200,7 @@ const pageRangeLabel = computed(() => {
 })
 
 // 絞り込み条件が変わったら1ページ目に戻す
-watch([searchQuery, filterType, conditions, matchMode, pageSize], () => {
+watch([searchQuery, filterType, conditions, matchMode, pageSize, fpFilter], () => {
   currentPage.value = 1
 }, { deep: true })
 
@@ -275,21 +293,37 @@ const statusColor = (s: string) => {
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
       <div class="card p-4">
         <p class="text-xs text-gray-500">総件数</p>
-        <p class="mt-1 text-2xl font-bold text-gray-900">{{ store.customers.value.length }}<span class="text-xs font-normal text-gray-400 ml-1">件</span></p>
+        <p class="mt-1 text-2xl font-bold text-gray-900">{{ scopedCustomers.length }}<span class="text-xs font-normal text-gray-400 ml-1">件</span></p>
       </div>
       <div class="card p-4">
         <p class="text-xs text-gray-500">個人</p>
-        <p class="mt-1 text-2xl font-bold text-gray-900">{{ store.customers.value.filter(c => c.type !== 'corporate').length }}<span class="text-xs font-normal text-gray-400 ml-1">件</span></p>
+        <p class="mt-1 text-2xl font-bold text-gray-900">{{ scopedCustomers.filter(c => c.type !== 'corporate').length }}<span class="text-xs font-normal text-gray-400 ml-1">件</span></p>
       </div>
       <div class="card p-4">
         <p class="text-xs text-gray-500">法人</p>
-        <p class="mt-1 text-2xl font-bold text-gray-900">{{ store.customers.value.filter(c => c.type === 'corporate').length }}<span class="text-xs font-normal text-gray-400 ml-1">件</span></p>
+        <p class="mt-1 text-2xl font-bold text-gray-900">{{ scopedCustomers.filter(c => c.type === 'corporate').length }}<span class="text-xs font-normal text-gray-400 ml-1">件</span></p>
       </div>
       <div class="card p-4">
         <p class="text-xs text-gray-500">絞り込み結果</p>
         <p class="mt-1 text-2xl font-bold text-primary-600">{{ filtered.length }}<span class="text-xs font-normal text-gray-400 ml-1">件</span></p>
       </div>
     </div>
+
+    <!-- ===== 担当FP範囲トグル ===== -->
+    <div v-if="showFpScopeToggle" class="flex items-center gap-2">
+      <span class="text-xs text-gray-400 shrink-0">表示範囲</span>
+      <button
+        class="px-3 py-1.5 rounded-full text-sm font-medium transition"
+        :class="fpFilter === 'me' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+        @click="fpFilter = 'me'"
+      >自分の担当のみ</button>
+      <button
+        class="px-3 py-1.5 rounded-full text-sm font-medium transition"
+        :class="fpFilter === 'scope' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+        @click="fpFilter = 'scope'"
+      >{{ scopedFpNames === null ? '全員' : '自分がサポートする範囲すべて' }}</button>
+    </div>
+    <p v-else class="text-xs text-gray-400">自分（{{ user?.displayName }}）の担当データのみ表示しています</p>
 
     <!-- ===== 検索・区分フィルタ ===== -->
     <div class="flex flex-col sm:flex-row gap-2">

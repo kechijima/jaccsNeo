@@ -1,11 +1,24 @@
 <script setup lang="ts">
 import { exportApoToCsv, downloadCsv } from '~/utils/csvCustomer'
 import { useCustomerStore } from '~/composables/useCustomerStore'
+import { useDataScope } from '~/composables/useDataScope'
+import { useAuthStore } from '~/stores/auth'
 import type { Customer } from '~/types/customer'
 
 definePageMeta({ middleware: ['auth'] })
 
 const { customers } = useCustomerStore()
+
+// ── 閲覧範囲（ロールに応じて担当FPで絞り込む） ──────────────────────────
+// 一般: 自分のみ / EM2以上: 自分と自分がサポートするメンバー / 理事会・システム管理者: 制限なし
+const { scopedFpNames, ensureScope } = useDataScope()
+await ensureScope()
+const authStore = useAuthStore()
+const scopeMessage = computed(() => {
+  if (scopedFpNames.value === null) return '全メンバーのアポ状況を分析できます'
+  if (authStore.isEm2Above) return '自分と自分がサポートするメンバーのアポ状況を分析できます'
+  return '自分のアポ状況を分析できます'
+})
 
 const now = new Date()
 const nextWeek = new Date(now.getTime() + 7 * 86400000)
@@ -16,13 +29,17 @@ const parse = (dateStr?: string) => (dateStr ? new Date(dateStr) : null)
 const filterFp     = ref('')
 const filterState  = ref('')  // 'future' | 'adjusting' | 'done'
 
-// ── アポ対象顧客（appointment1 or appointment2 を持つ、またはアポ調整中） ────
+// ── アポ対象顧客（appointment1 or appointment2 を持つ、またはアポ調整中。閲覧範囲で絞り込み） ────
 const apoCustomers = computed<Customer[]>(() => {
-  return customers.value.filter(c =>
+  let list = customers.value.filter(c =>
     c.appointment1?.place ||
     c.appointment2?.place ||
     c.status1 === 'アポ調整中',
   )
+  if (scopedFpNames.value !== null) {
+    list = list.filter(c => scopedFpNames.value!.has(c.assignedFpName ?? ''))
+  }
+  return list
 })
 
 // ── ステータス分類 ──────────────────────────────────────────────────────────
@@ -157,6 +174,7 @@ const fpOptions = computed(() =>
           アポ状況分析
         </h1>
         <p class="text-sm text-gray-500 mt-0.5">アポの状況をサポート者と確認・共有する</p>
+        <p class="text-xs text-gray-400 mt-0.5">{{ scopeMessage }}</p>
       </div>
       <button class="btn-primary text-sm flex items-center gap-1.5" @click="handleExport">
         <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useDataScope } from '~/composables/useDataScope'
+
 definePageMeta({ middleware: ['auth'] })
 
 const route = useRoute()
@@ -6,7 +8,16 @@ const route = useRoute()
 const id       = computed(() => route.params.id as string)
 const { getById } = useCustomerStore()
 const customer = getById(id)
-const error    = computed(() => !customer.value ? '顧客が見つかりません' : '')
+
+// 自分の閲覧範囲外の顧客（一般は自分の担当分のみ、EM2以上は自分がサポートする範囲のみ）は表示しない
+const { ensureScope, isNameInScope } = useDataScope()
+await ensureScope()
+
+const error = computed(() => {
+  if (!customer.value) return '顧客が見つかりません'
+  if (!isNameInScope(customer.value.assignedFpName)) return 'この顧客データを閲覧する権限がありません'
+  return ''
+})
 
 // ===== 削除 =====
 const { remove } = useCustomerStore()
