@@ -151,6 +151,10 @@ const hasOptions   = (t: string) => ['radio', 'dropdown', 'checkbox', 'multi_sel
 const isAutoField  = (t: string) => ['record_number', 'space'].includes(t)
 const isRelation   = (t: string) => ['lookup', 'related_records'].includes(t)
 
+// ラベル項目はHTML（リッチエディター由来）なので、キャンバス一覧ではタグを除いて表示する
+const canvasLabel = (f: CanvasField): string =>
+  f.type === 'label' ? (f.label.replace(/<[^>]*>/g, '').trim() || '（未入力）') : f.label
+
 // ── フィールド操作 ────────────────────────────────────────────
 const makeField = (type: string): CanvasField => ({
   id:       `f-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -420,9 +424,11 @@ const submitSettings = async () => {
             <div class="input-field bg-gray-50 text-gray-400 text-sm">#00001</div>
           </div>
           <!-- ラベル -->
-          <div v-else-if="f.type === 'label'" class="bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 text-sm text-gray-700">
-            {{ f.label }}
-          </div>
+          <div
+            v-else-if="f.type === 'label'"
+            class="bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 text-sm text-gray-700 prose prose-sm max-w-none"
+            v-html="f.label"
+          />
           <!-- スペース -->
           <div v-else-if="f.type === 'space'" class="h-4" />
           <!-- 日付 -->
@@ -606,7 +612,7 @@ const submitSettings = async () => {
                 <Icon name="heroicons:bars-3" class="h-4 w-4 text-gray-300 shrink-0 cursor-grab" />
                 <Icon :name="FIELD_ICON[field.type]" class="h-4 w-4 shrink-0 text-primary-500" />
                 <div class="flex-1 min-w-0">
-                  <p class="text-sm font-medium text-gray-800 truncate">{{ field.label }}</p>
+                  <p class="text-sm font-medium text-gray-800 truncate">{{ canvasLabel(field) }}</p>
                   <p class="text-xs text-gray-400 truncate">{{ getFieldDef(field.type)?.description }}</p>
                 </div>
                 <span v-if="field.required" class="text-xs text-red-500 font-medium shrink-0 ml-1">必須</span>
@@ -669,9 +675,15 @@ const submitSettings = async () => {
           </div>
 
           <!-- フィールド名 -->
-          <div v-if="!isAutoField(selectedField.type)" class="space-y-1">
+          <div v-if="!isAutoField(selectedField.type) && selectedField.type !== 'label'" class="space-y-1">
             <label class="block text-xs font-medium text-gray-600">フィールド名</label>
             <input v-model="selectedField.label" type="text" class="input-field text-sm" placeholder="フィールド名" />
+          </div>
+
+          <!-- ラベル内容（リッチエディター） -->
+          <div v-if="selectedField.type === 'label'" class="space-y-1">
+            <label class="block text-xs font-medium text-gray-600">表示内容</label>
+            <RichTextEditor v-model="selectedField.label" placeholder="フォームに表示する説明・注意書きを入力..." />
           </div>
 
           <!-- 必須 -->
