@@ -26,8 +26,7 @@ const nextWeek = new Date(now.getTime() + 7 * 86400000)
 const parse = (dateStr?: string) => (dateStr ? new Date(dateStr) : null)
 
 // ── フィルター ────────────────────────────────────────────────────────────────
-const filterFp     = ref('')
-const filterState  = ref('')  // 'future' | 'adjusting' | 'done'
+const filterFp = ref('')
 
 // ── アポ対象顧客（appointment1 or appointment2 を持つ、またはアポ調整中。閲覧範囲で絞り込み） ────
 const apoCustomers = computed<Customer[]>(() => {
@@ -98,8 +97,7 @@ const maxFpTotal = computed(() => Math.max(...fpStats.value.map(f => f.total), 1
 const filteredList = computed<Customer[]>(() => {
   let list = apoCustomers.value
 
-  if (filterFp.value)    list = list.filter(c => (c.assignedFpName || '担当未設定') === filterFp.value)
-  if (filterState.value) list = list.filter(c => classify(c) === filterState.value)
+  if (filterFp.value) list = list.filter(c => (c.assignedFpName || '担当未設定') === filterFp.value)
 
   // 日付順にソート（確定分は近い順、調整中は末尾）
   return [...list].sort((a, b) => {
@@ -132,25 +130,6 @@ const apoPlace = (c: Customer): string =>
 
 const apoNote = (c: Customer): string =>
   c.appointment2?.note ?? c.appointment1?.note ?? ''
-
-const apoType = (c: Customer): string => {
-  if (c.appointment2?.place) return 'ツーアポ'
-  if (c.appointment1?.place) return 'ワンアポ'
-  return 'アポ調整中'
-}
-
-const stateBadge = (c: Customer) => {
-  const cls = classify(c)
-  const nextWeekDate = parse(c.appointment2?.date) ?? parse(c.appointment1?.date)
-  const isThisWeek = nextWeekDate && nextWeekDate <= nextWeek && nextWeekDate > now
-  if (cls === 'future') {
-    return isThisWeek
-      ? { text: '今週予定',  cls: 'bg-green-100 text-green-700' }
-      : { text: 'アポ確定',  cls: 'bg-primary-100 text-primary-700' }
-  }
-  if (cls === 'adjusting') return { text: '調整中',    cls: 'bg-amber-100 text-amber-700' }
-  return                          { text: '実施済み',  cls: 'bg-gray-100 text-gray-500' }
-}
 
 // 担当者の選択肢（アポ対象顧客の担当者名から動的に生成）
 const fpOptions = computed(() =>
@@ -274,13 +253,6 @@ const fpOptions = computed(() =>
             <option value="">全担当者</option>
             <option v-for="fp in fpOptions" :key="fp" :value="fp">{{ fp }}</option>
           </select>
-          <!-- 状態フィルター -->
-          <select v-model="filterState" class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-primary-300">
-            <option value="">すべての状態</option>
-            <option value="future">アポ確定</option>
-            <option value="adjusting">調整中</option>
-            <option value="done">実施済み</option>
-          </select>
         </div>
       </div>
 
@@ -291,17 +263,15 @@ const fpOptions = computed(() =>
             <tr class="border-b border-gray-100">
               <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">氏名</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">担当FP</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">種別</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">日時</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">場所</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">状態</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">状況</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">メモ</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-50">
             <tr v-if="filteredList.length === 0">
-              <td colspan="8" class="text-center py-10 text-sm text-gray-400">
+              <td colspan="6" class="text-center py-10 text-sm text-gray-400">
                 <Icon name="heroicons:calendar" class="h-10 w-10 mx-auto mb-2 text-gray-200" />
                 アポ情報がありません
               </td>
@@ -318,16 +288,8 @@ const fpOptions = computed(() =>
                 <p class="text-xs text-gray-400">{{ c.relationship }}</p>
               </td>
               <td class="px-4 py-3 text-gray-600 text-xs">{{ c.assignedFpName }}</td>
-              <td class="px-4 py-3">
-                <span class="badge text-xs" :class="apoType(c) === 'ツーアポ' ? 'bg-indigo-50 text-indigo-600' : apoType(c) === 'ワンアポ' ? 'bg-primary-50 text-primary-600' : 'bg-amber-50 text-amber-600'">
-                  {{ apoType(c) }}
-                </span>
-              </td>
               <td class="px-4 py-3 tabular-nums text-gray-700 text-xs whitespace-nowrap">{{ apoDate(c) }}</td>
               <td class="px-4 py-3 text-gray-600 text-xs max-w-[140px] truncate">{{ apoPlace(c) }}</td>
-              <td class="px-4 py-3">
-                <span class="badge text-xs" :class="stateBadge(c).cls">{{ stateBadge(c).text }}</span>
-              </td>
               <td class="px-4 py-3 text-gray-600 text-xs">{{ c.status1 }}</td>
               <td class="px-4 py-3 text-gray-400 text-xs max-w-[140px] truncate">{{ apoNote(c) || '—' }}</td>
             </tr>
@@ -351,10 +313,6 @@ const fpOptions = computed(() =>
             <div class="min-w-0">
               <p class="font-medium text-gray-900 truncate">{{ c.name }}</p>
               <p class="text-xs text-gray-500 mt-0.5">{{ c.assignedFpName }}</p>
-            </div>
-            <div class="flex flex-col items-end gap-1 shrink-0">
-              <span class="badge text-xs" :class="stateBadge(c).cls">{{ stateBadge(c).text }}</span>
-              <span class="badge text-xs" :class="apoType(c) === 'ツーアポ' ? 'bg-indigo-50 text-indigo-600' : 'bg-primary-50 text-primary-600'">{{ apoType(c) }}</span>
             </div>
           </div>
           <div class="mt-1.5 space-y-0.5">
