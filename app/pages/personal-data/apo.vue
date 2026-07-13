@@ -41,6 +41,55 @@ const apoCustomers = computed<Customer[]>(() => {
   return list
 })
 
+// ── 閲覧範囲内の全顧客（アポの有無に関わらず、属性分析の母集団） ──────────
+const scopedAllCustomers = computed<Customer[]>(() => {
+  if (scopedFpNames.value === null) return customers.value
+  return customers.value.filter(c => scopedFpNames.value!.has(c.assignedFpName ?? ''))
+})
+
+const BAR_COLORS = ['bg-primary-500', 'bg-sky-500', 'bg-amber-400', 'bg-emerald-500', 'bg-rose-400', 'bg-purple-400', 'bg-gray-400']
+
+const toRatioRows = (list: Customer[], getLabel: (c: Customer) => string) => {
+  const total = list.length
+  const counts: Record<string, number> = {}
+  for (const c of list) {
+    const label = getLabel(c) || '未設定'
+    counts[label] = (counts[label] ?? 0) + 1
+  }
+  return Object.entries(counts).map(([label, count]) => ({
+    label, count, pct: total ? Math.round((count / total) * 1000) / 10 : 0,
+  }))
+}
+
+// ── 性別構成（男 → 女 → その他の順、未設定は末尾） ────────────────────────
+const GENDER_ORDER = ['男', '女']
+const genderStats = computed(() => {
+  const rows = toRatioRows(scopedAllCustomers.value, c => c.gender ?? '')
+  return rows.sort((a, b) => {
+    const ai = GENDER_ORDER.indexOf(a.label)
+    const bi = GENDER_ORDER.indexOf(b.label)
+    if (ai >= 0 && bi >= 0) return ai - bi
+    if (ai >= 0) return -1
+    if (bi >= 0) return 1
+    return b.count - a.count
+  })
+})
+
+// ── 段数別構成（数字順、未設定は末尾） ────────────────────────────────────
+const stageStats = computed(() => {
+  const rows = toRatioRows(scopedAllCustomers.value, c => c.stage ?? '')
+  return rows.sort((a, b) => {
+    const an = Number(a.label)
+    const bn = Number(b.label)
+    const aValid = a.label !== '未設定' && !Number.isNaN(an)
+    const bValid = b.label !== '未設定' && !Number.isNaN(bn)
+    if (aValid && bValid) return an - bn
+    if (aValid) return -1
+    if (bValid) return 1
+    return a.label.localeCompare(b.label, 'ja')
+  })
+})
+
 // ── ステータス分類 ──────────────────────────────────────────────────────────
 const classify = (c: Customer): 'future' | 'adjusting' | 'done' => {
   if (c.status1 === 'アポ調整中') return 'adjusting'
@@ -235,6 +284,57 @@ const fpOptions = computed(() =>
         <span class="flex items-center gap-1.5 text-xs text-gray-500">
           <span class="h-2.5 w-2.5 rounded-sm bg-gray-200 inline-block"></span>実施済み
         </span>
+      </div>
+    </div>
+
+    <!-- 顧客属性分析（性別・段数） -->
+    <div class="grid sm:grid-cols-2 gap-4">
+      <div class="card p-5 space-y-4">
+        <h2 class="font-semibold text-gray-900 flex items-center gap-2">
+          <Icon name="heroicons:user-group" class="h-5 w-5 text-primary-500" />
+          性別構成
+          <span class="text-gray-400 font-normal text-xs ml-1">{{ scopedAllCustomers.length }}件</span>
+        </h2>
+        <div v-if="genderStats.length === 0" class="text-sm text-gray-400 text-center py-6">データがありません</div>
+        <div v-else class="space-y-2.5">
+          <div v-for="(g, i) in genderStats" :key="g.label">
+            <div class="flex items-center justify-between text-xs text-gray-600 mb-1">
+              <span class="font-medium">{{ g.label }}</span>
+              <span>{{ g.count }}件（{{ g.pct }}%）</span>
+            </div>
+            <div class="h-2.5 rounded-full bg-gray-100 overflow-hidden">
+              <div
+                class="h-full rounded-full transition-all"
+                :class="BAR_COLORS[i % BAR_COLORS.length]"
+                :style="{ width: `${g.pct}%` }"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card p-5 space-y-4">
+        <h2 class="font-semibold text-gray-900 flex items-center gap-2">
+          <Icon name="heroicons:chart-pie" class="h-5 w-5 text-primary-500" />
+          段数別構成
+          <span class="text-gray-400 font-normal text-xs ml-1">{{ scopedAllCustomers.length }}件</span>
+        </h2>
+        <div v-if="stageStats.length === 0" class="text-sm text-gray-400 text-center py-6">データがありません</div>
+        <div v-else class="space-y-2.5">
+          <div v-for="(s, i) in stageStats" :key="s.label">
+            <div class="flex items-center justify-between text-xs text-gray-600 mb-1">
+              <span class="font-medium">{{ s.label === '未設定' ? s.label : `${s.label}段` }}</span>
+              <span>{{ s.count }}件（{{ s.pct }}%）</span>
+            </div>
+            <div class="h-2.5 rounded-full bg-gray-100 overflow-hidden">
+              <div
+                class="h-full rounded-full transition-all"
+                :class="BAR_COLORS[i % BAR_COLORS.length]"
+                :style="{ width: `${s.pct}%` }"
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
