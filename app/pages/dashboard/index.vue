@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { usePortalStore } from '~/composables/usePortalStore'
-import { useCustomerStore } from '~/composables/useCustomerStore'
 import { useAnnouncementStore } from '~/composables/useAnnouncementStore'
 import { useNotifications } from '~/composables/useNotifications'
 import { useAnnouncementScope } from '~/composables/useAnnouncementScope'
@@ -9,7 +8,6 @@ definePageMeta({ middleware: ['auth'] })
 
 const { user, displayName } = useCurrentUser()
 const portalStore = usePortalStore()
-const customerStore = useCustomerStore()
 const announcementStore = useAnnouncementStore()
 const { subscribeUnreadCount } = useNotifications()
 const { scopeLabel, scopeBadgeClass, ensureLoaded: ensureScopeLoaded } = useAnnouncementScope()
@@ -73,8 +71,7 @@ const pinnedSpaces = computed(() =>
   })),
 )
 
-// ── KPI ───────────────────────────────────────────────────────────────────
-const totalCustomers = computed(() => customerStore.customers.value.length)
+// ── 通知バッジ ──────────────────────────────────────────────────────────────
 const unreadNotifCount = ref(0)
 let unsubscribeNotifCount: (() => void) | null = null
 onMounted(() => {
@@ -97,6 +94,17 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
         </p>
       </div>
       <div class="flex items-center gap-2">
+        <NuxtLink
+          to="/notifications"
+          class="relative flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 transition shrink-0"
+          aria-label="通知"
+        >
+          <Icon name="heroicons:bell" class="h-5 w-5" />
+          <span
+            v-if="unreadNotifCount > 0"
+            class="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white"
+          >{{ unreadNotifCount > 99 ? '99+' : unreadNotifCount }}</span>
+        </NuxtLink>
         <NuxtLink to="/customers/new" class="btn-primary text-sm flex items-center gap-1.5">
           <Icon name="heroicons:user-plus" class="h-4 w-4" />
           顧客登録
@@ -108,43 +116,29 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
       </div>
     </div>
 
-    <!-- ===== KPI mini ===== -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-      <div class="card p-4 flex items-center gap-3">
-        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-50">
-          <Icon name="heroicons:users" class="h-5 w-5 text-primary-600" />
-        </div>
-        <div>
-          <p class="text-xs text-gray-500">顧客数</p>
-          <p class="text-lg font-bold text-gray-900">{{ totalCustomers }}<span class="text-xs font-normal text-gray-400 ml-1">名</span></p>
-        </div>
-      </div>
-      <div class="card p-4 flex items-center gap-3">
-        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50">
-          <Icon name="heroicons:bell" class="h-5 w-5 text-amber-600" />
-        </div>
-        <div>
-          <p class="text-xs text-gray-500">未読通知</p>
-          <p class="text-lg font-bold text-gray-900">{{ unreadNotifCount }}<span class="text-xs font-normal text-gray-400 ml-1">件</span></p>
-        </div>
-      </div>
-      <div class="card p-4 flex items-center gap-3">
-        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-green-50">
-          <Icon name="heroicons:squares-2x2" class="h-5 w-5 text-green-600" />
-        </div>
-        <div>
-          <p class="text-xs text-gray-500">アプリ</p>
-          <p class="text-lg font-bold text-gray-900">18<span class="text-xs font-normal text-gray-400 ml-1">種</span></p>
-        </div>
-      </div>
-      <div class="card p-4 flex items-center gap-3">
-        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50">
-          <Icon name="heroicons:chat-bubble-left-right" class="h-5 w-5 text-indigo-600" />
-        </div>
-        <div>
-          <p class="text-xs text-gray-500">スペース</p>
-          <p class="text-lg font-bold text-gray-900">{{ pinnedSpaces.length }}<span class="text-xs font-normal text-gray-400 ml-1">件</span></p>
-        </div>
+    <!-- ===== クイックアクション ===== -->
+    <div class="card p-5">
+      <h2 class="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+        <Icon name="heroicons:bolt" class="h-5 w-5 text-primary-600" />
+        クイックアクション
+      </h2>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <NuxtLink to="/customers/new" class="flex items-center gap-2 rounded-lg border border-gray-200 p-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-primary-300 transition">
+          <Icon name="heroicons:user-plus" class="h-5 w-5 text-primary-600 shrink-0" />
+          顧客登録
+        </NuxtLink>
+        <NuxtLink to="/personal-data" class="flex items-center gap-2 rounded-lg border border-gray-200 p-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-primary-300 transition">
+          <Icon name="heroicons:magnifying-glass" class="h-5 w-5 text-primary-600 shrink-0" />
+          顧客検索
+        </NuxtLink>
+        <NuxtLink to="/portal" class="flex items-center gap-2 rounded-lg border border-gray-200 p-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-primary-300 transition">
+          <Icon name="heroicons:pencil-square" class="h-5 w-5 text-primary-600 shrink-0" />
+          掲示板に投稿
+        </NuxtLink>
+        <NuxtLink to="/events" class="flex items-center gap-2 rounded-lg border border-gray-200 p-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-primary-300 transition">
+          <Icon name="heroicons:calendar-days" class="h-5 w-5 text-primary-600 shrink-0" />
+          イベント一覧
+        </NuxtLink>
       </div>
     </div>
 
@@ -291,32 +285,6 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
         </div>
       </div>
 
-    </div>
-
-    <!-- ===== クイックアクション ===== -->
-    <div class="card p-5">
-      <h2 class="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-        <Icon name="heroicons:bolt" class="h-5 w-5 text-primary-600" />
-        クイックアクション
-      </h2>
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <NuxtLink to="/customers/new" class="flex items-center gap-2 rounded-lg border border-gray-200 p-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-primary-300 transition">
-          <Icon name="heroicons:user-plus" class="h-5 w-5 text-primary-600 shrink-0" />
-          顧客登録
-        </NuxtLink>
-        <NuxtLink to="/personal-data" class="flex items-center gap-2 rounded-lg border border-gray-200 p-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-primary-300 transition">
-          <Icon name="heroicons:magnifying-glass" class="h-5 w-5 text-primary-600 shrink-0" />
-          顧客検索
-        </NuxtLink>
-        <NuxtLink to="/portal" class="flex items-center gap-2 rounded-lg border border-gray-200 p-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-primary-300 transition">
-          <Icon name="heroicons:pencil-square" class="h-5 w-5 text-primary-600 shrink-0" />
-          掲示板に投稿
-        </NuxtLink>
-        <NuxtLink to="/events" class="flex items-center gap-2 rounded-lg border border-gray-200 p-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-primary-300 transition">
-          <Icon name="heroicons:calendar-days" class="h-5 w-5 text-primary-600 shrink-0" />
-          イベント一覧
-        </NuxtLink>
-      </div>
     </div>
 
   </div>
