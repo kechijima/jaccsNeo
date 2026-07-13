@@ -47,7 +47,8 @@ onMounted(async () => {
         endDate:     end ? end.toISOString().split('T')[0] : '',
         endTime:     end ? end.toTimeString().slice(0, 5) : '',
         location:    ev.location ?? '',
-        targetScope: ev.scope,
+        // scope:'group'+groupIdの新形式・scopeに直接グループIDが入る旧形式のどちらでも復元できるようにする
+        targetScope: ev.scope === 'group' && ev.groupId ? ev.groupId : ev.scope,
         description: ev.description ?? '',
         notifyEmail: true,
         notifyApp:   true,
@@ -66,12 +67,14 @@ const handleSubmit = async () => {
   try {
     const startAt = form.value.startDate + (form.value.startTime ? 'T' + form.value.startTime : 'T00:00')
     const endAt   = form.value.endDate ? form.value.endDate + (form.value.endTime ? 'T' + form.value.endTime : 'T00:00') : undefined
+    const isGroupSelection = groups.value.some(g => g.id === form.value.targetScope)
     await updateEvent(eventId.value, {
       title:       form.value.title,
       startAt,
       endAt,
       location:    form.value.location || undefined,
-      scope:       form.value.targetScope as EventForm['scope'],
+      scope:       (isGroupSelection ? 'group' : form.value.targetScope) as EventForm['scope'],
+      groupId:     isGroupSelection ? form.value.targetScope : undefined,
       description: form.value.description || undefined,
     })
     await navigateTo(`/events/${eventId.value}`)

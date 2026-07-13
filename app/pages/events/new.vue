@@ -42,13 +42,17 @@ const handleSubmit = async () => {
         : `${form.value.endDate}T00:00`
       : undefined
 
+    // 対象スコープのセレクトは「全体」「各グループ」「特定の組合」を1つのセレクトで選ぶため、
+    // グループが選ばれた場合はscope:'group'とgroupIdの両方に正しく分けて保存する
+    const isGroupSelection = groups.value.some(g => g.id === form.value.targetScope)
     const eventForm: EventForm = {
       title: form.value.title,
       description: form.value.description || undefined,
       startAt,
       endAt,
       location: form.value.location || undefined,
-      scope: form.value.targetScope as EventForm['scope'],
+      scope: (isGroupSelection ? 'group' : form.value.targetScope) as EventForm['scope'],
+      groupId: isGroupSelection ? form.value.targetScope : undefined,
     }
 
     await createEvent(eventForm)

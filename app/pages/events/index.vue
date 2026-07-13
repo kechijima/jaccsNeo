@@ -1,10 +1,17 @@
 <script setup lang="ts">
-import { MOCK_EVENTS } from '~/data/mock'
+import { useEvents } from '~/composables/useEvents'
+import { useEventScope } from '~/composables/useEventScope'
+import type { EventSummary } from '~/types/event'
 
 definePageMeta({ middleware: ['auth'] })
 
+const { fetchEvents, fetchMyAttendance } = useEvents()
+const { scopeLabel, scopeBadgeClass, scopeDotClass, ensureLoaded: ensureEventScopeLoaded } = useEventScope()
+
 const viewMode = ref<'list' | 'calendar'>('calendar')
 const currentMonth = ref(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
+const loading = ref(true)
+const loadError = ref('')
 
 interface EventRow {
   id: string
@@ -12,21 +19,40 @@ interface EventRow {
   startAt: Date
   endAt: Date | undefined
   location: string | undefined
-  targetScope: string
+  scope: string
+  groupId?: string
   attendeeCount: number
   isAttending: boolean
 }
 
+const rawEvents = ref<EventSummary[]>([])
+const attendingIds = ref<Set<string>>(new Set())
+
+onMounted(async () => {
+  loading.value = true
+  try {
+    const [list] = await Promise.all([fetchEvents(), ensureEventScopeLoaded()])
+    rawEvents.value = list
+    const statuses = await Promise.all(list.map(e => fetchMyAttendance(e.id).catch(() => null)))
+    attendingIds.value = new Set(list.filter((_, i) => statuses[i] === 'attending').map(e => e.id))
+  } catch (e: any) {
+    loadError.value = e.message ?? 'イベントの取得に失敗しました'
+  } finally {
+    loading.value = false
+  }
+})
+
 const events = computed<EventRow[]>(() =>
-  MOCK_EVENTS.map(e => ({
+  rawEvents.value.map(e => ({
     id:            e.id,
     title:         e.title,
     startAt:       e.startAt.toDate(),
     endAt:         e.endAt?.toDate(),
     location:      e.location,
-    targetScope:   e.scope,
+    scope:         e.scope,
+    groupId:       e.groupId,
     attendeeCount: e.attendeeCount,
-    isAttending:   ['ev001', 'ev003', 'ev005'].includes(e.id),
+    isAttending:   attendingIds.value.has(e.id),
   }))
 )
 
@@ -102,27 +128,6 @@ const prevMonth = () => {
 const nextMonth = () => {
   currentMonth.value = new Date(currentMonth.value.getFullYear(), currentMonth.value.getMonth() + 1, 1)
 }
-
-const pillColor = (scope: string) => {
-  const map: Record<string, string> = {
-    all:    'bg-green-100 text-green-700',
-    group:  'bg-indigo-100 text-indigo-700',
-    kumiai: 'bg-indigo-100 text-indigo-700',
-    space:  'bg-amber-100 text-amber-700',
-  }
-  return map[scope] ?? 'bg-gray-100 text-gray-600'
-}
-
-const dotColor = (scope: string) => {
-  const map: Record<string, string> = {
-    all:    'bg-green-500',
-    group:  'bg-indigo-500',
-    kumiai: 'bg-indigo-400',
-    space:  'bg-amber-500',
-  }
-  return map[scope] ?? 'bg-gray-400'
-}
-
 </script>
 
 <template>
@@ -134,12 +139,25 @@ const dotColor = (scope: string) => {
         <h1 class="text-xl font-bold text-gray-900">イベント</h1>
         <p class="text-sm text-gray-500 mt-0.5">スケジュール・出欠管理</p>
       </div>
-      <NuxtLink to="/events/new" class="btn-primary text-sm flex items-center gap-1.5">
-        <Icon name="heroicons:calendar-plus" class="h-4 w-4" />
+      <NuxtLink to="/events/new" class="btn-primary text-sm">
+        <Icon name="heroicons:plus" class="h-4 w-4" />
         イベント作成
       </NuxtLink>
     </div>
 
+    <!-- 読み込み中 -->
+    <div v-if="loading" class="card p-12 text-center">
+      <Icon name="heroicons:arrow-path" class="h-8 w-8 text-gray-300 mx-auto mb-2 animate-spin" />
+      <p class="text-sm text-gray-400">読み込み中...</p>
+    </div>
+
+    <!-- エラー -->
+    <div v-else-if="loadError" class="card p-12 text-center">
+      <Icon name="heroicons:exclamation-circle" class="h-8 w-8 text-red-300 mx-auto mb-2" />
+      <p class="text-sm text-red-500">{{ loadError }}</p>
+    </div>
+
+    <template v-else>
     <!-- ビュー切り替え -->
     <div class="flex gap-1 rounded-lg bg-gray-100 p-1 w-fit">
       <button
@@ -189,6 +207,9 @@ const dotColor = (scope: string) => {
                   <span v-if="evt.isAttending" class="badge bg-green-100 text-green-700 text-xs">参加予定</span>
                   <span v-else class="badge bg-gray-100 text-gray-500 text-xs">未回答</span>
                 </div>
+              </div>
+              <div class="mt-1.5 flex items-center gap-2 flex-wrap">
+                <span class="badge text-xs" :class="scopeBadgeClass(evt)">{{ scopeLabel(evt) }}</span>
               </div>
               <div class="mt-1.5 space-y-0.5 text-xs text-gray-500">
                 <p class="flex items-center gap-1">
@@ -294,7 +315,7 @@ const dotColor = (scope: string) => {
               v-for="evt in day.events.slice(0, 3)"
               :key="evt.id"
               class="w-1.5 h-1.5 rounded-full shrink-0"
-              :class="dotColor(evt.targetScope)"
+              :class="scopeDotClass(evt)"
               :title="evt.title"
             />
             <span v-if="day.events.length > 3" class="text-[8px] text-gray-400 leading-none self-end">+{{ day.events.length - 3 }}</span>
@@ -307,7 +328,7 @@ const dotColor = (scope: string) => {
               :key="evt.id"
               :to="`/events/${evt.id}`"
               class="flex items-center gap-1 w-full truncate text-xs rounded px-1 py-0.5 hover:opacity-80 transition cursor-pointer"
-              :class="pillColor(evt.targetScope)"
+              :class="scopeBadgeClass(evt)"
             >
               <span class="shrink-0 text-[10px] opacity-70 tabular-nums">{{ formatTime(evt.startAt) }}</span>
               <span class="truncate flex-1">{{ evt.title }}</span>
@@ -320,6 +341,7 @@ const dotColor = (scope: string) => {
       </div>
 
     </div>
+    </template>
 
   </div>
 </template>

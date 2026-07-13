@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { MOCK_EVENTS } from '~/data/mock'
 import { usePortalStore } from '~/composables/usePortalStore'
 import { useAuthorProfileModal } from '~/composables/useAuthorProfileModal'
+import { useEvents } from '~/composables/useEvents'
+import { useEventScope } from '~/composables/useEventScope'
+import type { EventSummary } from '~/types/event'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -12,22 +14,35 @@ const { openAuthorProfile } = useAuthorProfileModal()
 await store.fetchAllPosts()
 
 // ── 検索・フィルター ──────────────────────────────────────────────────
-const searchQuery  = ref('')
-const filterSpaceId = ref('')    // '' = すべて
+const searchQuery    = ref('')
+const filterSpaceId  = ref('')   // '' = すべて
+const filterAuthorId = ref('')   // '' = すべて
 const filterDateFrom = ref('')   // YYYY-MM-DD
 const filterDateTo   = ref('')   // YYYY-MM-DD
 const showFilter   = ref(false)
 
 const activeFilterCount = computed(() =>
-  [filterSpaceId.value, filterDateFrom.value, filterDateTo.value].filter(Boolean).length
+  [filterSpaceId.value, filterAuthorId.value, filterDateFrom.value, filterDateTo.value].filter(Boolean).length
 )
 
 const resetFilters = () => {
-  searchQuery.value   = ''
+  searchQuery.value    = ''
   filterSpaceId.value  = ''
+  filterAuthorId.value = ''
   filterDateFrom.value = ''
   filterDateTo.value   = ''
 }
+
+// 投稿者の選択肢（実際に投稿がある著者から動的に生成）
+const authorOptions = computed(() => {
+  const map = new Map<string, string>()
+  for (const p of store.posts.value) {
+    if (p.authorId) map.set(p.authorId, p.authorName)
+  }
+  return [...map.entries()]
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ja'))
+})
 
 const isFiltering = computed(() =>
   searchQuery.value.trim() !== '' || activeFilterCount.value > 0
@@ -50,6 +65,11 @@ const filteredPosts = computed(() => {
   // スペース
   if (filterSpaceId.value) {
     list = list.filter(p => p.spaceId === filterSpaceId.value)
+  }
+
+  // ユーザー（投稿者）
+  if (filterAuthorId.value) {
+    list = list.filter(p => p.authorId === filterAuthorId.value)
   }
 
   // 期間（開始）
@@ -106,10 +126,21 @@ const allSpaces = computed(() =>
   })),
 )
 
+// ── 近日のイベント（DBから取得） ───────────────────────────────────────
+const { fetchEvents } = useEvents()
+const { scopeBadgeClass: eventScopeBadgeClass, ensureLoaded: ensureEventScopeLoaded } = useEventScope()
+
+const rawUpcomingEvents = ref<EventSummary[]>([])
+onMounted(async () => {
+  const [list] = await Promise.all([
+    fetchEvents({ upcoming: true }).catch(() => []),
+    ensureEventScopeLoaded(),
+  ])
+  rawUpcomingEvents.value = list
+})
+
 const upcomingEvents = computed(() =>
-  MOCK_EVENTS
-    .filter(e => e.startAt.toDate() >= new Date())
-    .sort((a, b) => a.startAt.toDate().getTime() - b.startAt.toDate().getTime())
+  rawUpcomingEvents.value
     .slice(0, 3)
     .map(e => ({
       id:        e.id,
@@ -117,15 +148,9 @@ const upcomingEvents = computed(() =>
       dateLabel: e.startAt.toDate().toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', weekday: 'short' }),
       timeLabel: e.startAt.toDate().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
       scope:     e.scope,
+      groupId:   e.groupId,
     })),
 )
-
-const eventColorMap: Record<string, string> = {
-  all:    'bg-green-50 text-green-700',
-  group:  'bg-indigo-50 text-indigo-700',
-  kumiai: 'bg-purple-50 text-purple-700',
-  space:  'bg-amber-50 text-amber-700',
-}
 </script>
 
 <template>
@@ -196,13 +221,21 @@ const eventColorMap: Record<string, string> = {
         leave-from-class="opacity-100 translate-y-0"
         leave-to-class="opacity-0 -translate-y-2"
       >
-        <div v-if="showFilter" class="card p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div v-if="showFilter" class="card p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <!-- スペース -->
           <div class="space-y-1">
             <label class="text-xs font-medium text-gray-500">スペース</label>
             <select v-model="filterSpaceId" class="input-field text-sm py-1.5">
               <option value="">すべてのスペース</option>
               <option v-for="s in store.spaces.value" :key="s.id" :value="s.id">{{ s.name }}</option>
+            </select>
+          </div>
+          <!-- ユーザー -->
+          <div class="space-y-1">
+            <label class="text-xs font-medium text-gray-500">ユーザー</label>
+            <select v-model="filterAuthorId" class="input-field text-sm py-1.5">
+              <option value="">すべてのユーザー</option>
+              <option v-for="a in authorOptions" :key="a.id" :value="a.id">{{ a.name }}</option>
             </select>
           </div>
           <!-- 開始日 -->
@@ -228,6 +261,10 @@ const eventColorMap: Record<string, string> = {
         <span v-if="filterSpaceId" class="inline-flex items-center gap-1 rounded-full bg-primary-100 px-3 py-1 text-xs text-primary-700 font-medium">
           {{ store.spaces.value.find(s => s.id === filterSpaceId)?.name }}
           <button @click="filterSpaceId = ''"><Icon name="heroicons:x-mark" class="h-3 w-3" /></button>
+        </span>
+        <span v-if="filterAuthorId" class="inline-flex items-center gap-1 rounded-full bg-primary-100 px-3 py-1 text-xs text-primary-700 font-medium">
+          {{ authorOptions.find(a => a.id === filterAuthorId)?.name }}
+          <button @click="filterAuthorId = ''"><Icon name="heroicons:x-mark" class="h-3 w-3" /></button>
         </span>
         <span v-if="filterDateFrom || filterDateTo" class="inline-flex items-center gap-1 rounded-full bg-primary-100 px-3 py-1 text-xs text-primary-700 font-medium">
           <Icon name="heroicons:calendar" class="h-3 w-3" />
@@ -408,7 +445,7 @@ const eventColorMap: Record<string, string> = {
               :key="ev.id"
               :to="`/events/${ev.id}`"
               class="block rounded-lg p-3 hover:opacity-80 transition"
-              :class="eventColorMap[ev.scope] ?? 'bg-gray-50 text-gray-700'"
+              :class="eventScopeBadgeClass(ev)"
             >
               <p class="text-xs font-semibold">{{ ev.dateLabel }} {{ ev.timeLabel }}〜</p>
               <p class="text-sm mt-0.5 leading-snug">{{ ev.title }}</p>

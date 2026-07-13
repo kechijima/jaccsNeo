@@ -5,6 +5,7 @@ import {
   getDocs,
   addDoc,
   updateDoc,
+  setDoc,
   deleteDoc,
   query,
   where,
@@ -19,6 +20,15 @@ import type { Event, EventSummary, EventAttendee, EventForm, AttendanceStatus } 
 import { useAuthStore } from '~/stores/auth'
 
 const toEvent = (id: string, data: DocumentData): Event => ({ id, ...data }) as Event
+
+// Firestoreはフィールド値にundefinedを許可せずエラーになるため、送信前に取り除く
+const stripUndefined = <T extends Record<string, any>>(obj: T): T => {
+  const result = {} as T
+  for (const key of Object.keys(obj) as (keyof T)[]) {
+    if (obj[key] !== undefined) result[key] = obj[key]
+  }
+  return result
+}
 
 export const useEvents = () => {
   const { $db } = useNuxtApp()
@@ -66,7 +76,7 @@ export const useEvents = () => {
     const endAt   = form.endAt ? Timestamp.fromDate(new Date(form.endAt)) : null
 
     const ref = await addDoc(eventsCol(), {
-      ...form,
+      ...stripUndefined(form),
       startAt,
       endAt,
       attendeeCount: 0,
@@ -80,7 +90,7 @@ export const useEvents = () => {
 
   // ===== 更新 =====
   const updateEvent = async (eventId: string, form: Partial<EventForm>): Promise<void> => {
-    const data: any = { ...form, updatedAt: serverTimestamp() }
+    const data: any = { ...stripUndefined(form), updatedAt: serverTimestamp() }
     if (form.startAt) data.startAt = Timestamp.fromDate(new Date(form.startAt))
     if (form.endAt)   data.endAt   = Timestamp.fromDate(new Date(form.endAt))
     await updateDoc(doc($db, 'events', eventId), data)
@@ -114,12 +124,12 @@ export const useEvents = () => {
     const attendeeRef = doc($db, 'events', eventId, 'attendees', uid)
     const prev = await getDoc(attendeeRef)
 
-    await updateDoc(attendeeRef as any, {
+    await setDoc(attendeeRef, {
       uid,
       displayName: authStore.user?.displayName,
       status,
       updatedAt:   serverTimestamp(),
-    })
+    }, { merge: true })
 
     // 出席者数の更新
     const wasAttending = prev.exists() && prev.data().status === 'attending'
