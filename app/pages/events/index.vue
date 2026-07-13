@@ -70,6 +70,13 @@ const monthName = computed(() =>
   currentMonth.value.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long' })
 )
 
+// 時刻を無視して日付だけを比較するためのヘルパー（複数日にまたがるイベントの判定用）
+const toDateOnly = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate())
+const isDateInRange = (day: Date, start: Date, end: Date) => {
+  const d = toDateOnly(day)
+  return d >= toDateOnly(start) && d <= toDateOnly(end)
+}
+
 // ===== カレンダーロジック =====
 const calendarDays = computed(() => {
   const year = currentMonth.value.getFullYear()
@@ -99,7 +106,8 @@ const calendarDays = computed(() => {
   while (curr <= endDate) {
     const currCopy = new Date(curr)
     const currDateStr = currCopy.toDateString()
-    const dayEvents = events.value.filter(e => e.startAt.toDateString() === currDateStr)
+    // 複数日にまたがるイベント（終了日が翌日以降）は該当する日すべてに表示する
+    const dayEvents = events.value.filter(e => isDateInRange(currCopy, e.startAt, e.endAt ?? e.startAt))
 
     days.push({
       date: currCopy,
@@ -115,12 +123,14 @@ const calendarDays = computed(() => {
   return days
 })
 
-const eventsInCurrentMonth = computed(() =>
-  events.value.filter(e =>
-    e.startAt.getFullYear() === currentMonth.value.getFullYear() &&
-    e.startAt.getMonth() === currentMonth.value.getMonth()
-  )
-)
+const eventsInCurrentMonth = computed(() => {
+  const year  = currentMonth.value.getFullYear()
+  const month = currentMonth.value.getMonth()
+  const monthStart = new Date(year, month, 1)
+  const monthEnd   = new Date(year, month + 1, 0)
+  // 表示中の月に1日でも重なっていれば「今月のイベント」として数える（複数日イベント対応）
+  return events.value.filter(e => toDateOnly(e.startAt) <= monthEnd && toDateOnly(e.endAt ?? e.startAt) >= monthStart)
+})
 
 const prevMonth = () => {
   currentMonth.value = new Date(currentMonth.value.getFullYear(), currentMonth.value.getMonth() - 1, 1)
