@@ -9,6 +9,15 @@ const COLLECTION = 'appDefs'
 
 const toDate = (val: any): Date => val?.toDate?.() ?? (val instanceof Date ? val : new Date())
 
+// Firestoreはフィールド値にundefinedを許可せずエラーになるため、送信前に取り除く
+const stripUndefined = <T extends Record<string, any>>(obj: T): T => {
+  const result = {} as T
+  for (const key of Object.keys(obj) as (keyof T)[]) {
+    if (obj[key] !== undefined) result[key] = obj[key]
+  }
+  return result
+}
+
 const toAppDef = (id: string, data: DocumentData): AppDef => ({
   id,
   name: data.name ?? '',
@@ -17,6 +26,7 @@ const toAppDef = (id: string, data: DocumentData): AppDef => ({
   ownerUid: data.ownerUid,
   staffUids: data.staffUids ?? [],
   sourceServiceType: data.sourceServiceType,
+  isPublished: data.isPublished ?? true,
   createdBy: data.createdBy ?? '',
   createdAt: toDate(data.createdAt),
   updatedAt: toDate(data.updatedAt),
@@ -57,7 +67,8 @@ export const useAppDefs = () => {
 
   const create = async (input: AppDefInput): Promise<string> => {
     const ref = await addDoc(collection($db, COLLECTION), {
-      ...input,
+      ...stripUndefined(input),
+      isPublished: input.isPublished ?? true,
       createdBy: authStore.user?.uid ?? '',
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -67,9 +78,10 @@ export const useAppDefs = () => {
   }
 
   const update = async (id: string, patch: Partial<AppDefInput>): Promise<void> => {
-    await updateDoc(doc($db, COLLECTION, id), { ...patch, updatedAt: serverTimestamp() })
+    const payload = stripUndefined(patch)
+    await updateDoc(doc($db, COLLECTION, id), { ...payload, updatedAt: serverTimestamp() })
     const idx = appDefs.value.findIndex(a => a.id === id)
-    if (idx >= 0) appDefs.value[idx] = { ...appDefs.value[idx], ...patch, updatedAt: new Date() } as AppDef
+    if (idx >= 0) appDefs.value[idx] = { ...appDefs.value[idx], ...payload, updatedAt: new Date() } as AppDef
   }
 
   // 既存アプリを複製して新しいアプリを作成する（フィールド構成のみコピー、責任者・担当者は未設定で開始）

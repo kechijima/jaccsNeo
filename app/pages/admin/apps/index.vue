@@ -56,7 +56,7 @@ const submitCreate = async () => {
   try {
     const id = createMode.value === 'duplicate'
       ? await duplicateFrom(duplicateSourceId.value, createName.value.trim())
-      : await create({ name: createName.value.trim(), fields: [], staffUids: [] })
+      : await create({ name: createName.value.trim(), fields: [], staffUids: [], isPublished: true })
     showCreate.value = false
     await navigateTo(`/admin/apps/${id}`)
   } catch (e: any) {
@@ -121,7 +121,13 @@ const submitCreate = async () => {
       >
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
-            <p class="font-semibold text-gray-900 truncate">{{ app.name }}</p>
+            <div class="flex items-center gap-1.5">
+              <p class="font-semibold text-gray-900 truncate">{{ app.name }}</p>
+              <span
+                class="badge text-[10px] shrink-0"
+                :class="app.isPublished ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
+              >{{ app.isPublished ? '公開中' : '下書き' }}</span>
+            </div>
             <p class="text-xs text-gray-400 mt-0.5">{{ app.fields.length }}項目</p>
           </div>
           <Icon name="heroicons:chevron-right" class="h-5 w-5 text-gray-300 shrink-0" />

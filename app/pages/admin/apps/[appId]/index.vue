@@ -18,6 +18,7 @@ const appDescription = ref('')
 const ownerUid = ref('')
 const staffUids = ref<string[]>([])
 const sourceServiceType = ref('')
+const isPublished = ref(true)
 const users = ref<AppUser[]>([])
 
 onMounted(async () => {
@@ -32,6 +33,7 @@ onMounted(async () => {
       ownerUid.value = app.ownerUid ?? ''
       staffUids.value = [...app.staffUids]
       sourceServiceType.value = app.sourceServiceType ?? ''
+      isPublished.value = app.isPublished
       fields.value = app.fields.map(f => ({ ...f, options: [...f.options] }))
     }
   } catch (e: any) {
@@ -256,6 +258,7 @@ const submitSettings = async () => {
       ownerUid: ownerUid.value || undefined,
       staffUids: staffUids.value,
       sourceServiceType: sourceServiceType.value || undefined,
+      isPublished: isPublished.value,
     })
     showSettings.value = false
   } catch (e: any) {
@@ -289,6 +292,10 @@ const submitSettings = async () => {
         <h1 class="text-lg font-bold text-gray-900 flex items-center gap-2 truncate">
           <Icon name="heroicons:squares-2x2" class="h-5 w-5 text-primary-600 shrink-0" />
           {{ appName || 'アプリ設定' }}
+          <span
+            class="badge text-[10px] shrink-0"
+            :class="isPublished ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
+          >{{ isPublished ? '公開中' : '下書き' }}</span>
         </h1>
       </div>
       <div class="flex items-center gap-2 shrink-0">
@@ -708,15 +715,35 @@ const submitSettings = async () => {
             <textarea v-model="appDescription" rows="2" class="input-field resize-none" />
           </div>
 
+          <div class="flex items-center justify-between rounded-lg border border-gray-200 p-3">
+            <div>
+              <p class="text-sm font-medium text-gray-800">公開設定</p>
+              <p class="text-xs text-gray-500 mt-0.5">{{ isPublished ? 'アプリ一覧に公開中です' : '下書き（アプリ一覧に「下書き」表示）' }}</p>
+            </div>
+            <button
+              type="button"
+              class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0"
+              :class="isPublished ? 'bg-primary-500' : 'bg-gray-200'"
+              @click="isPublished = !isPublished"
+            >
+              <span
+                class="inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform"
+                :class="isPublished ? 'translate-x-6' : 'translate-x-1'"
+              />
+            </button>
+          </div>
+
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">
-              連携する既存アプリのデータ
-              <span class="font-normal text-gray-400">（登録・編集時に責任者へ通知）</span>
-            </label>
+            <label class="block text-xs font-medium text-gray-600 mb-1">既存データとの連携</label>
             <select v-model="sourceServiceType" class="input-field text-sm">
               <option value="">連携しない</option>
               <option value="lifeInsurance">生命保険</option>
             </select>
+            <p class="mt-1.5 text-xs text-gray-400 leading-relaxed">
+              「生命保険」を選択すると、実際の生命保険データ（アプリ &gt; 生命保険）で案件が登録・編集されるたびに、
+              下の「アプリ責任者」へ通知が届くようになります。ここで作成しているフィールドや入力データとは連動しません
+              （生命保険の案件データそのものは既存の生命保険画面から登録・編集します）。
+            </p>
           </div>
 
           <div>

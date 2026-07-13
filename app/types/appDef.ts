@@ -17,6 +17,7 @@ export interface AppDef {
   ownerUid?: string        // アプリ責任者（データの登録・編集・削除を通知）
   staffUids: string[]      // アプリ担当者
   sourceServiceType?: string  // 実データに連動する既存サービス種別（例: 'lifeInsurance'）
+  isPublished: boolean     // 公開（利用可能）かどうか。falseの場合は下書き扱い
   createdBy: string
   createdAt: Timestamp
   updatedAt: Timestamp
