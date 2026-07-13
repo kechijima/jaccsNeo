@@ -66,6 +66,7 @@ const FIELD_CATEGORIES: FieldCategory[] = [
     fields: [
       { type: 'text',           label: '文字列（1行）', icon: 'heroicons:pencil',            description: '1行の文字列を入力する項目' },
       { type: 'textarea',       label: '文字列（複数行）', icon: 'heroicons:bars-3-bottom-left', description: '複数行の文字列を入力する項目' },
+      { type: 'file',           label: 'ファイル添付', icon: 'heroicons:paper-clip',       description: 'ファイルを添付する項目' },
       { type: 'record_number',  label: 'レコード番号', icon: 'heroicons:hashtag',         description: 'レコードに採番された固有の番号を表示' },
       { type: 'label',          label: 'ラベル',       icon: 'heroicons:tag',              description: 'フォームに説明や注意を表示' },
       { type: 'space',          label: 'スペース',     icon: 'heroicons:minus',            description: 'フォームにスペースを追加' },
@@ -174,7 +175,9 @@ const LIFE_INSURANCE_FIELD_SPECS: Array<{ type: string; label: string; required?
   { type: 'group',    label: '契約・プランニング' },
   { type: 'textarea', label: '設計書依頼（保険内容）' },
   { type: 'radio',    label: '新規（無保険状態）or 乗換契約', options: [...NEW_OR_SWITCH_OPTIONS] },
-  { type: 'label',    label: '保険証券コピー（ファイル添付・最大3件、実際の生命保険画面で管理します）' },
+  { type: 'file',     label: '保険証券コピー①' },
+  { type: 'file',     label: '保険証券コピー②' },
+  { type: 'file',     label: '保険証券コピー③' },
   { type: 'group',    label: 'アポ希望' },
   { type: 'datetime', label: 'アポ希望日①' },
   { type: 'datetime', label: 'アポ希望日②' },
@@ -402,6 +405,14 @@ const submitSettings = async () => {
           <div v-else-if="f.type === 'textarea'">
             <label class="block text-sm font-medium text-gray-700 mb-1">{{ f.label }}<span v-if="f.required" class="text-red-500 ml-1">*</span></label>
             <textarea rows="3" class="input-field text-sm resize-none" disabled />
+          </div>
+          <!-- ファイル添付 -->
+          <div v-else-if="f.type === 'file'">
+            <label class="block text-sm font-medium text-gray-700 mb-1">{{ f.label }}<span v-if="f.required" class="text-red-500 ml-1">*</span></label>
+            <div class="flex items-center justify-center rounded-lg border-2 border-dashed border-gray-200 p-4 text-xs text-gray-400 text-center">
+              <Icon name="heroicons:paper-clip" class="h-4 w-4 mr-1.5" />
+              ファイルを選択
+            </div>
           </div>
           <!-- レコード番号 -->
           <div v-else-if="f.type === 'record_number'">
