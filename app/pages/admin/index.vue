@@ -79,6 +79,13 @@ const adminMenus = [
     description: '全体スペース・Reteraceグループ活動報告など既存の掲示板データをFirestoreへ一括投入',
     color: 'text-indigo-600 bg-indigo-50',
   },
+  {
+    to: '/admin/seed-director-index',
+    icon: 'heroicons:magnifying-glass',
+    label: 'ディレクター検索インデックス投入',
+    description: 'ディレクター×組合×役割ごとの担当メンバー検索インデックスをFirestoreへ一括投入',
+    color: 'text-cyan-600 bg-cyan-50',
+  },
 ]
 
 const { fetchUsers } = useUsers()

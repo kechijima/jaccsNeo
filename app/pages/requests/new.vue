@@ -44,7 +44,8 @@ const memberKumiaiOptions = computed(() =>
 watch(() => memberCreateForm.groupId, () => { memberCreateForm.kumiaiId = '' })
 
 // ── プラン変更・サポート者変更（対象ユーザー選択は共通） ────────────────
-const planChangeForm = reactive({ targetUid: '', newPlan: '' })
+const MEMBERSHIP_PLAN_OPTIONS = ['Sプラン', 'Bプラン']
+const planChangeForm = reactive({ targetUid: '', newPlan: MEMBERSHIP_PLAN_OPTIONS[0] })
 const supporterChangeForm = reactive({ targetUid: '', mainSupporterUid: '', subSupporterUid: '' })
 
 const note = ref('')
@@ -55,7 +56,7 @@ const resetForms = () => {
   Object.assign(kumiaiCreateForm, { groupId: '', name: '', adminName: '' })
   Object.assign(groupCreateForm, { name: '' })
   Object.assign(memberCreateForm, { displayName: '', email: '', groupId: '', kumiaiId: '', position: '', mainSupporterUid: '', subSupporterUid: '' })
-  Object.assign(planChangeForm, { targetUid: '', newPlan: '' })
+  Object.assign(planChangeForm, { targetUid: '', newPlan: MEMBERSHIP_PLAN_OPTIONS[0] })
   Object.assign(supporterChangeForm, { targetUid: '', mainSupporterUid: '', subSupporterUid: '' })
   note.value = ''
 }
@@ -236,7 +237,9 @@ const handleSubmit = async () => {
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">変更後のプラン <span class="text-red-500">*</span></label>
-          <input v-model="planChangeForm.newPlan" type="text" placeholder="例: プレミアムプラン" class="input-field" />
+          <select v-model="planChangeForm.newPlan" class="input-field">
+            <option v-for="plan in MEMBERSHIP_PLAN_OPTIONS" :key="plan" :value="plan">{{ plan }}</option>
+          </select>
         </div>
       </template>
 

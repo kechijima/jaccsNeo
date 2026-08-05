@@ -1,12 +1,22 @@
 <script setup lang="ts">
 import type { AppUser } from '~/types/user'
 import { useOrgTree } from '~/composables/useOrgTree'
+import { useDirectorIndex } from '~/composables/useDirectorIndex'
+import { DIRECTOR_ROLE_LABELS } from '~/types/directorIndex'
 
 definePageMeta({ middleware: ['auth'] })
 
 const { fetchUsers } = useUsers()
 const { tree: orgTree, loading: treeLoading, fetchTree } = useOrgTree()
-const viewMode = ref<'tree' | 'list'>('tree')
+const viewMode = ref<'tree' | 'list' | 'lookup'>('tree')
+
+// ── ディレクター逆引き検索（添付Excelの検索インデックスを取り込んだデータ） ──
+const {
+  directorNames, loading: lookupLoading, fetchAll: fetchDirectorIndex, searchByDirector,
+} = useDirectorIndex()
+const lookupQuery = ref('')
+const lookupOptions = computed(() => directorNames.value.map(n => ({ id: n, label: n })))
+const lookupResults = computed(() => searchByDirector(lookupQuery.value))
 
 // Color palette cycled per unique groupId
 const GROUP_COLORS: { color: string; bgColor: string }[] = [
@@ -56,6 +66,7 @@ const toggleGroup = (id: string) => {
 
 onMounted(async () => {
   fetchTree()
+  fetchDirectorIndex()
 
   loading.value = true
   error.value = ''
@@ -142,6 +153,59 @@ onMounted(async () => {
         >
           <Icon name="heroicons:bars-3" class="h-3.5 w-3.5" />一覧
         </button>
+        <button
+          type="button"
+          class="px-4 py-1.5 font-medium transition flex items-center gap-1.5"
+          :class="viewMode === 'lookup' ? 'bg-primary-600 text-white' : 'text-gray-500 hover:bg-gray-50'"
+          @click="viewMode = 'lookup'"
+        >
+          <Icon name="heroicons:magnifying-glass" class="h-3.5 w-3.5" />ディレクター逆引き
+        </button>
+      </div>
+    </div>
+
+    <!-- ディレクター逆引き検索 -->
+    <div v-if="viewMode === 'lookup'" class="space-y-4">
+      <div class="card p-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">ディレクター名で検索</label>
+        <SearchableSelect
+          v-model="lookupQuery"
+          :items="lookupOptions"
+          placeholder="ディレクターを選択..."
+          search-placeholder="ディレクター名で検索..."
+        />
+        <p class="mt-1.5 text-xs text-gray-400">組合員一覧（{{ directorNames.length }}名のディレクター）から、担当している組合・役割・メンバーを逆引きできます</p>
+      </div>
+
+      <div v-if="lookupLoading" class="card p-12 text-center">
+        <Icon name="heroicons:arrow-path" class="h-8 w-8 text-gray-300 mx-auto mb-2 animate-spin" />
+        <p class="text-sm text-gray-400">読み込み中...</p>
+      </div>
+
+      <div v-else-if="!lookupQuery" class="card p-12 text-center">
+        <Icon name="heroicons:magnifying-glass" class="h-10 w-10 text-gray-200 mx-auto mb-2" />
+        <p class="text-sm text-gray-400">ディレクターを選択すると担当組合・メンバーが表示されます</p>
+      </div>
+
+      <div v-else-if="lookupResults.length === 0" class="card p-12 text-center">
+        <Icon name="heroicons:exclamation-circle" class="h-10 w-10 text-gray-200 mx-auto mb-2" />
+        <p class="text-sm text-gray-400">該当するデータが見つかりませんでした</p>
+      </div>
+
+      <div v-else class="card overflow-hidden">
+        <div class="divide-y divide-gray-50">
+          <div v-for="r in lookupResults" :key="r.id" class="px-5 py-4">
+            <div class="flex items-center gap-2 flex-wrap mb-1.5">
+              <span class="font-semibold text-gray-900 text-sm">{{ r.kumiaiName }}</span>
+              <span
+                class="badge text-xs"
+                :class="r.role === 'main' ? 'bg-primary-100 text-primary-700' : 'bg-amber-100 text-amber-700'"
+              >{{ DIRECTOR_ROLE_LABELS[r.role] }}</span>
+              <span class="text-xs text-gray-400">{{ r.memberNames.length }}名</span>
+            </div>
+            <p class="text-sm text-gray-600">{{ r.memberNames.join('、') }}</p>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -163,7 +227,7 @@ onMounted(async () => {
     </div>
 
     <!-- 一覧 -->
-    <template v-else>
+    <template v-else-if="viewMode === 'list'">
     <!-- 検索 -->
     <div class="relative">
       <Icon name="heroicons:magnifying-glass" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
