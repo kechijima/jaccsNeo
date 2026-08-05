@@ -78,6 +78,7 @@ const handleSubmit = async () => {
           <option value="meeting">数字会議スペース</option>
           <option value="specialist">専門チームスペース</option>
           <option value="position">役職スペース</option>
+          <option value="event">イベントスペース</option>
         </select>
       </div>
 

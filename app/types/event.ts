@@ -24,6 +24,7 @@ export interface Event {
   groupId?: GroupId
   kumiaiId?: string
   spaceId?: string
+  postId?: string   // 掲示板（イベントスペース）の投稿から連携作成された場合の投稿ID
   category: EventCategory
   createdBy: string
   createdByName: string
@@ -62,5 +63,6 @@ export interface EventForm {
   groupId?: GroupId
   kumiaiId?: string
   spaceId?: string
+  postId?: string
   category: EventCategory
 }

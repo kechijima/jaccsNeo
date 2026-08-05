@@ -4,12 +4,16 @@
  */
 import type { Space, Post, Comment as SpaceComment } from '~/types/portal'
 import { useSpaces } from '~/composables/useSpaces'
+import { useEvents } from '~/composables/useEvents'
+
+const stripHtml = (html: string) => html.replace(/<[^>]*>/g, '').trim()
 
 const spaceColorMap: Record<string, string> = {
   all:     'bg-green-100 text-green-700',
   group:   'bg-indigo-100 text-indigo-700',
   kumiai:  'bg-purple-100 text-purple-700',
   special: 'bg-amber-100 text-amber-700',
+  event:   'bg-sky-100 text-sky-700',
 }
 
 export interface CommentView {
@@ -38,6 +42,9 @@ export interface PostView {
   isPinned: boolean
   postedAt: string
   createdAt: Date
+  eventStartAt?: Date
+  eventEndAt?: Date
+  linkedEventId?: string
 }
 
 const toDate = (val: any): Date => val?.toDate?.() ?? (val instanceof Date ? val : new Date())
@@ -68,6 +75,9 @@ const buildPostView = (space: Space | undefined, p: Post, comments: CommentView[
   isPinned:      p.isPinned ?? false,
   postedAt:      toDate(p.createdAt).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
   createdAt:     toDate(p.createdAt),
+  eventStartAt:  p.eventStartAt ? toDate(p.eventStartAt) : undefined,
+  eventEndAt:    p.eventEndAt ? toDate(p.eventEndAt) : undefined,
+  linkedEventId: p.linkedEventId,
 })
 
 export const usePortalStore = () => {
@@ -116,8 +126,37 @@ export const usePortalStore = () => {
   const getPost = (postId: Ref<string> | string) =>
     computed(() => posts.value.find(p => p.id === unref(postId)) ?? null)
 
-  const addPost = async (spaceId: string, content: string): Promise<string | null> => {
-    const postId = await spacesApi.createPost(spaceId, { content })
+  const addPost = async (
+    spaceId: string,
+    content: string,
+    eventOptions?: { startAt: Date; endAt?: Date; syncToCalendar: boolean },
+  ): Promise<string | null> => {
+    const postId = await spacesApi.createPost(spaceId, {
+      content,
+      eventStartAt: eventOptions ? eventOptions.startAt.toISOString() : undefined,
+      eventEndAt: eventOptions?.endAt ? eventOptions.endAt.toISOString() : undefined,
+      syncToCalendar: eventOptions?.syncToCalendar,
+    })
+
+    // イベントスペースで「カレンダーに連携する」がONの場合、同じ日時・内容でカレンダーにも登録する
+    // （イベント掲示板からの連携では入力項目を増やさないため、タイトルは投稿内容から自動生成する）
+    if (eventOptions?.syncToCalendar && eventOptions.startAt) {
+      const space = spaces.value.find(s => s.id === spaceId)
+      const { createEvent } = useEvents()
+      const title = stripHtml(content).slice(0, 40) || space?.name || 'イベント'
+      const eventId = await createEvent({
+        title,
+        startAt: eventOptions.startAt.toISOString(),
+        endAt: eventOptions.endAt?.toISOString(),
+        scope: space?.groupId ? 'group' : 'space',
+        groupId: space?.groupId,
+        spaceId,
+        postId: postId ?? undefined,
+        category: 'event',
+      })
+      if (postId) await spacesApi.linkPostToEvent(spaceId, postId, eventId)
+    }
+
     await fetchPostsForSpace(spaceId, true)
     return postId
   }

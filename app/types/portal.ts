@@ -1,7 +1,7 @@
 import type { Timestamp } from 'firebase/firestore'
 import type { GroupId, UserRole } from './user'
 
-export type SpaceType = 'group' | 'kumiai' | 'special' | 'all'
+export type SpaceType = 'group' | 'kumiai' | 'special' | 'all' | 'event'
 
 export interface Space {
   id: string
@@ -44,6 +44,11 @@ export interface Post {
   reactionCounts: Record<string, number>  // emoji -> count
   commentCount: number
   isPinned: boolean
+  // イベントスペース専用項目（開催日時とカレンダー連携）
+  eventStartAt?: Timestamp
+  eventEndAt?: Timestamp
+  syncToCalendar?: boolean
+  linkedEventId?: string
   createdAt: Timestamp
   updatedAt: Timestamp
 }
@@ -87,4 +92,8 @@ export interface SpaceForm {
 export interface PostForm {
   content: string
   attachments?: PostAttachment[]
+  eventStartAt?: string   // ISO datetime string（イベントスペースのみ）
+  eventEndAt?: string
+  syncToCalendar?: boolean
+  linkedEventId?: string
 }

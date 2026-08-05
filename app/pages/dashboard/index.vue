@@ -58,6 +58,7 @@ const spaceColorMap: Record<string, string> = {
   group:   'bg-indigo-100 text-indigo-700',
   kumiai:  'bg-purple-100 text-purple-700',
   special: 'bg-amber-100 text-amber-700',
+  event:   'bg-sky-100 text-sky-700',
 }
 
 const spacePosts = computed(() => portalStore.posts.value.filter(p => !p.isPinned).slice(0, 5))

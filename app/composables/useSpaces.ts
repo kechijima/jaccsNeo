@@ -18,6 +18,7 @@ import {
   increment,
   runTransaction,
   writeBatch,
+  Timestamp,
   type DocumentData,
   type Unsubscribe,
 } from 'firebase/firestore'
@@ -29,6 +30,15 @@ import { MOCK_SPACES, MOCK_POSTS } from '~/data/mock'
 const toSpace = (id: string, data: DocumentData): Space => ({ id, ...data }) as Space
 const toPost  = (id: string, data: DocumentData): Post  => ({ id, ...data }) as Post
 const toComment = (id: string, data: DocumentData): Comment => ({ id, ...data }) as Comment
+
+// Firestoreはフィールド値にundefinedを許可せずエラーになるため、送信前に取り除く
+const stripUndefined = <T extends Record<string, any>>(obj: T): T => {
+  const result = {} as T
+  for (const key of Object.keys(obj) as (keyof T)[]) {
+    if (obj[key] !== undefined) result[key] = obj[key]
+  }
+  return result
+}
 
 // スペースの実際のメンバーを算出する（個別追加 ∪ 対象グループ ∪ 対象権限）
 export const resolveSpaceMembers = (space: Space, allUsers: AppUser[]): AppUser[] => {
@@ -175,9 +185,14 @@ export const useSpaces = () => {
 
   // ===== 投稿作成 =====
   const createPost = async (spaceId: string, form: PostForm): Promise<string> => {
+    const { eventStartAt, eventEndAt, ...rest } = form
+    const payload: Record<string, any> = stripUndefined(rest)
+    if (eventStartAt) payload.eventStartAt = Timestamp.fromDate(new Date(eventStartAt))
+    if (eventEndAt)   payload.eventEndAt   = Timestamp.fromDate(new Date(eventEndAt))
+
     const ref = await addDoc(postsCol(spaceId), {
       spaceId,
-      ...form,
+      ...payload,
       authorUid:      authStore.user?.uid,
       authorName:     authStore.user?.displayName,
       reactionCounts: {},
@@ -194,6 +209,14 @@ export const useSpaces = () => {
     })
 
     return ref.id
+  }
+
+  // ===== 投稿とカレンダーイベントの連携（イベントスペース専用） =====
+  const linkPostToEvent = async (spaceId: string, postId: string, eventId: string): Promise<void> => {
+    await updateDoc(doc($db, 'spaces', spaceId, 'posts', postId), {
+      linkedEventId: eventId,
+      updatedAt:     serverTimestamp(),
+    })
   }
 
   // ===== 投稿更新 =====
@@ -330,6 +353,7 @@ export const useSpaces = () => {
     fetchPosts,
     fetchPost,
     createPost,
+    linkPostToEvent,
     updatePost,
     deletePost,
     pinPost,

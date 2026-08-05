@@ -23,6 +23,7 @@ const typeLabelMap: Record<string, string> = {
   group:   'グループ',
   kumiai:  '組合',
   special: '専門チーム',
+  event:   'イベント',
 }
 
 const unreadMap: Record<string, number> = { s001: 1, s002: 2 }
@@ -46,7 +47,7 @@ const spaceGroups = computed(() => {
     })
   }
 
-  const typeOrder = ['all', 'group', 'kumiai', 'special']
+  const typeOrder = ['all', 'group', 'kumiai', 'event', 'special']
   const groups: { label: string; spaces: any[] }[] = []
   for (const type of typeOrder) {
     if (groupMap.has(type)) {

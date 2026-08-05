@@ -56,10 +56,24 @@ const regularPosts = computed(() => spacePosts.value.filter(p => !p.isPinned))
 const newPostContent = ref('')
 const submitting = ref(false)
 
+// イベントスペース専用項目（開催日時・カレンダー連携）
+const isEventSpace = computed(() => space.value.type === 'event')
+const eventStartAt = ref('')
+const eventEndAt = ref('')
+const syncToCalendar = ref(true)
+
 const handlePostSubmit = async () => {
   if (!newPostContent.value.trim()) return
+  if (isEventSpace.value && !eventStartAt.value) return
   submitting.value = true
-  const postId = await store.addPost(spaceId.value, newPostContent.value)
+  const eventOptions = isEventSpace.value && eventStartAt.value
+    ? {
+        startAt: new Date(eventStartAt.value),
+        endAt: eventEndAt.value ? new Date(eventEndAt.value) : undefined,
+        syncToCalendar: syncToCalendar.value,
+      }
+    : undefined
+  const postId = await store.addPost(spaceId.value, newPostContent.value, eventOptions)
   if (postId) {
     await sendMentionNotifications(
       newPostContent.value,
@@ -70,6 +84,8 @@ const handlePostSubmit = async () => {
     )
   }
   newPostContent.value = ''
+  eventStartAt.value = ''
+  eventEndAt.value = ''
   submitting.value = false
 }
 
@@ -197,10 +213,27 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
                 v-model="newPostContent"
                 placeholder="投稿する..."
               />
+
+              <!-- イベントスペース専用: 開催日時・カレンダー連携 -->
+              <div v-if="isEventSpace" class="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-lg bg-sky-50 border border-sky-100 p-3">
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">開催日時 <span class="text-red-500">*</span></label>
+                  <input v-model="eventStartAt" type="datetime-local" class="input-field text-sm py-1.5" />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">終了日時（任意）</label>
+                  <input v-model="eventEndAt" type="datetime-local" class="input-field text-sm py-1.5" />
+                </div>
+                <label class="sm:col-span-2 flex items-center gap-2 cursor-pointer text-xs text-gray-600">
+                  <input v-model="syncToCalendar" type="checkbox" class="h-4 w-4 rounded text-primary-600" />
+                  カレンダーに連携する（この日時・投稿内容でカレンダーにも登録されます）
+                </label>
+              </div>
+
               <div class="flex items-center justify-end">
                 <button
                   class="btn-primary text-sm px-4 py-1.5"
-                  :disabled="!newPostContent.trim() || submitting"
+                  :disabled="!newPostContent.trim() || submitting || (isEventSpace && !eventStartAt)"
                   @click="handlePostSubmit"
                 >
                   <Icon v-if="submitting" name="heroicons:arrow-path" class="h-3.5 w-3.5 animate-spin mr-1" />
@@ -245,6 +278,15 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
                   <Icon name="heroicons:pencil-square" class="h-3.5 w-3.5" />
                 </button>
               </div>
+              <NuxtLink
+                v-if="post.linkedEventId"
+                :to="`/events/${post.linkedEventId}`"
+                class="mt-1 inline-flex items-center gap-1 text-[11px] text-sky-600 hover:underline"
+              >
+                <Icon name="heroicons:calendar-days" class="h-3 w-3" />
+                {{ post.eventStartAt?.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) }}
+                カレンダーで見る
+              </NuxtLink>
 
               <!-- 本文（編集モード） -->
               <div v-if="editingPostId === post.id" class="mt-2 space-y-2">
