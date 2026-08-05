@@ -111,7 +111,7 @@ export const useSpaces = () => {
   // ===== スペース作成 =====
   const createSpace = async (form: SpaceForm): Promise<string> => {
     const ref = await addDoc(spacesCol(), {
-      ...form,
+      ...stripUndefined(form),
       memberUids: [authStore.user?.uid],
       adminUids:  [authStore.user?.uid],
       isArchived: false,
@@ -125,7 +125,7 @@ export const useSpaces = () => {
   // ===== スペース更新 =====
   const updateSpace = async (spaceId: string, form: Partial<SpaceForm>): Promise<void> => {
     await updateDoc(doc($db, 'spaces', spaceId), {
-      ...form,
+      ...stripUndefined(form),
       updatedAt: serverTimestamp(),
     })
   }

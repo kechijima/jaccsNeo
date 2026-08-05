@@ -1,12 +1,20 @@
 <script setup lang="ts">
 import { useEvents } from '~/composables/useEvents'
 import { useEventScope } from '~/composables/useEventScope'
+import { useGroups } from '~/composables/useGroups'
+import { EVENT_CATEGORY_LABELS } from '~/types/event'
 import type { EventSummary } from '~/types/event'
+import type { Group } from '~/types/group'
 
 definePageMeta({ middleware: ['auth'] })
 
 const { fetchEvents, fetchMyAttendance } = useEvents()
 const { scopeLabel, scopeBadgeClass, scopeDotClass, categoryLabel, categoryBadgeClass, ensureLoaded: ensureEventScopeLoaded } = useEventScope()
+const { fetchGroups } = useGroups()
+
+const groups = ref<Group[]>([])
+const filterGroupId = ref('')   // '' = すべて
+const filterCategory = ref('')  // '' = すべて
 
 const viewMode = ref<'list' | 'calendar'>('calendar')
 const currentMonth = ref(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
@@ -32,8 +40,9 @@ const attendingIds = ref<Set<string>>(new Set())
 onMounted(async () => {
   loading.value = true
   try {
-    const [list] = await Promise.all([fetchEvents(), ensureEventScopeLoaded()])
+    const [list, , fetchedGroups] = await Promise.all([fetchEvents(), ensureEventScopeLoaded(), fetchGroups().catch(() => [])])
     rawEvents.value = list
+    groups.value = fetchedGroups ?? []
     const statuses = await Promise.all(list.map(e => fetchMyAttendance(e.id).catch(() => null)))
     attendingIds.value = new Set(list.filter((_, i) => statuses[i] === 'attending').map(e => e.id))
   } catch (e: any) {
@@ -61,11 +70,19 @@ const events = computed<EventRow[]>(() =>
 const formatDate = (d: Date) => d.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' })
 const formatTime = (d?: Date) => d ? d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) : ''
 
+// グループ・種別（会議/イベント/その他）で絞り込んだイベント。以降の一覧・カレンダーはすべてこれを参照する
+const filteredEvents = computed(() => {
+  let list = events.value
+  if (filterGroupId.value) list = list.filter(e => e.scope === 'group' && e.groupId === filterGroupId.value)
+  if (filterCategory.value) list = list.filter(e => e.category === filterCategory.value)
+  return list
+})
+
 const upcomingEvents = computed(() =>
-  events.value.filter(e => e.startAt >= new Date()).sort((a, b) => a.startAt.getTime() - b.startAt.getTime())
+  filteredEvents.value.filter(e => e.startAt >= new Date()).sort((a, b) => a.startAt.getTime() - b.startAt.getTime())
 )
 const pastEvents = computed(() =>
-  events.value.filter(e => e.startAt < new Date()).sort((a, b) => b.startAt.getTime() - a.startAt.getTime())
+  filteredEvents.value.filter(e => e.startAt < new Date()).sort((a, b) => b.startAt.getTime() - a.startAt.getTime())
 )
 
 const monthName = computed(() =>
@@ -109,7 +126,7 @@ const calendarDays = computed(() => {
     const currCopy = new Date(curr)
     const currDateStr = currCopy.toDateString()
     // 複数日にまたがるイベント（終了日が翌日以降）は該当する日すべてに表示する
-    const dayEvents = events.value.filter(e => isDateInRange(currCopy, e.startAt, e.endAt ?? e.startAt))
+    const dayEvents = filteredEvents.value.filter(e => isDateInRange(currCopy, e.startAt, e.endAt ?? e.startAt))
 
     days.push({
       date: currCopy,
@@ -131,7 +148,7 @@ const eventsInCurrentMonth = computed(() => {
   const monthStart = new Date(year, month, 1)
   const monthEnd   = new Date(year, month + 1, 0)
   // 表示中の月に1日でも重なっていれば「今月のイベント」として数える（複数日イベント対応）
-  return events.value.filter(e => toDateOnly(e.startAt) <= monthEnd && toDateOnly(e.endAt ?? e.startAt) >= monthStart)
+  return filteredEvents.value.filter(e => toDateOnly(e.startAt) <= monthEnd && toDateOnly(e.endAt ?? e.startAt) >= monthStart)
 })
 
 const prevMonth = () => {
@@ -187,6 +204,25 @@ const nextMonth = () => {
       >
         <Icon name="heroicons:calendar-days" class="h-4 w-4" />
         カレンダー
+      </button>
+    </div>
+
+    <!-- 絞り込み（グループ・種別） -->
+    <div class="flex items-center gap-2 flex-wrap">
+      <select v-model="filterGroupId" class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-primary-300">
+        <option value="">すべてのグループ</option>
+        <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option>
+      </select>
+      <select v-model="filterCategory" class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-primary-300">
+        <option value="">すべての種別</option>
+        <option v-for="(label, key) in EVENT_CATEGORY_LABELS" :key="key" :value="key">{{ label }}</option>
+      </select>
+      <button
+        v-if="filterGroupId || filterCategory"
+        class="text-xs text-gray-400 hover:text-red-500 transition flex items-center gap-0.5"
+        @click="filterGroupId = ''; filterCategory = ''"
+      >
+        <Icon name="heroicons:x-mark" class="h-3.5 w-3.5" />リセット
       </button>
     </div>
 
