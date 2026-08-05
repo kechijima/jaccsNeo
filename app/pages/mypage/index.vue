@@ -4,6 +4,7 @@ import { useUsers } from '~/composables/useUsers'
 import { useStorage } from '~/composables/useStorage'
 import { useAuthStore } from '~/stores/auth'
 import { useGroups } from '~/composables/useGroups'
+import { useThemeColor } from '~/composables/useThemeColor'
 import type { AppUser } from '~/types/user'
 import type { Group } from '~/types/group'
 
@@ -14,6 +15,8 @@ const authStore = useAuthStore()
 const { updateMyProfile } = useUsers()
 const { uploadFile } = useStorage()
 const { fetchGroups } = useGroups()
+const { themeColor, ensureLoaded: ensureThemeColorLoaded, setThemeColor } = useThemeColor()
+ensureThemeColorLoaded()
 
 const groups = ref<Group[]>([])
 onMounted(async () => { groups.value = await fetchGroups().catch(() => []) })
@@ -237,6 +240,34 @@ const groupLabel = computed(() => groups.value.find(g => g.id === form.groupId)?
           写真変更
         </button>
         <input ref="photoInputRef" type="file" accept="image/*" class="hidden" @change="handlePhotoSelect" />
+      </div>
+    </div>
+
+    <!-- 表示設定（配色） -->
+    <div class="card p-5 flex items-center justify-between gap-4 flex-wrap">
+      <div>
+        <h2 class="font-semibold text-gray-900">表示設定</h2>
+        <p class="text-xs text-gray-400 mt-0.5">アプリ全体の配色を切り替えます</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          class="flex items-center gap-2 rounded-lg border-2 px-3 py-2 text-sm font-medium transition"
+          :class="themeColor === 'blue' ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-500 hover:border-gray-300'"
+          @click="setThemeColor('blue')"
+        >
+          <span class="h-4 w-4 rounded-full bg-blue-500 shrink-0" />
+          青系
+        </button>
+        <button
+          type="button"
+          class="flex items-center gap-2 rounded-lg border-2 px-3 py-2 text-sm font-medium transition"
+          :class="themeColor === 'yellow' ? 'border-amber-400 bg-amber-50 text-amber-700' : 'border-gray-200 text-gray-500 hover:border-gray-300'"
+          @click="setThemeColor('yellow')"
+        >
+          <span class="h-4 w-4 rounded-full bg-amber-500 shrink-0" />
+          黄色系
+        </button>
       </div>
     </div>
 

@@ -2,6 +2,7 @@
 import { useAuthStore } from '~/stores/auth'
 import { useNotifications } from '~/composables/useNotifications'
 import { useGroupLabels } from '~/composables/useGroupLabels'
+import { useThemeColor } from '~/composables/useThemeColor'
 
 const { logout } = useAuth()
 const { displayName, user } = useCurrentUser()
@@ -9,7 +10,8 @@ const authStore = useAuthStore()
 const route = useRoute()
 const { subscribeUnreadCount } = useNotifications()
 const { getGroupLabel, getGroupColor, ensureLoaded: ensureGroupLabelsLoaded } = useGroupLabels()
-onMounted(() => { ensureGroupLabelsLoaded() })
+const { ensureLoaded: ensureThemeColorLoaded } = useThemeColor()
+onMounted(() => { ensureGroupLabelsLoaded(); ensureThemeColorLoaded() })
 
 const navItems = [
   { label: 'ダッシュボード',   icon: 'heroicons:home',                   to: '/dashboard' },
