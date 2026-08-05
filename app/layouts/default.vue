@@ -20,6 +20,7 @@ const navItems = [
   { label: '掲示板',           icon: 'heroicons:chat-bubble-left-right', to: '/portal' },
   { label: 'カレンダー',       icon: 'heroicons:calendar-days',          to: '/events' },
   { label: 'チーム',           icon: 'heroicons:chart-bar',              to: '/team' },
+  { label: '申請',             icon: 'heroicons:document-check',         to: '/requests' },
 ]
 
 // SPボトムナビ用（項目数を絞り、短いラベルで表示崩れを防ぐ）

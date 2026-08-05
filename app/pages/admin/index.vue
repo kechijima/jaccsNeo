@@ -38,6 +38,13 @@ const adminMenus = [
     color: 'text-purple-600 bg-purple-50',
   },
   {
+    to: '/requests/approve',
+    icon: 'heroicons:clipboard-document-check',
+    label: '申請承認キュー',
+    description: '組合・グループ登録、プラン変更、サポート者変更などの申請を承認',
+    color: 'text-emerald-600 bg-emerald-50',
+  },
+  {
     to: '/admin/restricted',
     icon: 'heroicons:lock-closed',
     label: '制限コンテンツ（JACCS等）',

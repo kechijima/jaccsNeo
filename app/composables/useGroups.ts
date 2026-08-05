@@ -68,7 +68,7 @@ export const useGroups = () => {
 
   // ===== グループ作成 =====
   const createGroup = async (name: string): Promise<string> => {
-    if (!authStore.isSystemAdmin) throw new Error('権限がありません')
+    if (!authStore.isBoard) throw new Error('権限がありません')
     const ref = await addDoc(groupsCol(), {
       name,
       createdAt: serverTimestamp(),
@@ -79,7 +79,7 @@ export const useGroups = () => {
 
   // ===== グループ更新（名称） =====
   const updateGroup = async (groupId: GroupId, data: { name?: string }): Promise<void> => {
-    if (!authStore.isSystemAdmin) throw new Error('権限がありません')
+    if (!authStore.isBoard) throw new Error('権限がありません')
     await setDoc(doc($db, 'groups', groupId), {
       ...data,
       updatedAt: serverTimestamp(),
@@ -99,7 +99,7 @@ export const useGroups = () => {
     data: { name: string; adminName?: string },
     displayOrder = 0,
   ): Promise<string> => {
-    if (!authStore.isSystemAdmin) throw new Error('権限がありません')
+    if (!authStore.isBoard) throw new Error('権限がありません')
     const ref = await addDoc(kumiaiCol(groupId), {
       groupId,
       name: data.name,
@@ -117,7 +117,7 @@ export const useGroups = () => {
     kumiaiId: string,
     data: { name?: string; adminName?: string; displayOrder?: number },
   ): Promise<void> => {
-    if (!authStore.isSystemAdmin) throw new Error('権限がありません')
+    if (!authStore.isBoard) throw new Error('権限がありません')
     await updateDoc(doc($db, 'groups', groupId, 'kumiai', kumiaiId), {
       ...data,
       updatedAt: serverTimestamp(),
@@ -126,7 +126,7 @@ export const useGroups = () => {
 
   // ===== 組合削除 =====
   const deleteKumiai = async (groupId: GroupId, kumiaiId: string): Promise<void> => {
-    if (!authStore.isSystemAdmin) throw new Error('権限がありません')
+    if (!authStore.isBoard) throw new Error('権限がありません')
     await deleteDoc(doc($db, 'groups', groupId, 'kumiai', kumiaiId))
   }
 

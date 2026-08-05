@@ -48,7 +48,7 @@ export const useUsers = () => {
     return toAppUser(snap.id, snap.data())
   }
 
-  // ===== ユーザー情報更新（管理者専用。役割・所属など） =====
+  // ===== ユーザー情報更新（管理者・理事会専用。役割・所属など） =====
   const updateUser = async (uid: string, data: {
     displayName?: string
     role?: UserRole
@@ -60,8 +60,9 @@ export const useUsers = () => {
     isDisabled?: boolean
     mainSupporterUid?: string | null
     subSupporterUid?: string | null
+    membershipPlan?: string | null
   }): Promise<void> => {
-    if (!authStore.isSystemAdmin) throw new Error('権限がありません')
+    if (!authStore.isBoard) throw new Error('権限がありません')
     await updateDoc(doc($db, 'users', uid), {
       ...data,
       updatedBy: authStore.user?.uid,
