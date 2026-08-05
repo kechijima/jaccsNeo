@@ -1,8 +1,19 @@
 import { useGroupLabels } from '~/composables/useGroupLabels'
+import { EVENT_CATEGORY_LABELS, type EventCategory } from '~/types/event'
 
 interface ScopedEvent {
   scope: string
   groupId?: string
+}
+
+interface CategorizedEvent {
+  category?: EventCategory
+}
+
+const CATEGORY_BADGE: Record<EventCategory, string> = {
+  meeting: 'bg-sky-100 text-sky-700',
+  event:   'bg-primary-100 text-primary-700',
+  other:   'bg-gray-100 text-gray-600',
 }
 
 const FIXED_LABELS: Record<string, string> = { all: '全体', kumiai: '組合', space: 'スペース' }
@@ -46,5 +57,12 @@ export const useEventScope = () => {
     return FIXED_DOT[e.scope] ?? 'bg-gray-400'
   }
 
-  return { scopeLabel, scopeBadgeClass, scopeDotClass, ensureLoaded }
+  // 種別（会議/イベント/その他）はグループの配色とは別軸のタグとして表示する
+  const categoryLabel = (e: CategorizedEvent): string =>
+    e.category ? (EVENT_CATEGORY_LABELS[e.category] ?? e.category) : ''
+
+  const categoryBadgeClass = (e: CategorizedEvent): string =>
+    e.category ? (CATEGORY_BADGE[e.category] ?? 'bg-gray-100 text-gray-600') : 'bg-gray-100 text-gray-600'
+
+  return { scopeLabel, scopeBadgeClass, scopeDotClass, categoryLabel, categoryBadgeClass, ensureLoaded }
 }

@@ -5,6 +5,14 @@ export type AttendanceStatus = 'attending' | 'not_attending' | 'pending'
 
 export type EventScope = 'all' | 'group' | 'kumiai' | 'space'
 
+// イベントの種別（会議/イベント/その他）。グループの配色とは別軸のタグとして表示する
+export type EventCategory = 'meeting' | 'event' | 'other'
+export const EVENT_CATEGORY_LABELS: Record<EventCategory, string> = {
+  meeting: '会議',
+  event:   'イベント',
+  other:   'その他',
+}
+
 export interface Event {
   id: string
   title: string
@@ -16,6 +24,7 @@ export interface Event {
   groupId?: GroupId
   kumiaiId?: string
   spaceId?: string
+  category: EventCategory
   createdBy: string
   createdByName: string
   attendeeCount: number
@@ -31,6 +40,7 @@ export interface EventSummary {
   location?: string
   scope: EventScope
   groupId?: GroupId
+  category: EventCategory
   attendeeCount: number
   myStatus?: AttendanceStatus
 }
@@ -52,4 +62,5 @@ export interface EventForm {
   groupId?: GroupId
   kumiaiId?: string
   spaceId?: string
+  category: EventCategory
 }

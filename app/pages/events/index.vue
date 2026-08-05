@@ -6,7 +6,7 @@ import type { EventSummary } from '~/types/event'
 definePageMeta({ middleware: ['auth'] })
 
 const { fetchEvents, fetchMyAttendance } = useEvents()
-const { scopeLabel, scopeBadgeClass, scopeDotClass, ensureLoaded: ensureEventScopeLoaded } = useEventScope()
+const { scopeLabel, scopeBadgeClass, scopeDotClass, categoryLabel, categoryBadgeClass, ensureLoaded: ensureEventScopeLoaded } = useEventScope()
 
 const viewMode = ref<'list' | 'calendar'>('calendar')
 const currentMonth = ref(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
@@ -21,6 +21,7 @@ interface EventRow {
   location: string | undefined
   scope: string
   groupId?: string
+  category: string
   attendeeCount: number
   isAttending: boolean
 }
@@ -51,6 +52,7 @@ const events = computed<EventRow[]>(() =>
     location:      e.location,
     scope:         e.scope,
     groupId:       e.groupId,
+    category:      e.category,
     attendeeCount: e.attendeeCount,
     isAttending:   attendingIds.value.has(e.id),
   }))
@@ -146,7 +148,7 @@ const nextMonth = () => {
     <!-- ヘッダー -->
     <div class="flex items-start justify-between gap-3">
       <div>
-        <h1 class="text-xl font-bold text-gray-900">イベント</h1>
+        <h1 class="text-xl font-bold text-gray-900">カレンダー</h1>
         <p class="text-sm text-gray-500 mt-0.5">スケジュール・出欠管理</p>
       </div>
       <NuxtLink to="/events/new" class="btn-primary text-sm">
@@ -219,6 +221,7 @@ const nextMonth = () => {
                 </div>
               </div>
               <div class="mt-1.5 flex items-center gap-2 flex-wrap">
+                <span class="badge text-xs" :class="categoryBadgeClass(evt)">{{ categoryLabel(evt) }}</span>
                 <span class="badge text-xs" :class="scopeBadgeClass(evt)">{{ scopeLabel(evt) }}</span>
               </div>
               <div class="mt-1.5 space-y-0.5 text-xs text-gray-500">

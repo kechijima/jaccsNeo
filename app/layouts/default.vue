@@ -16,7 +16,7 @@ const navItems = [
   { label: 'パーソナルデータ', icon: 'heroicons:identification',         to: '/personal-data' },
   { label: 'アプリ',           icon: 'heroicons:squares-2x2',            to: '/services' },
   { label: '掲示板',           icon: 'heroicons:chat-bubble-left-right', to: '/portal' },
-  { label: 'イベント',         icon: 'heroicons:calendar-days',          to: '/events' },
+  { label: 'カレンダー',       icon: 'heroicons:calendar-days',          to: '/events' },
   { label: 'チーム',           icon: 'heroicons:chart-bar',              to: '/team' },
 ]
 
@@ -26,7 +26,7 @@ const mobileNavItems = [
   { label: 'データ',   icon: 'heroicons:identification',         to: '/personal-data' },
   { label: 'アプリ',   icon: 'heroicons:squares-2x2',            to: '/services' },
   { label: '掲示板',   icon: 'heroicons:chat-bubble-left-right', to: '/portal' },
-  { label: 'イベント', icon: 'heroicons:calendar-days',          to: '/events' },
+  { label: 'カレンダー', icon: 'heroicons:calendar-days',          to: '/events' },
 ]
 
 const isActive = (to: string) => route.path.startsWith(to)

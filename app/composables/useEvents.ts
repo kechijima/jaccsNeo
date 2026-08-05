@@ -19,7 +19,7 @@ import {
 import type { Event, EventSummary, EventAttendee, EventForm, AttendanceStatus } from '~/types/event'
 import { useAuthStore } from '~/stores/auth'
 
-const toEvent = (id: string, data: DocumentData): Event => ({ id, ...data }) as Event
+const toEvent = (id: string, data: DocumentData): Event => ({ id, category: 'event', ...data }) as Event
 
 // Firestoreはフィールド値にundefinedを許可せずエラーになるため、送信前に取り除く
 const stripUndefined = <T extends Record<string, any>>(obj: T): T => {
@@ -58,6 +58,7 @@ export const useEvents = () => {
         location:     data.location,
         scope:        data.scope,
         groupId:      data.groupId,
+        category:     data.category ?? 'event',
         attendeeCount: data.attendeeCount ?? 0,
       } as EventSummary
     })

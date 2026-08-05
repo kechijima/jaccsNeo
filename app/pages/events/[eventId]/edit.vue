@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { EventForm } from '~/types/event'
+import type { EventForm, EventCategory } from '~/types/event'
+import { EVENT_CATEGORY_LABELS } from '~/types/event'
 import type { Group } from '~/types/group'
 import { useGroups } from '~/composables/useGroups'
 
@@ -25,6 +26,7 @@ const form = ref({
   endTime: '',
   location: '',
   targetScope: 'all',
+  category: 'event' as EventCategory,
   description: '',
   notifyEmail: true,
   notifyApp: true,
@@ -49,6 +51,7 @@ onMounted(async () => {
         location:    ev.location ?? '',
         // scope:'group'+groupIdの新形式・scopeに直接グループIDが入る旧形式のどちらでも復元できるようにする
         targetScope: ev.scope === 'group' && ev.groupId ? ev.groupId : ev.scope,
+        category:    ev.category ?? 'event',
         description: ev.description ?? '',
         notifyEmail: true,
         notifyApp:   true,
@@ -75,6 +78,7 @@ const handleSubmit = async () => {
       location:    form.value.location || undefined,
       scope:       (isGroupSelection ? 'group' : form.value.targetScope) as EventForm['scope'],
       groupId:     isGroupSelection ? form.value.targetScope : undefined,
+      category:    form.value.category,
       description: form.value.description || undefined,
     })
     await navigateTo(`/events/${eventId.value}`)
@@ -99,7 +103,7 @@ const handleDelete = async () => {
   <div class="p-4 md:p-6 max-w-2xl mx-auto space-y-5">
 
     <div class="flex items-center gap-2 text-sm text-gray-400">
-      <NuxtLink to="/events">イベント</NuxtLink>
+      <NuxtLink to="/events">カレンダー</NuxtLink>
       <Icon name="heroicons:chevron-right" class="h-3 w-3" />
       <NuxtLink :to="`/events/${eventId}`">イベント詳細</NuxtLink>
       <Icon name="heroicons:chevron-right" class="h-3 w-3" />
@@ -137,6 +141,13 @@ const handleDelete = async () => {
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">場所</label>
         <input v-model="form.location" type="text" class="input-field" />
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">種別</label>
+        <select v-model="form.category" class="input-field">
+          <option v-for="(label, key) in EVENT_CATEGORY_LABELS" :key="key" :value="key">{{ label }}</option>
+        </select>
       </div>
 
       <div>

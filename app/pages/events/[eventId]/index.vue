@@ -9,7 +9,7 @@ const route = useRoute()
 const eventId = computed(() => route.params.eventId as string)
 
 const { fetchEvent, fetchAttendees, fetchMyAttendance, updateAttendance } = useEvents()
-const { scopeLabel, scopeBadgeClass, ensureLoaded: ensureEventScopeLoaded } = useEventScope()
+const { scopeLabel, scopeBadgeClass, categoryLabel, categoryBadgeClass, ensureLoaded: ensureEventScopeLoaded } = useEventScope()
 
 const loading = ref(true)
 const loadError = ref('')
@@ -82,7 +82,7 @@ const statusLabel = (status: string) => {
 
     <!-- パンくず -->
     <div class="flex items-center gap-2 text-sm text-gray-400">
-      <NuxtLink to="/events">イベント</NuxtLink>
+      <NuxtLink to="/events">カレンダー</NuxtLink>
       <Icon name="heroicons:chevron-right" class="h-3 w-3" />
       <span class="text-gray-600">イベント詳細</span>
     </div>
@@ -97,7 +97,7 @@ const statusLabel = (status: string) => {
     <div v-else-if="!event || loadError" class="card p-10 text-center">
       <Icon name="heroicons:exclamation-circle" class="h-10 w-10 text-gray-300 mx-auto mb-2" />
       <p class="text-gray-400">{{ loadError || 'イベントが見つかりませんでした' }}</p>
-      <NuxtLink to="/events" class="mt-3 inline-block text-sm text-primary-600 hover:underline">← イベント一覧へ</NuxtLink>
+      <NuxtLink to="/events" class="mt-3 inline-block text-sm text-primary-600 hover:underline">← カレンダーへ</NuxtLink>
     </div>
 
     <template v-else>
@@ -105,6 +105,9 @@ const statusLabel = (status: string) => {
       <div class="flex items-start justify-between gap-3">
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 mb-2 flex-wrap">
+            <span class="badge text-xs" :class="categoryBadgeClass(event)">
+              {{ categoryLabel(event) }}
+            </span>
             <span class="badge text-xs" :class="scopeBadgeClass(event)">
               {{ scopeLabel(event) }}
             </span>

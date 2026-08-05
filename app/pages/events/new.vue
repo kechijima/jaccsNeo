@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { EventForm } from '~/types/event'
+import type { EventForm, EventCategory } from '~/types/event'
+import { EVENT_CATEGORY_LABELS } from '~/types/event'
 import type { Group } from '~/types/group'
 import { useGroups } from '~/composables/useGroups'
 
@@ -20,6 +21,7 @@ const form = ref({
   location: '',
   targetScope: 'all',
   targetSpaceId: '',
+  category: 'event' as EventCategory,
   description: '',
   notifyEmail: true,
   notifyApp: true,
@@ -53,6 +55,7 @@ const handleSubmit = async () => {
       location: form.value.location || undefined,
       scope: (isGroupSelection ? 'group' : form.value.targetScope) as EventForm['scope'],
       groupId: isGroupSelection ? form.value.targetScope : undefined,
+      category: form.value.category,
     }
 
     await createEvent(eventForm)
@@ -69,7 +72,7 @@ const handleSubmit = async () => {
   <div class="p-4 md:p-6 max-w-2xl mx-auto space-y-5">
 
     <div class="flex items-center gap-2 text-sm text-gray-400">
-      <NuxtLink to="/events">イベント</NuxtLink>
+      <NuxtLink to="/events">カレンダー</NuxtLink>
       <Icon name="heroicons:chevron-right" class="h-3 w-3" />
       <span class="text-gray-600">イベント作成</span>
     </div>
@@ -106,6 +109,14 @@ const handleSubmit = async () => {
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">場所</label>
         <input v-model="form.location" type="text" placeholder="例: 大阪本社 会議室A、オンライン（Zoom）" class="input-field" />
+      </div>
+
+      <!-- 種別 -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">種別</label>
+        <select v-model="form.category" class="input-field">
+          <option v-for="(label, key) in EVENT_CATEGORY_LABELS" :key="key" :value="key">{{ label }}</option>
+        </select>
       </div>
 
       <!-- 対象スペース -->
