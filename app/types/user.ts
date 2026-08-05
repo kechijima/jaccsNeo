@@ -61,6 +61,16 @@ export interface AppUser {
   selfIntro?:  string
   dreamGoal?:  string   // 夢・目標
 
+  // ── お気に入り（ダッシュボードで優先表示） ────────────────────────────
+  favoriteAppIds?:   string[]
+  favoriteSpaceIds?: string[]
+
+  // ── 表示設定 ──────────────────────────────────────────────────────────
+  themeColor?: 'blue' | 'yellow'
+
+  // ── 組合員プラン（申請承認で変更される） ──────────────────────────────
+  membershipPlan?: string
+
   createdAt: Date
   updatedAt: Date
 }

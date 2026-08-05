@@ -52,6 +52,11 @@ export const toAppUser = (uid: string, data: Record<string, any>, fallbackEmail 
   selfIntro: data.selfIntro,
   dreamGoal: data.dreamGoal,
 
+  favoriteAppIds:   data.favoriteAppIds ?? [],
+  favoriteSpaceIds: data.favoriteSpaceIds ?? [],
+  themeColor:       data.themeColor,
+  membershipPlan:   data.membershipPlan,
+
   createdAt: data.createdAt?.toDate?.() ?? new Date(),
   updatedAt: data.updatedAt?.toDate?.() ?? new Date(),
 })

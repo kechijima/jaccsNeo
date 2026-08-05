@@ -3,6 +3,7 @@ import { SERVICE_LABELS } from '~/types/service'
 import { useCustomerStore } from '~/composables/useCustomerStore'
 import { useAppServices } from '~/composables/useAppServices'
 import { useLifeInsuranceCases } from '~/composables/useLifeInsuranceCases'
+import { useFavorites } from '~/composables/useFavorites'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -10,6 +11,9 @@ const { customers } = useCustomerStore()
 const { countForType } = useAppServices()
 const { cases: liCases, fetchAll: fetchLiCases } = useLifeInsuranceCases()
 await fetchLiCases()
+
+const { isFavoriteApp, toggleFavoriteApp, ensureLoaded: ensureFavoritesLoaded } = useFavorites()
+ensureFavoritesLoaded()
 
 // ── カウント計算（生命保険はFirestore連動の専用案件数、それ以外はパーソナルデータのサービス項目から集計） ──
 const getCount = (type: string) => type === 'lifeInsurance' ? liCases.value.length : countForType(type)
@@ -238,12 +242,23 @@ const filteredCategories = computed(() => {
               >
                 <Icon :name="cat.icon" class="h-5 w-5" :class="cat.color" />
               </div>
-              <span
-                class="badge text-xs shrink-0"
-                :class="cat.badgeColor"
-              >
-                {{ cat.label }}
-              </span>
+              <div class="flex items-center gap-1.5 shrink-0">
+                <span
+                  class="badge text-xs"
+                  :class="cat.badgeColor"
+                >
+                  {{ cat.label }}
+                </span>
+                <button
+                  type="button"
+                  class="text-gray-300 hover:text-amber-400 transition"
+                  :class="isFavoriteApp(svc.key) ? 'text-amber-400' : ''"
+                  :aria-label="isFavoriteApp(svc.key) ? 'お気に入りから外す' : 'お気に入りに追加'"
+                  @click.prevent.stop="toggleFavoriteApp(svc.key)"
+                >
+                  <Icon :name="isFavoriteApp(svc.key) ? 'heroicons:star-solid' : 'heroicons:star'" class="h-4 w-4" />
+                </button>
+              </div>
             </div>
 
             <!-- サービス名 + 件数 -->

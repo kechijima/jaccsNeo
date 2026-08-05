@@ -3,6 +3,8 @@ import { usePortalStore } from '~/composables/usePortalStore'
 import { useAnnouncementStore } from '~/composables/useAnnouncementStore'
 import { useNotifications } from '~/composables/useNotifications'
 import { useAnnouncementScope } from '~/composables/useAnnouncementScope'
+import { useFavorites } from '~/composables/useFavorites'
+import { SERVICE_LABELS } from '~/types/service'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -11,6 +13,8 @@ const portalStore = usePortalStore()
 const announcementStore = useAnnouncementStore()
 const { subscribeUnreadCount } = useNotifications()
 const { scopeLabel, scopeBadgeClass, ensureLoaded: ensureScopeLoaded } = useAnnouncementScope()
+const { favoriteAppIds, favoriteSpaceIds, ensureLoaded: ensureFavoritesLoaded } = useFavorites()
+ensureFavoritesLoaded()
 
 const now = new Date()
 const greeting = computed(() => {
@@ -70,6 +74,17 @@ const pinnedSpaces = computed(() =>
     unread: s.id === 's002' ? 2 : s.id === 's001' ? 1 : 0,
   })),
 )
+
+// ── お気に入り（アプリ・掲示板） ────────────────────────────────────────────
+const favoriteApps = computed(() =>
+  favoriteAppIds.value.map(key => ({ key, label: SERVICE_LABELS[key] ?? key, to: `/services/${key}` })),
+)
+const favoriteSpaces = computed(() =>
+  portalStore.spaces.value
+    .filter(s => favoriteSpaceIds.value.includes(s.id))
+    .map(s => ({ ...s, color: spaceColorMap[s.type] ?? 'bg-indigo-100 text-indigo-700' })),
+)
+const hasFavorites = computed(() => favoriteApps.value.length > 0 || favoriteSpaces.value.length > 0)
 
 // ── 通知バッジ ──────────────────────────────────────────────────────────────
 const unreadNotifCount = ref(0)
@@ -138,6 +153,35 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
         <NuxtLink to="/events" class="flex items-center gap-2 rounded-lg border border-gray-200 p-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-primary-300 transition">
           <Icon name="heroicons:calendar-days" class="h-5 w-5 text-primary-600 shrink-0" />
           イベント一覧
+        </NuxtLink>
+      </div>
+    </div>
+
+    <!-- ===== お気に入り ===== -->
+    <div v-if="hasFavorites" class="card p-5">
+      <h2 class="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+        <Icon name="heroicons:star-solid" class="h-5 w-5 text-amber-400" />
+        お気に入り
+      </h2>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <NuxtLink
+          v-for="app in favoriteApps"
+          :key="`app-${app.key}`"
+          :to="app.to"
+          class="flex items-center gap-2 rounded-lg border border-gray-200 p-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-primary-300 transition"
+        >
+          <Icon name="heroicons:squares-2x2" class="h-5 w-5 text-primary-600 shrink-0" />
+          <span class="truncate">{{ app.label }}</span>
+        </NuxtLink>
+        <NuxtLink
+          v-for="space in favoriteSpaces"
+          :key="`space-${space.id}`"
+          :to="`/portal/spaces/${space.id}`"
+          class="flex items-center gap-2 rounded-lg border border-gray-200 p-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-primary-300 transition"
+        >
+          <img v-if="space.headerImage" :src="space.headerImage" alt="" class="h-5 w-5 rounded shrink-0 object-cover" />
+          <Icon v-else name="heroicons:chat-bubble-left-right" class="h-5 w-5 text-indigo-600 shrink-0" />
+          <span class="truncate">{{ space.name }}</span>
         </NuxtLink>
       </div>
     </div>

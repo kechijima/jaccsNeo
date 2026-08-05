@@ -2,6 +2,7 @@
 import { usePortalStore } from '~/composables/usePortalStore'
 import { useUsers } from '~/composables/useUsers'
 import { resolveSpaceMembers } from '~/composables/useSpaces'
+import { useFavorites } from '~/composables/useFavorites'
 import type { AppUser } from '~/types/user'
 
 definePageMeta({ middleware: ['auth'] })
@@ -13,6 +14,9 @@ const allUsers = ref<AppUser[]>([])
 onMounted(async () => {
   allUsers.value = await fetchUsers().catch(() => [])
 })
+
+const { isFavoriteSpace, toggleFavoriteSpace, ensureLoaded: ensureFavoritesLoaded } = useFavorites()
+ensureFavoritesLoaded()
 
 const typeLabelMap: Record<string, string> = {
   all:     '全体スペース',
@@ -151,6 +155,15 @@ const filteredSpaces = computed(() => {
               <span v-if="space.unread > 0" class="flex h-5 w-5 items-center justify-center rounded-full bg-primary-500 text-[10px] font-bold text-white">
                 {{ space.unread }}
               </span>
+              <button
+                type="button"
+                class="text-gray-300 hover:text-amber-400 transition"
+                :class="isFavoriteSpace(space.id) ? 'text-amber-400' : ''"
+                :aria-label="isFavoriteSpace(space.id) ? 'お気に入りから外す' : 'お気に入りに追加'"
+                @click.prevent.stop="toggleFavoriteSpace(space.id)"
+              >
+                <Icon :name="isFavoriteSpace(space.id) ? 'heroicons:star-solid' : 'heroicons:star'" class="h-4 w-4" />
+              </button>
               <Icon name="heroicons:chevron-right" class="h-4 w-4 text-gray-300" />
             </div>
           </NuxtLink>
