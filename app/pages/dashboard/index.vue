@@ -61,20 +61,32 @@ const spaceColorMap: Record<string, string> = {
   event:   'bg-sky-100 text-sky-700',
 }
 
-const spacePosts = computed(() => portalStore.posts.value.filter(p => !p.isPinned).slice(0, 5))
+const spacePosts = computed(() => portalStore.posts.value.filter(p => !p.isPinned).slice(0, 3))
 
 // HTMLタグを除去して80文字に切り詰める（80文字以下なら「...」を付けない）
 const excerpt = (html: string) => {
   const text = html.replace(/<[^>]*>/g, '')
   return text.length > 80 ? text.slice(0, 80) + '...' : text
 }
-const pinnedSpaces = computed(() =>
-  portalStore.spaces.value.filter(s => s.isPinned).map(s => ({
-    ...s,
-    color: spaceColorMap[s.type] ?? 'bg-indigo-100 text-indigo-700',
-    unread: s.id === 's002' ? 2 : s.id === 's001' ? 1 : 0,
-  })),
-)
+
+// お気に入りのスペースを上部に、それ以外（ピン留め優先）を続けて数件表示する
+const decorateSpace = (s: any) => ({
+  ...s,
+  color: spaceColorMap[s.type] ?? 'bg-indigo-100 text-indigo-700',
+  unread: s.id === 's002' ? 2 : s.id === 's001' ? 1 : 0,
+  isFavorite: favoriteSpaceIds.value.includes(s.id),
+})
+const displaySpaces = computed(() => {
+  const favs = portalStore.spaces.value
+    .filter(s => favoriteSpaceIds.value.includes(s.id))
+    .map(decorateSpace)
+  const others = portalStore.spaces.value
+    .filter(s => !favoriteSpaceIds.value.includes(s.id))
+    .slice()
+    .sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0))
+    .map(decorateSpace)
+  return [...favs, ...others].slice(0, 5)
+})
 
 // ── お気に入り（アプリ・掲示板） ────────────────────────────────────────────
 const favoriteApps = computed(() =>
@@ -282,7 +294,7 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
           <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">スペース</p>
           <div class="space-y-1">
             <NuxtLink
-              v-for="space in pinnedSpaces"
+              v-for="space in displaySpaces"
               :key="space.id"
               :to="`/portal/spaces/${space.id}`"
               class="flex items-center justify-between rounded-lg px-3 py-2 text-sm hover:bg-gray-50 transition"
@@ -293,6 +305,7 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
                   {{ space.name.charAt(0) }}
                 </div>
                 <span class="truncate text-gray-700 text-xs">{{ space.name }}</span>
+                <Icon v-if="space.isFavorite" name="heroicons:star-solid" class="h-3 w-3 text-amber-400 shrink-0" />
               </div>
               <span v-if="space.unread > 0" class="ml-2 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary-500 text-[9px] font-bold text-white">
                 {{ space.unread }}
