@@ -30,7 +30,7 @@ export default defineNuxtConfig({
 
   app: {
     head: {
-      title: 'jaccsNeo',
+      title: 'JACCS Neo',
       meta: [
         { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
@@ -38,8 +38,8 @@ export default defineNuxtConfig({
         { name: 'mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
-        { name: 'apple-mobile-web-app-title', content: 'jaccsNeo' },
-        { name: 'theme-color', content: '#16a34a' },
+        { name: 'apple-mobile-web-app-title', content: 'JACCS Neo' },
+        { name: 'theme-color', content: '#00afcc' },
       ],
       link: [
         { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
@@ -51,10 +51,10 @@ export default defineNuxtConfig({
   pwa: {
     registerType: 'autoUpdate',
     manifest: {
-      name: 'jaccsNeo',
-      short_name: 'jaccsNeo',
+      name: 'JACCS Neo',
+      short_name: 'JACCS Neo',
       description: 'FP業務管理ツール',
-      theme_color: '#16a34a',
+      theme_color: '#00afcc',
       background_color: '#ffffff',
       display: 'standalone',
       orientation: 'portrait',

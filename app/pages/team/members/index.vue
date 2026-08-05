@@ -1,14 +1,12 @@
 <script setup lang="ts">
 import type { AppUser } from '~/types/user'
-import { useOrgTree } from '~/composables/useOrgTree'
 import { useDirectorIndex } from '~/composables/useDirectorIndex'
 import { DIRECTOR_ROLE_LABELS } from '~/types/directorIndex'
 
 definePageMeta({ middleware: ['auth'] })
 
 const { fetchUsers } = useUsers()
-const { tree: orgTree, loading: treeLoading, fetchTree } = useOrgTree()
-const viewMode = ref<'tree' | 'list' | 'lookup'>('tree')
+const viewMode = ref<'list' | 'lookup'>('list')
 
 // ── ディレクター逆引き検索（添付Excelの検索インデックスを取り込んだデータ） ──
 const {
@@ -65,7 +63,6 @@ const toggleGroup = (id: string) => {
 }
 
 onMounted(async () => {
-  fetchTree()
   fetchDirectorIndex()
 
   loading.value = true
@@ -140,14 +137,6 @@ onMounted(async () => {
         <button
           type="button"
           class="px-4 py-1.5 font-medium transition flex items-center gap-1.5"
-          :class="viewMode === 'tree' ? 'bg-primary-600 text-white' : 'text-gray-500 hover:bg-gray-50'"
-          @click="viewMode = 'tree'"
-        >
-          <Icon name="heroicons:share" class="h-3.5 w-3.5 rotate-90" />組織図
-        </button>
-        <button
-          type="button"
-          class="px-4 py-1.5 font-medium transition flex items-center gap-1.5"
           :class="viewMode === 'list' ? 'bg-primary-600 text-white' : 'text-gray-500 hover:bg-gray-50'"
           @click="viewMode = 'list'"
         >
@@ -209,25 +198,8 @@ onMounted(async () => {
       </div>
     </div>
 
-    <!-- 組織図 -->
-    <div v-if="viewMode === 'tree'" class="card p-6">
-      <div v-if="treeLoading" class="text-center py-12">
-        <Icon name="heroicons:arrow-path" class="h-8 w-8 text-gray-300 mx-auto mb-2 animate-spin" />
-        <p class="text-gray-400 text-sm">読み込み中...</p>
-      </div>
-      <div v-else-if="orgTree.length === 0" class="text-center py-12">
-        <Icon name="heroicons:share" class="h-10 w-10 text-gray-200 mx-auto mb-2" />
-        <p class="text-gray-400 text-sm">メンバーが登録されていません</p>
-      </div>
-      <div v-else class="overflow-x-auto pb-2">
-        <div class="flex items-start gap-10 w-max mx-auto">
-          <OrgTreeNode v-for="root in orgTree" :key="root.user.uid" :node="root" />
-        </div>
-      </div>
-    </div>
-
     <!-- 一覧 -->
-    <template v-else-if="viewMode === 'list'">
+    <template v-if="viewMode === 'list'">
     <!-- 検索 -->
     <div class="relative">
       <Icon name="heroicons:magnifying-glass" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
