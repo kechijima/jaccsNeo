@@ -53,7 +53,7 @@ const payloadRows = (r: AppRequest): { label: string; value: string }[] => {
       { label: 'メールアドレス', value: p.email ?? '' },
       { label: '所属グループ', value: p.groupName || '（なし）' },
       { label: '所属組合', value: p.kumiaiName || '（なし）' },
-      { label: '役職', value: p.position || '（なし）' },
+      { label: 'タイトル', value: p.position || '（なし）' },
       { label: 'メインサポート', value: p.mainSupporterName || '（なし）' },
       { label: 'サブサポート', value: p.subSupporterName || '（なし）' },
     ]

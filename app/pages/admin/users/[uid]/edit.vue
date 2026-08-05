@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { UserRole, SpecialTeam, GroupId } from '~/types/user'
+import { TITLE_OPTIONS, type UserRole, type SpecialTeam, type GroupId } from '~/types/user'
 import type { Group } from '~/types/group'
 import { useGroups } from '~/composables/useGroups'
 
@@ -189,8 +189,11 @@ const toggleSpecialTeam = (team: string) => {
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1.5">役職</label>
-        <input v-model="form.position" type="text" class="input-field" />
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">タイトル</label>
+        <select v-model="form.position" class="input-field">
+          <option value="">未選択</option>
+          <option v-for="t in TITLE_OPTIONS" :key="t" :value="t">{{ t }}</option>
+        </select>
       </div>
 
       <!-- 組織図（サポート） -->

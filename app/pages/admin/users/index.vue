@@ -190,7 +190,7 @@ const openDetail = (u: any) => { selectedUser.value = u }
             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">グループ / 組合</th>
             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">携帯電話</th>
             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">現在エリア</th>
-            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">ロール / 役職</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">ロール / タイトル</th>
             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">状態</th>
             <th class="px-4 py-3" />
           </tr>
@@ -340,7 +340,7 @@ const openDetail = (u: any) => { selectedUser.value = u }
                     <dd class="col-span-2">{{ selectedUser.kumiaiJoinDate || '—' }}</dd>
                   </div>
                   <div class="grid grid-cols-3 gap-1">
-                    <dt class="text-gray-500">ロール / 役職</dt>
+                    <dt class="text-gray-500">ロール / タイトル</dt>
                     <dd class="col-span-2">
                       <span class="badge text-xs mr-1" :class="roleColors[selectedUser.role]">{{ roleLabels[selectedUser.role] }}</span>
                       {{ selectedUser.position || '' }}

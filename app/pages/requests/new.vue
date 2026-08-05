@@ -5,7 +5,7 @@ import { useRequests } from '~/composables/useRequests'
 import { useGroups } from '~/composables/useGroups'
 import { useUsers } from '~/composables/useUsers'
 import type { Group } from '~/types/group'
-import type { AppUser } from '~/types/user'
+import { TITLE_OPTIONS, type AppUser } from '~/types/user'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -213,8 +213,11 @@ const handleSubmit = async () => {
           </div>
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">役職</label>
-          <input v-model="memberCreateForm.position" type="text" placeholder="例: 一般FP" class="input-field" />
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">タイトル</label>
+          <select v-model="memberCreateForm.position" class="input-field">
+            <option value="">未選択</option>
+            <option v-for="t in TITLE_OPTIONS" :key="t" :value="t">{{ t }}</option>
+          </select>
         </div>
         <div class="grid sm:grid-cols-2 gap-4">
           <div>
@@ -226,7 +229,7 @@ const handleSubmit = async () => {
             <SearchableUserSelect v-model="memberCreateForm.subSupporterUid" :users="userOptions" />
           </div>
         </div>
-        <p class="text-xs text-gray-400">承認されると仮パスワード付きのアカウントが作成され、招待メールが送信されます。所属・役職・サポート者もチーム画面に反映されます。</p>
+        <p class="text-xs text-gray-400">承認されると仮パスワード付きのアカウントが作成され、招待メールが送信されます。所属・タイトル・サポート者もチーム画面に反映されます。</p>
       </template>
 
       <!-- プラン変更 -->

@@ -2,6 +2,14 @@ export type UserRole = 'system_admin' | 'board' | 'em2_above' | 'general'
 
 export type SpecialTeam = 'real_estate' | 'non_life_insurance'
 
+// タイトル（旧: 役職）の選択肢
+export const TITLE_OPTIONS = [
+  'Sプラン', 'Bプラン',
+  'EM1', 'EM2', 'EM3', 'EM4',
+  'PM1', 'PM3', 'PM6', 'PM9', 'PM12',
+  'MM1', 'MM2', 'MM3', 'MM4', 'MM5', 'MM6',
+] as const
+
 // グループはFirestoreの groups コレクションで動的に追加できるため、固定の列挙型ではなくstringとする
 export type GroupId = string
 
