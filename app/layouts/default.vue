@@ -60,7 +60,7 @@ const groupLabel = computed(() => getGroupLabel(user.value?.groupId))
         <div class="flex items-center justify-center w-8 h-8 rounded-lg bg-primary-600">
           <span class="text-sm font-bold text-white">J</span>
         </div>
-        <span class="text-base font-bold text-gray-900">jaccsNeo</span>
+        <span class="text-base font-bold text-gray-900">JACCS Neo</span>
       </div>
 
       <!-- ナビゲーション -->
@@ -173,7 +173,7 @@ const groupLabel = computed(() => getGroupLabel(user.value?.groupId))
           <div class="flex items-center justify-center w-7 h-7 rounded-lg bg-primary-600">
             <span class="text-xs font-bold text-white">J</span>
           </div>
-          <span class="text-sm font-bold text-gray-900">jaccsNeo</span>
+          <span class="text-sm font-bold text-gray-900">JACCS Neo</span>
         </div>
         <div class="flex items-center gap-1">
           <NuxtLink to="/notifications" class="relative rounded-lg p-2 text-gray-500 hover:bg-gray-100">

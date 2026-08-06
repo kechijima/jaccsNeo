@@ -58,7 +58,7 @@ const handleSubmit = async () => {
       <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary-600 shadow-lg mb-4">
         <span class="text-2xl font-bold text-white">J</span>
       </div>
-      <h1 class="text-2xl font-bold text-gray-900">jaccsNeo</h1>
+      <h1 class="text-2xl font-bold text-gray-900">JACCS Neo</h1>
       <p class="mt-1 text-sm text-gray-500">初期セットアップ</p>
     </div>
 
@@ -121,7 +121,7 @@ const handleSubmit = async () => {
     </div>
 
     <p class="mt-6 text-center text-xs text-gray-400">
-      © {{ new Date().getFullYear() }} jaccsNeo. All rights reserved.
+      © {{ new Date().getFullYear() }} JACCS Neo. All rights reserved.
     </p>
   </div>
 </template>
