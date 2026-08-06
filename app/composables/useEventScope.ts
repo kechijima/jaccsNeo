@@ -4,6 +4,7 @@ import { EVENT_CATEGORY_LABELS, type EventCategory } from '~/types/event'
 interface ScopedEvent {
   scope: string
   groupId?: string
+  kumiaiId?: string
 }
 
 interface CategorizedEvent {
@@ -31,7 +32,7 @@ const FIXED_DOT: Record<string, string> = {
 // イベントのグループ表示（グループごとに配色を変える）。
 // 新形式（scope:'group' + groupId）・旧形式（scopeに直接グループIDが入っている）の両方に対応する
 export const useEventScope = () => {
-  const { getGroupLabel, getGroupColor, getGroupBadgeClass, ensureLoaded } = useGroupLabels()
+  const { getGroupLabel, getGroupColor, getGroupBadgeClass, getKumiaiLabel, ensureLoaded } = useGroupLabels()
 
   const resolveGroupId = (e: ScopedEvent): string | null => {
     if (e.scope === 'group' && e.groupId) return e.groupId
@@ -42,6 +43,10 @@ export const useEventScope = () => {
   const scopeLabel = (e: ScopedEvent): string => {
     const gid = resolveGroupId(e)
     if (gid) return `${getGroupLabel(gid)}グループ`
+    if (e.scope === 'kumiai') {
+      const kumiaiName = getKumiaiLabel(e.kumiaiId)
+      return kumiaiName ? `${kumiaiName}組合` : FIXED_LABELS.kumiai
+    }
     return FIXED_LABELS[e.scope] ?? e.scope
   }
 

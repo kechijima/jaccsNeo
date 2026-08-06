@@ -139,11 +139,15 @@ export const usePortalStore = () => {
     })
 
     // イベントスペースで「カレンダーに連携する」がONの場合、同じ日時・内容でカレンダーにも登録する
-    // （イベント掲示板からの連携では入力項目を増やさないため、タイトルは投稿内容から自動生成する）
+    // （イベント掲示板からの連携では入力項目を増やさないため、タイトルは投稿内容から自動生成する。
+    //  投稿自体にタイトル項目がないため、どのスペースのイベントか分かるようスペース名を必ず含める）
     if (eventOptions?.syncToCalendar && eventOptions.startAt) {
       const space = spaces.value.find(s => s.id === spaceId)
       const { createEvent } = useEvents()
-      const title = stripHtml(content).slice(0, 40) || space?.name || 'イベント'
+      const excerpt = stripHtml(content).slice(0, 40).trim()
+      const title = space?.name
+        ? (excerpt ? `【${space.name}】${excerpt}` : space.name)
+        : (excerpt || 'イベント')
       const eventId = await createEvent({
         title,
         startAt: eventOptions.startAt.toISOString(),

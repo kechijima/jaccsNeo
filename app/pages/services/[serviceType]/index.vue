@@ -2,6 +2,7 @@
 import { SERVICE_LABELS } from '~/types/service'
 import { useAppServices } from '~/composables/useAppServices'
 import { useLifeInsuranceCases } from '~/composables/useLifeInsuranceCases'
+import { useFavorites } from '~/composables/useFavorites'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -9,6 +10,9 @@ const route = useRoute()
 const serviceType = computed(() => route.params.serviceType as string)
 const serviceLabel = computed(() => SERVICE_LABELS[serviceType.value] ?? serviceType.value)
 const isLifeInsurance = computed(() => serviceType.value === 'lifeInsurance')
+
+const { isFavoriteApp, toggleFavoriteApp, ensureLoaded: ensureFavoritesLoaded } = useFavorites()
+ensureFavoritesLoaded()
 
 // ── 生命保険：専用案件データ（Firestore連動） ──────────
 const { cases: liCases, loading: liLoading, fetchAll: fetchLiCases } = useLifeInsuranceCases()
@@ -70,6 +74,18 @@ const statusClass = (status: string) => {
         <h1 class="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-2">
           <Icon name="heroicons:table-cells" class="h-6 w-6 text-primary-600" />
           {{ serviceLabel }}
+          <button
+            type="button"
+            class="flex items-center justify-center h-7 w-7 rounded-full transition shrink-0"
+            :class="isFavoriteApp(serviceType)
+              ? 'bg-amber-100 text-amber-500 hover:bg-amber-200'
+              : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-amber-400'"
+            :aria-label="isFavoriteApp(serviceType) ? 'お気に入りから外す' : 'お気に入りに追加'"
+            :title="isFavoriteApp(serviceType) ? 'お気に入り登録中' : 'お気に入りに追加'"
+            @click="toggleFavoriteApp(serviceType)"
+          >
+            <Icon :name="isFavoriteApp(serviceType) ? 'heroicons:star-solid' : 'heroicons:star'" class="h-4 w-4" />
+          </button>
         </h1>
         <p class="mt-1 text-sm text-gray-500">
           {{ isLifeInsurance ? 'kintone連動' : 'パーソナルデータ連動' }} — {{ totalCount }} 件の案件

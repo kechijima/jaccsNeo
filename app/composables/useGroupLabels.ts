@@ -20,6 +20,7 @@ export const useGroupLabels = () => {
   const { fetchGroups } = useGroups()
 
   const groups  = useState<{ id: string; name: string }[]>('groupLabels:list', () => [])
+  const kumiaiNames = useState<Record<string, string>>('groupLabels:kumiaiNames', () => ({}))
   const loaded  = useState<boolean>('groupLabels:loaded', () => false)
   const loading = useState<boolean>('groupLabels:loading', () => false)
 
@@ -27,11 +28,18 @@ export const useGroupLabels = () => {
     if (loaded.value && !force) return
     loading.value = true
     try {
-      groups.value = (await fetchGroups()).map(g => ({ id: g.id, name: g.name }))
+      const fetched = await fetchGroups()
+      groups.value = fetched.map(g => ({ id: g.id, name: g.name }))
+      kumiaiNames.value = Object.fromEntries(fetched.flatMap(g => g.kumiai.map(k => [k.id, k.name])))
       loaded.value = true
     } finally {
       loading.value = false
     }
+  }
+
+  const getKumiaiLabel = (id?: string | null): string => {
+    if (!id) return ''
+    return kumiaiNames.value[id] ?? ''
   }
 
   const getGroupLabel = (id?: string | null): string => {
@@ -56,5 +64,5 @@ export const useGroupLabels = () => {
     return BADGE_CLASSES[idx % BADGE_CLASSES.length]
   }
 
-  return { groups, loading, loaded, ensureLoaded, getGroupLabel, getGroupColor, getGroupBadgeClass }
+  return { groups, loading, loaded, ensureLoaded, getGroupLabel, getGroupColor, getGroupBadgeClass, getKumiaiLabel }
 }

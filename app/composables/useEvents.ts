@@ -58,7 +58,9 @@ export const useEvents = () => {
         location:     data.location,
         scope:        data.scope,
         groupId:      data.groupId,
+        kumiaiId:     data.kumiaiId,
         category:     data.category ?? 'event',
+        recurrence:   data.recurrence,
         attendeeCount: data.attendeeCount ?? 0,
       } as EventSummary
     })

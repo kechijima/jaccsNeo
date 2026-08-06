@@ -13,6 +13,16 @@ export const EVENT_CATEGORY_LABELS: Record<EventCategory, string> = {
   other:   'その他',
 }
 
+// 繰り返し設定（Googleカレンダー風: 毎週◯曜日 / 毎月◯日）。会議種別のイベントのみ設定可能
+export type RecurrenceFrequency = 'weekly' | 'monthly'
+
+export interface EventRecurrence {
+  frequency: RecurrenceFrequency
+  interval: number          // ◯週間ごと・◯ヶ月ごと（1 = 毎週・毎月）
+  byWeekdays?: number[]     // frequency:'weekly'の場合の曜日（0=日〜6=土）
+  endDate?: string          // 繰り返しの終了日（YYYY-MM-DD、任意）
+}
+
 export interface Event {
   id: string
   title: string
@@ -26,6 +36,7 @@ export interface Event {
   spaceId?: string
   postId?: string   // 掲示板（イベントスペース）の投稿から連携作成された場合の投稿ID
   category: EventCategory
+  recurrence?: EventRecurrence
   createdBy: string
   createdByName: string
   attendeeCount: number
@@ -41,7 +52,9 @@ export interface EventSummary {
   location?: string
   scope: EventScope
   groupId?: GroupId
+  kumiaiId?: string
   category: EventCategory
+  recurrence?: EventRecurrence
   attendeeCount: number
   myStatus?: AttendanceStatus
 }
@@ -65,4 +78,5 @@ export interface EventForm {
   spaceId?: string
   postId?: string
   category: EventCategory
+  recurrence?: EventRecurrence
 }

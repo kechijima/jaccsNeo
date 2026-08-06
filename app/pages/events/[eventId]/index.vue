@@ -48,6 +48,19 @@ const attendingCount = computed(() =>
   attendees.value.filter(a => a.status === 'attending').length,
 )
 
+const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土']
+const recurrenceText = computed(() => {
+  const r = event.value?.recurrence
+  if (!r) return ''
+  const unit = r.frequency === 'weekly' ? '週間' : 'ヶ月'
+  const prefix = r.interval > 1 ? `${r.interval}${unit}ごと` : (r.frequency === 'weekly' ? '毎週' : '毎月')
+  const detail = r.frequency === 'weekly'
+    ? (r.byWeekdays ?? []).map(d => WEEKDAY_LABELS[d]).join('・') + '曜日'
+    : `${event.value?.startAt.toDate().getDate()}日`
+  const until = r.endDate ? `（${r.endDate.replace(/-/g, '/')}まで）` : ''
+  return `${prefix} ${detail}に繰り返し${until}`
+})
+
 const handleAttendance = async (status: AttendanceStatus) => {
   if (updatingStatus.value) return
   updatingStatus.value = true
@@ -128,6 +141,9 @@ const statusLabel = (status: string) => {
           <div>
             <p class="font-medium text-gray-900">{{ formatDate(event.startAt) }}</p>
             <p class="text-gray-500 mt-0.5">{{ formatTime(event.startAt) }} 〜 {{ event.endAt ? formatTime(event.endAt) : '' }}</p>
+            <p v-if="recurrenceText" class="mt-1 flex items-center gap-1 text-xs text-primary-600">
+              <Icon name="heroicons:arrow-path" class="h-3.5 w-3.5" />{{ recurrenceText }}
+            </p>
           </div>
         </div>
         <div v-if="event.location" class="flex items-center gap-3 text-sm">

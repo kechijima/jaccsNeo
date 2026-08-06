@@ -210,7 +210,7 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
         <div class="absolute inset-0 flex items-end px-4 pb-3" style="background: rgba(0,0,0,0.35)">
           <div class="flex items-end justify-between w-full">
             <div>
-              <h1 class="text-lg font-bold text-white drop-shadow">{{ space.name }}</h1>
+              <h1 class="text-xl md:text-2xl font-bold text-white drop-shadow">{{ space.name }}</h1>
               <p v-if="space.description" class="text-xs text-white/80 mt-0.5 line-clamp-1">{{ descriptionExcerpt(space.description) }}</p>
             </div>
             <div class="flex items-center gap-2 shrink-0 pb-0.5">

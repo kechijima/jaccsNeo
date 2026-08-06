@@ -3,7 +3,7 @@ import { useEvents } from '~/composables/useEvents'
 import { useEventScope } from '~/composables/useEventScope'
 import { useGroups } from '~/composables/useGroups'
 import { EVENT_CATEGORY_LABELS } from '~/types/event'
-import type { EventSummary } from '~/types/event'
+import type { EventSummary, EventRecurrence } from '~/types/event'
 import type { Group } from '~/types/group'
 
 definePageMeta({ middleware: ['auth'] })
@@ -30,6 +30,7 @@ interface EventRow {
   scope: string
   groupId?: string
   category: string
+  recurrence?: EventRecurrence
   attendeeCount: number
   isAttending: boolean
 }
@@ -62,6 +63,7 @@ const events = computed<EventRow[]>(() =>
     scope:         e.scope,
     groupId:       e.groupId,
     category:      e.category,
+    recurrence:    e.recurrence,
     attendeeCount: e.attendeeCount,
     isAttending:   attendingIds.value.has(e.id),
   }))
@@ -95,6 +97,31 @@ const isDateInRange = (day: Date, start: Date, end: Date) => {
   const d = toDateOnly(day)
   return d >= toDateOnly(start) && d <= toDateOnly(end)
 }
+const startOfWeek = (d: Date) => { const r = new Date(d); r.setDate(r.getDate() - r.getDay()); return r }
+
+// 指定した日にイベントが出現するか判定する（通常イベント：期間内かどうか／会議の繰り返し：曜日・間隔などのルールに一致するか）
+const eventOccursOnDate = (e: EventRow, day: Date): boolean => {
+  if (isDateInRange(day, e.startAt, e.endAt ?? e.startAt)) return true
+  if (!e.recurrence) return false
+
+  const d = toDateOnly(day)
+  const start = toDateOnly(e.startAt)
+  if (d < start) return false
+  if (e.recurrence.endDate && d > toDateOnly(new Date(`${e.recurrence.endDate}T00:00`))) return false
+
+  const interval = Math.max(1, e.recurrence.interval || 1)
+  if (e.recurrence.frequency === 'weekly') {
+    if (!(e.recurrence.byWeekdays ?? []).includes(d.getDay())) return false
+    const weeksDiff = Math.round((startOfWeek(d).getTime() - startOfWeek(start).getTime()) / (7 * 86400000))
+    return weeksDiff >= 0 && weeksDiff % interval === 0
+  }
+  if (e.recurrence.frequency === 'monthly') {
+    if (d.getDate() !== start.getDate()) return false
+    const monthsDiff = (d.getFullYear() - start.getFullYear()) * 12 + (d.getMonth() - start.getMonth())
+    return monthsDiff >= 0 && monthsDiff % interval === 0
+  }
+  return false
+}
 
 // ===== カレンダーロジック =====
 const calendarDays = computed(() => {
@@ -125,8 +152,8 @@ const calendarDays = computed(() => {
   while (curr <= endDate) {
     const currCopy = new Date(curr)
     const currDateStr = currCopy.toDateString()
-    // 複数日にまたがるイベント（終了日が翌日以降）は該当する日すべてに表示する
-    const dayEvents = filteredEvents.value.filter(e => isDateInRange(currCopy, e.startAt, e.endAt ?? e.startAt))
+    // 複数日にまたがるイベント（終了日が翌日以降）や、繰り返し会議の各回はすべて該当する日に表示する
+    const dayEvents = filteredEvents.value.filter(e => eventOccursOnDate(e, currCopy))
 
     days.push({
       date: currCopy,
@@ -147,8 +174,15 @@ const eventsInCurrentMonth = computed(() => {
   const month = currentMonth.value.getMonth()
   const monthStart = new Date(year, month, 1)
   const monthEnd   = new Date(year, month + 1, 0)
-  // 表示中の月に1日でも重なっていれば「今月のイベント」として数える（複数日イベント対応）
-  return filteredEvents.value.filter(e => toDateOnly(e.startAt) <= monthEnd && toDateOnly(e.endAt ?? e.startAt) >= monthStart)
+  // 表示中の月に1日でも重なっていれば「今月のイベント」として数える（複数日イベント・繰り返し会議に対応）
+  return filteredEvents.value.filter((e) => {
+    if (toDateOnly(e.startAt) <= monthEnd && toDateOnly(e.endAt ?? e.startAt) >= monthStart) return true
+    if (!e.recurrence) return false
+    for (const cur = new Date(monthStart); cur <= monthEnd; cur.setDate(cur.getDate() + 1)) {
+      if (eventOccursOnDate(e, cur)) return true
+    }
+    return false
+  })
 })
 
 const prevMonth = () => {
@@ -268,6 +302,9 @@ const goToNewEventOnDate = (d: Date) => navigateTo(`/events/new?date=${dateParam
               <div class="mt-1.5 flex items-center gap-2 flex-wrap">
                 <span class="badge text-xs" :class="categoryBadgeClass(evt)">{{ categoryLabel(evt) }}</span>
                 <span class="badge text-xs" :class="scopeBadgeClass(evt)">{{ scopeLabel(evt) }}</span>
+                <span v-if="evt.recurrence" class="badge text-xs bg-gray-100 text-gray-500 flex items-center gap-0.5">
+                  <Icon name="heroicons:arrow-path" class="h-3 w-3" />繰り返し
+                </span>
               </div>
               <div class="mt-1.5 space-y-0.5 text-xs text-gray-500">
                 <p class="flex items-center gap-1">
@@ -392,6 +429,7 @@ const goToNewEventOnDate = (d: Date) => navigateTo(`/events/new?date=${dateParam
               :class="scopeBadgeClass(evt)"
               @click.stop
             >
+              <Icon v-if="evt.recurrence" name="heroicons:arrow-path" class="h-2.5 w-2.5 shrink-0 opacity-70" />
               <span class="shrink-0 text-[10px] opacity-70 tabular-nums">{{ formatTime(evt.startAt) }}</span>
               <span class="truncate flex-1">{{ evt.title }}</span>
             </NuxtLink>
