@@ -114,7 +114,21 @@ const filteredSpaces = computed(() => {
               <p class="text-xs text-gray-400">{{ space.memberCount }}名</p>
             </div>
           </div>
-          <span v-if="space.unread > 0" class="badge bg-primary-500 text-white text-xs">{{ space.unread }}</span>
+          <div class="flex items-center gap-2 shrink-0">
+            <span v-if="space.unread > 0" class="badge bg-primary-500 text-white text-xs">{{ space.unread }}</span>
+            <button
+              type="button"
+              class="flex items-center justify-center h-7 w-7 rounded-full transition shrink-0"
+              :class="isFavoriteSpace(space.id)
+                ? 'bg-amber-100 text-amber-500 hover:bg-amber-200'
+                : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-amber-400'"
+              :aria-label="isFavoriteSpace(space.id) ? 'お気に入りから外す' : 'お気に入りに追加'"
+              :title="isFavoriteSpace(space.id) ? 'お気に入り登録中' : 'お気に入りに追加'"
+              @click.prevent.stop="toggleFavoriteSpace(space.id)"
+            >
+              <Icon :name="isFavoriteSpace(space.id) ? 'heroicons:star-solid' : 'heroicons:star'" class="h-4 w-4" />
+            </button>
+          </div>
         </NuxtLink>
         <div v-if="filteredSpaces.length === 0" class="p-8 text-center text-sm text-gray-400">
           該当するスペースが見つかりません
@@ -158,9 +172,12 @@ const filteredSpaces = computed(() => {
               </span>
               <button
                 type="button"
-                class="text-gray-300 hover:text-amber-400 transition"
-                :class="isFavoriteSpace(space.id) ? 'text-amber-400' : ''"
+                class="flex items-center justify-center h-7 w-7 rounded-full transition shrink-0"
+                :class="isFavoriteSpace(space.id)
+                  ? 'bg-amber-100 text-amber-500 hover:bg-amber-200'
+                  : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-amber-400'"
                 :aria-label="isFavoriteSpace(space.id) ? 'お気に入りから外す' : 'お気に入りに追加'"
+                :title="isFavoriteSpace(space.id) ? 'お気に入り登録中' : 'お気に入りに追加'"
                 @click.prevent.stop="toggleFavoriteSpace(space.id)"
               >
                 <Icon :name="isFavoriteSpace(space.id) ? 'heroicons:star-solid' : 'heroicons:star'" class="h-4 w-4" />

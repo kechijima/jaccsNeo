@@ -171,12 +171,12 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
     </div>
 
     <!-- ===== お気に入り ===== -->
-    <div v-if="hasFavorites" class="card p-5">
+    <div class="card p-5">
       <h2 class="font-semibold text-gray-900 mb-4 flex items-center gap-2">
         <Icon name="heroicons:star-solid" class="h-5 w-5 text-amber-400" />
         お気に入り
       </h2>
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      <div v-if="hasFavorites" class="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <NuxtLink
           v-for="app in favoriteApps"
           :key="`app-${app.key}`"
@@ -196,6 +196,14 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
           <Icon v-else name="heroicons:chat-bubble-left-right" class="h-5 w-5 text-indigo-600 shrink-0" />
           <span class="truncate">{{ space.name }}</span>
         </NuxtLink>
+      </div>
+      <div v-else class="flex items-center gap-2 text-sm text-gray-400 py-2">
+        <Icon name="heroicons:star" class="h-5 w-5 text-gray-300 shrink-0" />
+        <span>
+          よく使うアプリや掲示板の
+          <Icon name="heroicons:star" class="h-3.5 w-3.5 inline text-gray-400 -mt-0.5" />
+          ボタンを押すと、ここから素早くアクセスできます
+        </span>
       </div>
     </div>
 

@@ -157,6 +157,15 @@ const prevMonth = () => {
 const nextMonth = () => {
   currentMonth.value = new Date(currentMonth.value.getFullYear(), currentMonth.value.getMonth() + 1, 1)
 }
+
+// 日付セルをクリックしたら、その日を開始日に設定してイベント作成画面を開く
+const dateParam = (d: Date) => {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+const goToNewEventOnDate = (d: Date) => navigateTo(`/events/new?date=${dateParam(d)}`)
 </script>
 
 <template>
@@ -337,11 +346,13 @@ const nextMonth = () => {
         <div
           v-for="day in calendarDays"
           :key="day.date.toISOString()"
-          class="border-b border-r border-gray-100 min-h-[64px] md:min-h-[96px] p-1"
+          class="group relative border-b border-r border-gray-100 min-h-[64px] md:min-h-[96px] p-1 cursor-pointer hover:bg-primary-50/40 transition"
           :class="!day.isCurrentMonth ? 'bg-gray-50/60' : ''"
+          :title="`${dateParam(day.date)} のイベントを作成`"
+          @click="goToNewEventOnDate(day.date)"
         >
           <!-- 日付 -->
-          <div class="mb-0.5 md:mb-1">
+          <div class="mb-0.5 md:mb-1 flex items-center justify-between">
             <span
               class="text-xs font-medium inline-flex items-center justify-center w-5 h-5 rounded-full leading-none"
               :class="[
@@ -356,6 +367,7 @@ const nextMonth = () => {
                         : 'text-gray-700',
               ]"
             >{{ day.day }}</span>
+            <Icon name="heroicons:plus" class="h-3.5 w-3.5 text-primary-400 opacity-0 group-hover:opacity-100 transition shrink-0" />
           </div>
 
           <!-- モバイル: カラードット -->
@@ -378,6 +390,7 @@ const nextMonth = () => {
               :to="`/events/${evt.id}`"
               class="flex items-center gap-1 w-full truncate text-xs rounded px-1 py-0.5 hover:opacity-80 transition cursor-pointer"
               :class="scopeBadgeClass(evt)"
+              @click.stop
             >
               <span class="shrink-0 text-[10px] opacity-70 tabular-nums">{{ formatTime(evt.startAt) }}</span>
               <span class="truncate flex-1">{{ evt.title }}</span>

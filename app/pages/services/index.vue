@@ -251,9 +251,12 @@ const filteredCategories = computed(() => {
                 </span>
                 <button
                   type="button"
-                  class="text-gray-300 hover:text-amber-400 transition"
-                  :class="isFavoriteApp(svc.key) ? 'text-amber-400' : ''"
+                  class="flex items-center justify-center h-7 w-7 rounded-full transition shrink-0"
+                  :class="isFavoriteApp(svc.key)
+                    ? 'bg-amber-100 text-amber-500 hover:bg-amber-200'
+                    : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-amber-400'"
                   :aria-label="isFavoriteApp(svc.key) ? 'お気に入りから外す' : 'お気に入りに追加'"
+                  :title="isFavoriteApp(svc.key) ? 'お気に入り登録中' : 'お気に入りに追加'"
                   @click.prevent.stop="toggleFavoriteApp(svc.key)"
                 >
                   <Icon :name="isFavoriteApp(svc.key) ? 'heroicons:star-solid' : 'heroicons:star'" class="h-4 w-4" />

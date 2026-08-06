@@ -4,12 +4,15 @@ import { usePortalStore } from '~/composables/usePortalStore'
 import { useAuthorProfileModal } from '~/composables/useAuthorProfileModal'
 import { useEvents } from '~/composables/useEvents'
 import { useEventScope } from '~/composables/useEventScope'
+import { useFavorites } from '~/composables/useFavorites'
 import type { EventSummary } from '~/types/event'
 
 definePageMeta({ middleware: ['auth'] })
 
 const store = usePortalStore()
 const { openAuthorProfile } = useAuthorProfileModal()
+const { isFavoriteSpace, toggleFavoriteSpace, ensureLoaded: ensureFavoritesLoaded } = useFavorites()
+ensureFavoritesLoaded()
 
 await store.fetchAllPosts()
 
@@ -424,9 +427,23 @@ const upcomingEvents = computed(() =>
                 </div>
                 <span class="truncate text-gray-700">{{ space.name }}</span>
               </div>
-              <span v-if="space.unread > 0" class="ml-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary-500 text-[10px] font-bold text-white">
-                {{ space.unread }}
-              </span>
+              <div class="flex items-center gap-1.5 shrink-0">
+                <span v-if="space.unread > 0" class="flex h-5 w-5 items-center justify-center rounded-full bg-primary-500 text-[10px] font-bold text-white">
+                  {{ space.unread }}
+                </span>
+                <button
+                  type="button"
+                  class="flex items-center justify-center h-6 w-6 rounded-full transition"
+                  :class="isFavoriteSpace(space.id)
+                    ? 'bg-amber-100 text-amber-500 hover:bg-amber-200'
+                    : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-amber-400'"
+                  :aria-label="isFavoriteSpace(space.id) ? 'お気に入りから外す' : 'お気に入りに追加'"
+                  :title="isFavoriteSpace(space.id) ? 'お気に入り登録中' : 'お気に入りに追加'"
+                  @click.prevent.stop="toggleFavoriteSpace(space.id)"
+                >
+                  <Icon :name="isFavoriteSpace(space.id) ? 'heroicons:star-solid' : 'heroicons:star'" class="h-3.5 w-3.5" />
+                </button>
+              </div>
             </NuxtLink>
           </div>
           <NuxtLink to="/portal/spaces" class="mt-3 block text-center text-xs text-primary-600 hover:underline">

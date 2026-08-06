@@ -5,6 +5,7 @@ import { useUsers } from '~/composables/useUsers'
 import { useAuthorProfileModal } from '~/composables/useAuthorProfileModal'
 import { resolveSpaceMembers } from '~/composables/useSpaces'
 import { useGroupLabels } from '~/composables/useGroupLabels'
+import { useFavorites } from '~/composables/useFavorites'
 import type { AppUser } from '~/types/user'
 
 definePageMeta({ middleware: ['auth'] })
@@ -17,6 +18,8 @@ const { sendMentionNotifications } = useNotifications()
 const { fetchUsers } = useUsers()
 const { openAuthorProfile } = useAuthorProfileModal()
 const { getGroupLabel, getGroupColor: getGroupColorClass, ensureLoaded: ensureGroupLabelsLoaded } = useGroupLabels()
+const { isFavoriteSpace, toggleFavoriteSpace, ensureLoaded: ensureFavoritesLoaded } = useFavorites()
+ensureFavoritesLoaded()
 
 await store.fetchPostsForSpace(spaceId.value)
 const members = ref<AppUser[]>([])
@@ -50,7 +53,65 @@ const space = computed(() => {
 // ── 投稿一覧（このスペース） ──────────────────────────────────────────
 const spacePosts = store.getPostsBySpace(spaceId)
 const pinnedPost = computed(() => spacePosts.value.find(p => p.isPinned) ?? null)
-const regularPosts = computed(() => spacePosts.value.filter(p => !p.isPinned))
+
+// ── 絞り込み（投稿者・期間・キーワード） ────────────────────────────────
+const searchQuery    = ref('')
+const filterAuthorId = ref('')   // '' = すべて
+const filterDateFrom = ref('')   // YYYY-MM-DD
+const filterDateTo   = ref('')   // YYYY-MM-DD
+const showFilter     = ref(false)
+
+const activeFilterCount = computed(() =>
+  [filterAuthorId.value, filterDateFrom.value, filterDateTo.value].filter(Boolean).length,
+)
+
+const resetFilters = () => {
+  searchQuery.value    = ''
+  filterAuthorId.value = ''
+  filterDateFrom.value = ''
+  filterDateTo.value   = ''
+}
+
+// 投稿者の選択肢（このスペースに実際に投稿がある著者から動的に生成）
+const authorOptions = computed(() => {
+  const map = new Map<string, string>()
+  for (const p of spacePosts.value) {
+    if (p.authorId) map.set(p.authorId, p.authorName)
+  }
+  return [...map.entries()]
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ja'))
+})
+
+const regularPosts = computed(() => {
+  let list = spacePosts.value.filter(p => !p.isPinned)
+
+  const q = searchQuery.value.trim().toLowerCase()
+  if (q) {
+    list = list.filter(p =>
+      p.content.toLowerCase().includes(q) ||
+      p.authorName.toLowerCase().includes(q),
+    )
+  }
+
+  if (filterAuthorId.value) {
+    list = list.filter(p => p.authorId === filterAuthorId.value)
+  }
+
+  if (filterDateFrom.value) {
+    const from = new Date(filterDateFrom.value)
+    from.setHours(0, 0, 0, 0)
+    list = list.filter(p => p.createdAt >= from)
+  }
+
+  if (filterDateTo.value) {
+    const to = new Date(filterDateTo.value)
+    to.setHours(23, 59, 59, 999)
+    list = list.filter(p => p.createdAt <= to)
+  }
+
+  return list
+})
 
 // ── 投稿フォーム ──────────────────────────────────────────────────────
 const newPostContent = ref('')
@@ -156,6 +217,18 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
               <NuxtLink to="/portal" class="text-white/80 hover:text-white transition">
                 <Icon name="heroicons:arrow-left" class="h-4 w-4" />
               </NuxtLink>
+              <button
+                type="button"
+                class="p-1.5 rounded-full transition"
+                :class="isFavoriteSpace(spaceId)
+                  ? 'bg-amber-400 text-white hover:bg-amber-500'
+                  : 'bg-white/20 text-white hover:bg-white/30'"
+                :aria-label="isFavoriteSpace(spaceId) ? 'お気に入りから外す' : 'お気に入りに追加'"
+                :title="isFavoriteSpace(spaceId) ? 'お気に入り登録中' : 'お気に入りに追加'"
+                @click="toggleFavoriteSpace(spaceId)"
+              >
+                <Icon :name="isFavoriteSpace(spaceId) ? 'heroicons:star-solid' : 'heroicons:star'" class="h-4 w-4" />
+              </button>
               <NuxtLink
                 v-if="space.isAdmin"
                 :to="`/portal/spaces/${spaceId}/settings`"
@@ -241,6 +314,58 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- 絞り込み -->
+        <div class="flex items-center gap-2 flex-wrap">
+          <div class="relative flex-1 min-w-[160px]">
+            <Icon name="heroicons:magnifying-glass" class="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+            <input
+              v-model="searchQuery"
+              type="search"
+              placeholder="投稿内容・投稿者で検索..."
+              class="input-field pl-8 py-1.5 text-sm"
+            />
+          </div>
+          <button
+            type="button"
+            class="relative flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition shrink-0"
+            :class="activeFilterCount > 0
+              ? 'border-primary-400 bg-primary-50 text-primary-700'
+              : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'"
+            @click="showFilter = !showFilter"
+          >
+            <Icon name="heroicons:adjustments-horizontal" class="h-4 w-4" />
+            絞り込み
+            <span
+              v-if="activeFilterCount > 0"
+              class="flex h-4 w-4 items-center justify-center rounded-full bg-primary-500 text-[10px] text-white font-bold"
+            >{{ activeFilterCount }}</span>
+          </button>
+        </div>
+
+        <div v-if="showFilter" class="bg-white border border-gray-200 rounded-lg p-3 space-y-2.5">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">投稿者</label>
+              <select v-model="filterAuthorId" class="input-field text-sm py-1.5">
+                <option value="">すべて</option>
+                <option v-for="a in authorOptions" :key="a.id" :value="a.id">{{ a.name }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">期間（開始）</label>
+              <input v-model="filterDateFrom" type="date" class="input-field text-sm py-1.5" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">期間（終了）</label>
+              <input v-model="filterDateTo" type="date" class="input-field text-sm py-1.5" />
+            </div>
+          </div>
+          <div class="flex items-center justify-between pt-1">
+            <p class="text-xs text-gray-500"><span class="font-bold text-primary-600">{{ regularPosts.length }}</span>件が該当</p>
+            <button class="text-xs text-gray-400 hover:text-red-500 transition" @click="resetFilters">条件をクリア</button>
           </div>
         </div>
 
@@ -379,9 +504,9 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
         </div>
 
         <!-- 投稿なし -->
-        <div v-if="spacePosts.length === 0" class="bg-white border border-gray-200 rounded-lg p-10 text-center">
+        <div v-if="regularPosts.length === 0 && !pinnedPost" class="bg-white border border-gray-200 rounded-lg p-10 text-center">
           <Icon name="heroicons:chat-bubble-left-right" class="h-10 w-10 text-gray-200 mx-auto mb-2" />
-          <p class="text-sm text-gray-400">まだ投稿がありません</p>
+          <p class="text-sm text-gray-400">{{ spacePosts.length === 0 ? 'まだ投稿がありません' : '条件に該当する投稿がありません' }}</p>
         </div>
 
       </div>

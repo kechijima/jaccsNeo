@@ -400,7 +400,12 @@ const statusColor = (s: string) => {
       leave-to-class="opacity-0 -translate-y-2"
     >
       <div v-if="showFilter" class="card p-4 space-y-3">
-        <p class="text-xs font-semibold text-gray-500">条件</p>
+        <div class="flex items-center justify-between">
+          <p class="text-xs font-semibold text-gray-500">条件</p>
+          <p class="text-xs text-gray-500">
+            <span class="font-bold text-primary-600">{{ filtered.length }}</span>件が該当
+          </p>
+        </div>
 
         <div v-if="conditions.length === 0" class="text-sm text-gray-400 py-2">
           条件がありません。「＋条件を追加」から項目を選択して条件を設定してください。

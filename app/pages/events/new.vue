@@ -8,13 +8,17 @@ definePageMeta({ middleware: ['auth'] })
 
 const { createEvent } = useEvents()
 const { fetchGroups } = useGroups()
+const route = useRoute()
 
 const groups = ref<Group[]>([])
 onMounted(async () => { groups.value = await fetchGroups().catch(() => []) })
 
+// カレンダー画面で日付をクリックして遷移してきた場合、その日付を開始日に初期設定する
+const initialDate = typeof route.query.date === 'string' ? route.query.date : ''
+
 const form = ref({
   title: '',
-  startDate: '',
+  startDate: initialDate,
   startTime: '',
   endDate: '',
   endTime: '',
