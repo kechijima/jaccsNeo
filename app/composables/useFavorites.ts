@@ -13,8 +13,11 @@ export const useFavorites = () => {
 
   const ensureLoaded = (force = false) => {
     if (loaded.value && !force) return
-    favoriteAppIds.value   = authStore.user?.favoriteAppIds ?? []
-    favoriteSpaceIds.value = authStore.user?.favoriteSpaceIds ?? []
+    // authStore.userがまだ埋まっていない場合はloadedをtrueにせず、
+    // 次回呼び出し時に再取得できるようにする（お気に入りが消えて見える不具合を防ぐ）
+    if (!authStore.user) return
+    favoriteAppIds.value   = authStore.user.favoriteAppIds ?? []
+    favoriteSpaceIds.value = authStore.user.favoriteSpaceIds ?? []
     loaded.value = true
   }
 

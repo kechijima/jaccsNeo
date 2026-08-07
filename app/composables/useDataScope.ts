@@ -42,7 +42,10 @@ export const useDataScope = () => {
     loading.value = true
     try {
       const me = authStore.user
-      if (!me) { scopedFpNames.value = new Set(); loaded.value = true; return }
+      // authStore.userがまだ埋まっていない場合（初期化タイミングの問題）はloadedをtrueにせず、
+      // 次回呼び出し時に再取得できるようにする（誤って空集合を確定・キャッシュしてしまうと
+      // パーソナルデータが0件のまま戻らなくなるため）
+      if (!me) { scopedFpNames.value = new Set(); return }
 
       if (authStore.isBoard) {
         // 理事会・システム管理者は制限なし（isBoardはsystem_adminも含む）
