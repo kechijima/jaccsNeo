@@ -8,7 +8,9 @@ import { useAuthStore } from '~/stores/auth'
 const waitForAuthInit = (authStore: ReturnType<typeof useAuthStore>) => {
   if (authStore.initialized) return Promise.resolve()
   return new Promise<void>((resolve) => {
-    const timeout = setTimeout(() => resolve(), 6000)
+    // initAuth自体のタイムアウト(8秒)より長く取り、あくまで「initAuth側の
+    // タイムアウト処理すら動かなかった」場合だけの保険とする
+    const timeout = setTimeout(() => resolve(), 10000)
     const stop = watch(() => authStore.initialized, (val) => {
       if (val) {
         clearTimeout(timeout)
@@ -23,6 +25,12 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const authStore = useAuthStore()
 
   await waitForAuthInit(authStore)
+
+  // Firebaseから実際の応答（confirmed）を受け取れていない場合は、ログアウトと
+  // 確定しない（応答が遅いだけの正常なセッションを誤ってログイン画面に
+  // 飛ばしてしまうと、画面更新のたびにログインが切れたように見えてしまうため）。
+  // 確定後にログイン状態が反映されなければ、次の画面遷移で正しく振り分けられる
+  if (!authStore.confirmed) return
 
   if (!authStore.isLoggedIn) {
     return navigateTo({ path: '/login', query: { redirect: to.fullPath } })

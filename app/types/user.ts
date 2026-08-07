@@ -91,5 +91,8 @@ export interface AppUser {
 export interface AuthState {
   user:        AppUser | null
   initialized: boolean
+  // Firebaseから実際にログイン状態の応答を受け取れたか（タイムアウトで
+  // initializedになった場合はfalseのまま。誤ってログアウト扱いしないための区別）
+  confirmed:   boolean
   loading:     boolean
 }

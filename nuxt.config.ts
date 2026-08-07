@@ -46,6 +46,10 @@ export default defineNuxtConfig({
       link: [
         { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
         { rel: 'apple-touch-icon', href: '/icons/icon-192.png' },
+        // ssr:falseのためコンポーネント(<NuxtPwaManifest />)側のuseHead()は
+        // 静的HTMLには出力されない。PWAインストール判定に必須なので、ここでも
+        // 直接指定して確実にmanifestが読み込まれるようにする
+        { rel: 'manifest', href: '/manifest.webmanifest' },
       ],
     },
   },

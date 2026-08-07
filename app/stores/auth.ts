@@ -5,6 +5,7 @@ export const useAuthStore = defineStore('auth', {
   state: (): AuthState => ({
     user:        null,
     initialized: false,
+    confirmed:   false,
     loading:     false,
   }),
 
@@ -23,6 +24,9 @@ export const useAuthStore = defineStore('auth', {
     },
     setInitialized(val: boolean) {
       this.initialized = val
+    },
+    setConfirmed(val: boolean) {
+      this.confirmed = val
     },
     setLoading(val: boolean) {
       this.loading = val

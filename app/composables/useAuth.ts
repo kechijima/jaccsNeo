@@ -32,11 +32,16 @@ export const useAuth = () => {
   const initAuth = () => {
     const { $auth } = useNuxtApp()
     return new Promise<void>((resolve) => {
-      // Firebaseに接続できない場合でもスプラッシュ画面で固まらないようにタイムアウトを設ける
+      // Firebaseからの応答が遅い/届かない場合でもスプラッシュ画面で固まらないよう
+      // タイムアウトを設ける。ただしこれはあくまで「応答待ちを諦めてスプラッシュを
+      // 解除する」ためのものであり、「ログアウトと確定する」ものではない
+      // （confirmedをtrueにしない）。ここでログアウト扱いにしてしまうと、応答が
+      // 少し遅いだけの正常なセッションが、画面更新のたびにログイン画面へ
+      // 飛ばされてしまう不具合になるため
       const timeout = setTimeout(() => {
         authStore.setInitialized(true)
         resolve()
-      }, 5000)
+      }, 8000)
 
       onAuthStateChanged($auth, async (firebaseUser) => {
         clearTimeout(timeout)
@@ -50,9 +55,12 @@ export const useAuth = () => {
           } else {
             authStore.setUser(null)
           }
+          // Firebaseから実際に応答を受け取れた場合のみ「確定」とする
+          authStore.setConfirmed(true)
         } catch (e) {
           console.error('ユーザー情報の取得に失敗しました', e)
           authStore.setUser(null)
+          authStore.setConfirmed(true)
         } finally {
           authStore.setInitialized(true)
           resolve()
