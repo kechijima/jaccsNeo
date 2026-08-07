@@ -57,9 +57,7 @@ const groupLabel = computed(() => getGroupLabel(user.value?.groupId))
 
       <!-- ロゴ -->
       <div class="flex items-center gap-2.5 px-5 py-4 border-b border-gray-200">
-        <div class="flex items-center justify-center w-8 h-8 rounded-lg bg-primary-600">
-          <span class="text-sm font-bold text-white">J</span>
-        </div>
+        <img src="/logo.png" alt="" class="w-8 h-8 object-contain shrink-0" />
         <span class="text-base font-bold text-gray-900">JACCS Neo</span>
       </div>
 
@@ -170,9 +168,7 @@ const groupLabel = computed(() => getGroupLabel(user.value?.groupId))
       <!-- スマホヘッダー -->
       <header class="md:hidden flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
         <div class="flex items-center gap-2">
-          <div class="flex items-center justify-center w-7 h-7 rounded-lg bg-primary-600">
-            <span class="text-xs font-bold text-white">J</span>
-          </div>
+          <img src="/logo.png" alt="" class="w-7 h-7 object-contain shrink-0" />
           <span class="text-sm font-bold text-gray-900">JACCS Neo</span>
         </div>
         <div class="flex items-center gap-1">

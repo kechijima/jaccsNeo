@@ -55,9 +55,7 @@ const handleSubmit = async () => {
   <div class="w-full max-w-md">
     <!-- ロゴ・タイトル -->
     <div class="text-center mb-8">
-      <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary-600 shadow-lg mb-4">
-        <span class="text-2xl font-bold text-white">J</span>
-      </div>
+      <img src="/logo.png" alt="" class="w-16 h-16 object-contain mx-auto mb-4" />
       <h1 class="text-2xl font-bold text-gray-900">JACCS Neo</h1>
       <p class="mt-1 text-sm text-gray-500">初期セットアップ</p>
     </div>
