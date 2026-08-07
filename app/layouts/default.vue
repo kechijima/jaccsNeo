@@ -129,19 +129,21 @@ const groupLabel = computed(() => getGroupLabel(user.value?.groupId))
       <!-- ユーザー情報 -->
       <div class="border-t border-gray-200 p-4">
         <div class="flex items-center gap-3">
-          <div
-            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
-            :class="groupColorClass"
-          >
-            {{ displayName.charAt(0) }}
-          </div>
-          <div class="min-w-0 flex-1">
-            <p class="truncate text-sm font-medium text-gray-900">{{ displayName }}</p>
-            <p class="truncate text-xs text-gray-500">{{ groupLabel }}</p>
-          </div>
+          <NuxtLink to="/settings" class="flex items-center gap-3 min-w-0 flex-1 group" title="設定">
+            <div
+              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white transition group-hover:ring-2 group-hover:ring-offset-1 group-hover:ring-primary-300"
+              :class="groupColorClass"
+            >
+              {{ displayName.charAt(0) }}
+            </div>
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm font-medium text-gray-900 group-hover:text-primary-700 transition">{{ displayName }}</p>
+              <p class="truncate text-xs text-gray-500">{{ groupLabel }}</p>
+            </div>
+          </NuxtLink>
           <button
             type="button"
-            class="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition"
+            class="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition shrink-0"
             title="ログアウト"
             @click="logout"
           >
@@ -241,17 +243,19 @@ const groupLabel = computed(() => getGroupLabel(user.value?.groupId))
             <div v-if="isMobileMenuOpen" class="absolute right-0 top-0 h-full w-72 max-w-[85vw] bg-white shadow-2xl flex flex-col">
               <!-- ユーザー情報 -->
               <div class="flex items-center gap-3 border-b border-gray-200 p-4">
-                <div
-                  class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
-                  :class="groupColorClass"
-                >
-                  {{ displayName.charAt(0) }}
-                </div>
-                <div class="min-w-0 flex-1">
-                  <p class="truncate text-sm font-medium text-gray-900">{{ displayName }}</p>
-                  <p class="truncate text-xs text-gray-500">{{ groupLabel }}</p>
-                </div>
-                <button type="button" class="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100" @click="isMobileMenuOpen = false">
+                <NuxtLink to="/settings" class="flex items-center gap-3 min-w-0 flex-1" title="設定" @click="isMobileMenuOpen = false">
+                  <div
+                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
+                    :class="groupColorClass"
+                  >
+                    {{ displayName.charAt(0) }}
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <p class="truncate text-sm font-medium text-gray-900">{{ displayName }}</p>
+                    <p class="truncate text-xs text-gray-500">{{ groupLabel }}</p>
+                  </div>
+                </NuxtLink>
+                <button type="button" class="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 shrink-0" @click="isMobileMenuOpen = false">
                   <Icon name="heroicons:x-mark" class="h-5 w-5" />
                 </button>
               </div>

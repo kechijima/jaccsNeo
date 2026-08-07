@@ -194,18 +194,24 @@ const groupLabel = computed(() => groups.value.find(g => g.id === form.groupId)?
           <NuxtLink v-if="user" :to="`/team/${user.uid}`" class="text-primary-600 hover:underline">公開プロフィールを見る</NuxtLink>
         </p>
       </div>
-      <div class="flex flex-col items-end gap-1">
-        <button
-          class="btn-primary text-sm flex items-center gap-1.5"
-          :disabled="saving"
-          @click="saveProfile"
-        >
-          <Icon v-if="saving" name="heroicons:arrow-path" class="h-4 w-4 animate-spin" />
-          <Icon v-else-if="saved" name="heroicons:check" class="h-4 w-4" />
-          <Icon v-else name="heroicons:cloud-arrow-up" class="h-4 w-4" />
-          {{ saving ? '保存中...' : saved ? '保存しました' : '保存する' }}
-        </button>
-        <p v-if="saveError" class="text-xs text-red-500">{{ saveError }}</p>
+      <div class="flex items-start gap-2">
+        <NuxtLink to="/settings" class="btn-secondary text-sm flex items-center gap-1.5">
+          <Icon name="heroicons:cog-6-tooth" class="h-4 w-4" />
+          通知・パスワード設定
+        </NuxtLink>
+        <div class="flex flex-col items-end gap-1">
+          <button
+            class="btn-primary text-sm flex items-center gap-1.5"
+            :disabled="saving"
+            @click="saveProfile"
+          >
+            <Icon v-if="saving" name="heroicons:arrow-path" class="h-4 w-4 animate-spin" />
+            <Icon v-else-if="saved" name="heroicons:check" class="h-4 w-4" />
+            <Icon v-else name="heroicons:cloud-arrow-up" class="h-4 w-4" />
+            {{ saving ? '保存中...' : saved ? '保存しました' : '保存する' }}
+          </button>
+          <p v-if="saveError" class="text-xs text-red-500">{{ saveError }}</p>
+        </div>
       </div>
     </div>
 

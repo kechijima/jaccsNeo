@@ -56,6 +56,7 @@ export const toAppUser = (uid: string, data: Record<string, any>, fallbackEmail 
   favoriteSpaceIds: data.favoriteSpaceIds ?? [],
   themeColor:       data.themeColor,
   membershipPlan:   data.membershipPlan,
+  notificationPrefs: data.notificationPrefs,
 
   createdAt: data.createdAt?.toDate?.() ?? new Date(),
   updatedAt: data.updatedAt?.toDate?.() ?? new Date(),

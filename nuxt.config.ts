@@ -50,6 +50,9 @@ export default defineNuxtConfig({
 
   pwa: {
     registerType: 'autoUpdate',
+    client: {
+      installPrompt: true,
+    },
     manifest: {
       name: 'JACCS Neo',
       short_name: 'JACCS Neo',

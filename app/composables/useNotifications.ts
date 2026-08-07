@@ -15,6 +15,7 @@ import {
   type DocumentData,
 } from 'firebase/firestore'
 import type { Notification, NotificationType } from '~/types/notification'
+import { isNotificationAllowed } from '~/types/notification'
 import type { AppUser } from '~/types/user'
 import { useAuthStore } from '~/stores/auth'
 import { useUsers } from '~/composables/useUsers'
@@ -47,7 +48,7 @@ export const extractMentionIds = (html: string): string[] => {
 export const useNotifications = () => {
   const { $db } = useNuxtApp()
   const authStore = useAuthStore()
-  const { fetchUsers } = useUsers()
+  const { fetchUsers, fetchUser } = useUsers()
 
   const notifCol = () => {
     const uid = authStore.user?.uid
@@ -100,6 +101,9 @@ export const useNotifications = () => {
     data: { type: NotificationType; title: string; body: string; linkUrl?: string; relatedId?: string },
   ): Promise<void> => {
     if (!targetUid) return
+    // 送信先ユーザーが該当カテゴリの通知をオフにしている場合は作成しない
+    const target = await fetchUser(targetUid).catch(() => null)
+    if (!isNotificationAllowed(data.type, target?.notificationPrefs)) return
     const col = collection($db, 'notifications', targetUid, 'items')
     await addDoc(col, {
       ...data,

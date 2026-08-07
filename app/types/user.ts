@@ -1,3 +1,5 @@
+import type { NotificationPrefs } from './notification'
+
 export type UserRole = 'system_admin' | 'board' | 'em2_above' | 'general'
 
 export type SpecialTeam = 'real_estate' | 'non_life_insurance'
@@ -75,6 +77,9 @@ export interface AppUser {
 
   // ── 表示設定 ──────────────────────────────────────────────────────────
   themeColor?: 'blue' | 'yellow'
+
+  // ── 通知設定（種別ごとにアプリ内通知を受け取るかどうか。未設定時は全てtrue扱い） ──
+  notificationPrefs?: NotificationPrefs
 
   // ── 組合員プラン（申請承認で変更される） ──────────────────────────────
   membershipPlan?: string
