@@ -40,14 +40,23 @@ export const useAuth = () => {
 
       onAuthStateChanged($auth, async (firebaseUser) => {
         clearTimeout(timeout)
-        if (firebaseUser) {
-          const user = await fetchUserDoc(firebaseUser)
-          authStore.setUser(user)
-        } else {
+        // fetchUserDocが失敗した場合でも(ネットワーク不調・一時的なFirestoreエラー等)
+        // 必ずinitialized/resolveに到達させる。ここが漏れると認証確認を待つ画面
+        // （authミドルウェア経由の全ページ）が永久に固まってしまうため
+        try {
+          if (firebaseUser) {
+            const user = await fetchUserDoc(firebaseUser)
+            authStore.setUser(user)
+          } else {
+            authStore.setUser(null)
+          }
+        } catch (e) {
+          console.error('ユーザー情報の取得に失敗しました', e)
           authStore.setUser(null)
+        } finally {
+          authStore.setInitialized(true)
+          resolve()
         }
-        authStore.setInitialized(true)
-        resolve()
       })
     })
   }
