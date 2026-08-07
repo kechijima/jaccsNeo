@@ -3,6 +3,8 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
   ssr: false,
+  // JS読み込み前の「真っ白な画面」を防ぐため、SPA読み込み中の静的な画面を表示する
+  spaLoadingTemplate: true,
 
   css: [
     '~/assets/css/main.css',
