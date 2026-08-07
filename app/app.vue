@@ -3,7 +3,9 @@ const { initAuth } = useAuth()
 const { initialized } = useCurrentUser()
 
 // SPA mode: Firebase plugin is always available on client
-await initAuth()
+// ここでawaitすると解決するまでスプラッシュ含め何も描画されなくなり、初回表示が
+// 実際より重く感じられるため、あえて待たずに呼び出す（完了はinitializedの変化で検知する）
+initAuth()
 </script>
 
 <template>

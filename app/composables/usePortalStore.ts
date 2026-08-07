@@ -114,10 +114,27 @@ export const usePortalStore = () => {
     if (!loadedSpaceIds.value.includes(spaceId)) loadedSpaceIds.value = [...loadedSpaceIds.value, spaceId]
   }
 
-  // ── 全スペースの投稿をまとめて取得（掲示板トップ・ダッシュボード用） ──
+  // ── 全スペースの投稿をまとめて取得（掲示板トップ用） ──────────────────
   const fetchAllPosts = async (force = false) => {
     await fetchSpaces(force)
     await Promise.all(spaces.value.map(s => fetchPostsForSpace(s.id, force)))
+  }
+
+  // ── ダッシュボード向けの軽量プレビュー取得 ────────────────────────────
+  // 「最新投稿」を数件表示するだけのために全スペース×全投稿のコメントまで
+  // 毎回取得すると初回表示が非常に重くなるため、コメントは取得しない専用の取得経路を用意する
+  const previewPosts  = useState<PostView[]>('portal:previewPosts', () => [])
+  const previewLoaded = useState<boolean>('portal:previewLoaded', () => false)
+
+  const fetchRecentPostsPreview = async (force = false) => {
+    if (previewLoaded.value && !force) return
+    await fetchSpaces(force)
+    const perSpace = await Promise.all(spaces.value.map(async (s) => {
+      const rawPosts = await spacesApi.fetchPosts(s.id).catch(() => [] as Post[])
+      return rawPosts.filter(p => !p.isPinned).map(p => buildPostView(s, p, []))
+    }))
+    previewPosts.value = perSpace.flat().sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    previewLoaded.value = true
   }
 
   const getPostsBySpace = (spaceId: Ref<string> | string) =>
@@ -207,7 +224,8 @@ export const usePortalStore = () => {
 
   return {
     spaces, spacesLoaded, posts,
-    fetchSpaces, fetchPostsForSpace, fetchAllPosts,
+    previewPosts,
+    fetchSpaces, fetchPostsForSpace, fetchAllPosts, fetchRecentPostsPreview,
     getPostsBySpace, getPost,
     addPost, toggleReaction, addComment, editPost, deletePost,
   }

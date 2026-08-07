@@ -25,8 +25,12 @@ const greeting = computed(() => {
 })
 
 // ── お知らせ（管理者がグループ別に公開した情報） ─────────────────────────
-await Promise.all([announcementStore.fetchAll(), ensureScopeLoaded()])
-await portalStore.fetchAllPosts()
+// ダッシュボードは通常ログイン直後に開く画面のため、ここでawaitして画面遷移自体を
+// ブロックしないようにする（各セクションはデータが揃い次第、反応的に表示される）
+onMounted(() => {
+  Promise.all([announcementStore.fetchAll(), ensureScopeLoaded()])
+  portalStore.fetchRecentPostsPreview()
+})
 const groupAnnouncements = announcementStore.getForGroup(computed(() => user.value?.groupId))
 const allAnnouncements = computed(() => groupAnnouncements.value.slice(0, 5))
 
@@ -61,7 +65,7 @@ const spaceColorMap: Record<string, string> = {
   event:   'bg-sky-100 text-sky-700',
 }
 
-const spacePosts = computed(() => portalStore.posts.value.filter(p => !p.isPinned).slice(0, 3))
+const spacePosts = computed(() => portalStore.previewPosts.value.slice(0, 3))
 
 // HTMLタグを除去して80文字に切り詰める（80文字以下なら「...」を付けない）
 const excerpt = (html: string) => {
