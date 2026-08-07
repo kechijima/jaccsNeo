@@ -88,6 +88,18 @@ export default defineNuxtConfig({
       navigateFallback: '/index.html',
       globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
       runtimeCaching: [
+        // ページ読み込み（ナビゲーション）は常に最新のindex.htmlをネットワークから
+        // 優先して取得する。precacheされたindex.htmlをそのまま返してしまうと、
+        // 新しいバージョンをデプロイしても古い画面（真っ白な画面など）がいつまでも
+        // 表示され続けることがあるため
+        {
+          urlPattern: ({ request }) => request.mode === 'navigate',
+          handler: 'NetworkFirst',
+          options: {
+            cacheName: 'html-cache',
+            networkTimeoutSeconds: 3,
+          },
+        },
         {
           urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
           handler: 'CacheFirst',
