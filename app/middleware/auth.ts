@@ -8,9 +8,9 @@ import { useAuthStore } from '~/stores/auth'
 const waitForAuthInit = (authStore: ReturnType<typeof useAuthStore>) => {
   if (authStore.initialized) return Promise.resolve()
   return new Promise<void>((resolve) => {
-    // initAuth自体のタイムアウト(8秒)より長く取り、あくまで「initAuth側の
+    // initAuth自体のタイムアウト(4秒)より長く取り、あくまで「initAuth側の
     // タイムアウト処理すら動かなかった」場合だけの保険とする
-    const timeout = setTimeout(() => resolve(), 10000)
+    const timeout = setTimeout(() => resolve(), 6000)
     const stop = watch(() => authStore.initialized, (val) => {
       if (val) {
         clearTimeout(timeout)
