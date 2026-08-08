@@ -316,7 +316,7 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
                 <div v-else class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-bold" :class="space.color">
                   {{ space.name.charAt(0) }}
                 </div>
-                <span class="truncate text-gray-700 text-xs">{{ space.name }}</span>
+                <span class="truncate text-gray-900 text-sm font-medium">{{ space.name }}</span>
                 <Icon v-if="space.isFavorite" name="heroicons:star-solid" class="h-3 w-3 text-amber-400 shrink-0" />
               </div>
               <span v-if="space.postCount > 0" class="ml-2 badge bg-gray-100 text-gray-500 text-[9px] shrink-0">

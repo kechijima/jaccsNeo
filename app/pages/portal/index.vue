@@ -425,7 +425,7 @@ const upcomingEvents = computed(() =>
                 <div v-else class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold" :class="space.color">
                   {{ space.name.charAt(0) }}
                 </div>
-                <span class="truncate text-gray-700">{{ space.name }}</span>
+                <span class="truncate text-gray-900 text-base font-semibold">{{ space.name }}</span>
               </div>
               <div class="flex items-center gap-1.5 shrink-0">
                 <span v-if="space.postCount > 0" class="badge bg-gray-100 text-gray-500 text-[10px] shrink-0">
