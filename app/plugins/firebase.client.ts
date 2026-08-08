@@ -13,9 +13,19 @@ const sanitize = (value: unknown): string =>
 export default defineNuxtPlugin(() => {
   const config = useRuntimeConfig()
 
+  // authDomainが既定のfirebaseapp.com（実際にアプリを開いているHostingドメインとは
+  // 別ドメイン）のままだと、ログイン状態の復元がクロスドメインiframe経由になり、
+  // 特にモバイルのブラウザ（ITP等のプライバシー制限）で著しく遅く・不安定になる。
+  // 実際に開いているホスト名をauthDomainとして使うことで同一オリジンで解決させ、
+  // 高速かつ安定させる（Firebase HostingのドメインはFirebase Authに自動で
+  // authorized domainとして登録されるため、この方式で問題なく動作する）
+  const resolvedAuthDomain = window.location.hostname === 'localhost'
+    ? sanitize(config.public.firebaseAuthDomain)
+    : window.location.hostname
+
   const firebaseConfig = {
     apiKey:            sanitize(config.public.firebaseApiKey),
-    authDomain:        sanitize(config.public.firebaseAuthDomain),
+    authDomain:        resolvedAuthDomain,
     projectId:         sanitize(config.public.firebaseProjectId),
     storageBucket:     sanitize(config.public.firebaseStorageBucket),
     messagingSenderId: sanitize(config.public.firebaseMessagingSenderId),
