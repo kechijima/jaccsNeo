@@ -137,10 +137,15 @@ export const useAuth = () => {
     await router.push('/login')
   }
 
-  // パスワードリセットメール送信
+  // パスワード設定/リセットメール送信。
+  // メール自体の文言（件名・本文）はFirebase Consoleのメールテンプレートで管理されており
+  // アプリのコードからは変更できないが、パスワード設定完了後にアプリへ戻れるよう
+  // continueUrlを指定する（Firebaseのパスワード設定完了ページに「続行」リンクが表示される）
   const sendPasswordReset = async (email: string) => {
     const { $auth } = useNuxtApp()
-    await sendPasswordResetEmail($auth, email)
+    await sendPasswordResetEmail($auth, email, {
+      url: `${window.location.origin}/login`,
+    })
   }
 
   return {

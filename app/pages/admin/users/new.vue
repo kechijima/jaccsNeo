@@ -44,6 +44,23 @@ const kumiaiOptions = computed(() =>
 const submitting = ref(false)
 const error = ref('')
 
+// 作成完了後は即座に一覧へ戻らず、アプリのURLを案内する画面を挟む
+// （招待メールでパスワードを設定した後、本人はアプリのURLを知らないため）
+const created = ref(false)
+const createdName = ref('')
+const appUrl = computed(() => (typeof window !== 'undefined' ? window.location.origin : ''))
+const urlCopied = ref(false)
+
+const copyAppUrl = async () => {
+  try {
+    await navigator.clipboard.writeText(appUrl.value)
+    urlCopied.value = true
+    setTimeout(() => { urlCopied.value = false }, 2000)
+  } catch {
+    // クリップボードが使えない場合は無視する（手動でコピーしてもらう）
+  }
+}
+
 const handleSubmit = async () => {
   submitting.value = true
   error.value = ''
@@ -76,11 +93,22 @@ const handleSubmit = async () => {
       await sendPasswordReset(form.value.email).catch(() => {})
     }
 
-    await navigateTo('/admin/users')
+    createdName.value = form.value.name
+    created.value = true
   } catch (e: any) {
     error.value = e.message ?? 'ユーザーの作成に失敗しました'
+  } finally {
     submitting.value = false
   }
+}
+
+const resetForm = () => {
+  form.value = {
+    name: '', email: '', password: genTempPassword(), role: 'general', groupId: '',
+    kumiaiId: '', position: '', specialTeams: [], mainSupporterUid: '', subSupporterUid: '',
+    sendInviteEmail: true,
+  }
+  created.value = false
 }
 
 const toggleSpecialTeam = (team: string) => {
@@ -106,7 +134,42 @@ const toggleSpecialTeam = (team: string) => {
 
     <h1 class="text-xl font-bold text-gray-900">新規ユーザー追加</h1>
 
-    <form class="card p-6 space-y-5" @submit.prevent="handleSubmit">
+    <!-- 作成完了 -->
+    <div v-if="created" class="card p-6 space-y-5">
+      <div class="flex items-start gap-3">
+        <Icon name="heroicons:check-circle" class="h-6 w-6 text-green-500 shrink-0" />
+        <div>
+          <p class="font-semibold text-gray-900">「{{ createdName }}」さんを追加しました</p>
+          <p class="text-sm text-gray-500 mt-0.5">
+            {{ form.sendInviteEmail ? '招待メールを送信しました。メール内のリンクからパスワードを設定してもらってください。' : '招待メールは送信していません。' }}
+          </p>
+        </div>
+      </div>
+
+      <div class="rounded-lg bg-amber-50 border border-amber-200 p-4">
+        <p class="text-sm font-medium text-amber-900 flex items-center gap-1.5">
+          <Icon name="heroicons:information-circle" class="h-4 w-4 shrink-0" />
+          パスワード設定後にアプリを開くURLを共有してください
+        </p>
+        <p class="text-xs text-amber-700 mt-1">
+          メールでパスワードを設定しただけでは、本人はアプリのURLが分かりません。下記のURLをメールやチャットなどで別途お伝えください。
+        </p>
+        <div class="mt-3 flex items-center gap-2">
+          <input :value="appUrl" type="text" readonly class="input-field text-sm bg-white flex-1" @focus="($event.target as HTMLInputElement).select()" />
+          <button type="button" class="btn-secondary text-sm shrink-0" @click="copyAppUrl">
+            <Icon :name="urlCopied ? 'heroicons:check' : 'heroicons:clipboard'" class="h-4 w-4" />
+            {{ urlCopied ? 'コピーしました' : 'コピー' }}
+          </button>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-1">
+        <NuxtLink to="/admin/users" class="btn-secondary">ユーザー管理に戻る</NuxtLink>
+        <button type="button" class="btn-primary" @click="resetForm">続けて追加する</button>
+      </div>
+    </div>
+
+    <form v-else class="card p-6 space-y-5" @submit.prevent="handleSubmit">
 
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">氏名 <span class="text-red-500">*</span></label>

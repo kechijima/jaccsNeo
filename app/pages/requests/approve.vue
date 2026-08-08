@@ -143,6 +143,12 @@ const handleApprove = async (r: AppRequest) => {
       body: `「${REQUEST_TYPE_LABELS[r.type]}」の申請が承認され、反映されました。`,
       linkUrl: '/requests',
     }).catch(() => {})
+
+    // 新規アカウント作成時は、招待メールでパスワードを設定しただけでは本人が
+    // アプリのURLを知る手段がないため、共有を促す
+    if (r.type === 'kumiai_member_create') {
+      alert(`「${r.payload?.displayName ?? ''}」さんのアカウントを作成しました。\n招待メールでパスワードを設定してもらった後、下記URLを別途お伝えください。\n\n${window.location.origin}/login`)
+    }
   } catch (e: any) {
     actionError.value = e.message ?? '承認処理に失敗しました'
   } finally {
