@@ -33,8 +33,6 @@ const spaceRaw = computed(() => store.spaces.value.find(sp => sp.id === spaceId.
 
 const resolvedMembers = computed(() => spaceRaw.value ? resolveSpaceMembers(spaceRaw.value, members.value) : [])
 
-const descriptionExcerpt = (html: string) => html.replace(/<[^>]*>/g, '').trim()
-
 const space = computed(() => {
   const s = spaceRaw.value
   if (!s) return { id: '', name: '', description: '', memberCount: 0, isAdmin: false, isPinned: false, type: '', headerImage: '' }
@@ -198,7 +196,7 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
       <!-- ヘッダー画像バナー -->
       <div
         class="relative w-full overflow-hidden bg-gradient-to-r from-indigo-500 via-indigo-400 to-sky-400"
-        style="height: 128px;"
+        style="height: 144px;"
       >
         <img
           v-if="space.headerImage"
@@ -210,8 +208,7 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
         <div class="absolute inset-0 flex items-end px-4 pb-3" style="background: rgba(0,0,0,0.35)">
           <div class="flex items-end justify-between w-full">
             <div>
-              <h1 class="text-xl md:text-2xl font-bold text-white drop-shadow">{{ space.name }}</h1>
-              <p v-if="space.description" class="text-xs text-white/80 mt-0.5 line-clamp-1">{{ descriptionExcerpt(space.description) }}</p>
+              <h1 class="text-2xl md:text-3xl font-bold text-white drop-shadow">{{ space.name }}</h1>
             </div>
             <div class="flex items-center gap-2 shrink-0 pb-0.5">
               <NuxtLink to="/portal" class="text-white/80 hover:text-white transition">
@@ -246,6 +243,7 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
 
         <!-- スペースについて（説明） -->
         <div v-if="space.description" class="bg-white border border-gray-200 rounded-lg p-4">
+          <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">スペースについて</p>
           <div class="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" v-html="space.description" />
         </div>
 

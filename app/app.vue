@@ -16,6 +16,7 @@ initAuth()
     </NuxtLayout>
     <AppToast />
     <AuthorProfileModal />
+    <OnboardingGuideModal v-if="initialized" />
     <PwaInstallBanner v-if="initialized" />
     <!-- 認証初期化中はスプラッシュ表示 -->
     <Transition name="fade">

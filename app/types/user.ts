@@ -84,6 +84,9 @@ export interface AppUser {
   // ── 組合員プラン（申請承認で変更される） ──────────────────────────────
   membershipPlan?: string
 
+  // ── 初回ログイン時のアプリ内ガイドを表示済みかどうか ──────────────────
+  onboardingSeen?: boolean
+
   createdAt: Date
   updatedAt: Date
 }

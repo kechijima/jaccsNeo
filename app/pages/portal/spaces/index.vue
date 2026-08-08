@@ -108,7 +108,7 @@ const filteredSpaces = computed(() => {
               {{ space.name.charAt(0) }}
             </div>
             <div>
-              <p class="text-sm font-medium text-gray-900">{{ space.name }}</p>
+              <p class="text-base font-semibold text-gray-900">{{ space.name }}</p>
               <p class="text-xs text-gray-400">{{ space.memberCount }}名</p>
             </div>
           </div>
@@ -158,10 +158,10 @@ const filteredSpaces = computed(() => {
               </div>
               <div class="min-w-0">
                 <div class="flex items-center gap-1.5">
-                  <p class="text-sm font-medium text-gray-900 truncate">{{ space.name }}</p>
+                  <p class="text-base font-semibold text-gray-900 truncate">{{ space.name }}</p>
                   <Icon v-if="space.isPinned" name="heroicons:bookmark-solid" class="h-3 w-3 text-primary-500 shrink-0" />
                 </div>
-                <p class="text-xs text-gray-400">{{ space.memberCount }}名 {{ space.description ? '· ' + space.description.slice(0, 30) + '…' : '' }}</p>
+                <p class="text-xs text-gray-400">{{ space.memberCount }}名</p>
               </div>
             </div>
             <div class="flex items-center gap-2 shrink-0">
