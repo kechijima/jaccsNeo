@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useEvents } from '~/composables/useEvents'
 import { useEventScope } from '~/composables/useEventScope'
+import { useSpaces } from '~/composables/useSpaces'
 import type { Event, EventAttendee, AttendanceStatus } from '~/types/event'
 
 definePageMeta({ middleware: ['auth'] })
@@ -10,6 +11,7 @@ const eventId = computed(() => route.params.eventId as string)
 
 const { fetchEvent, fetchAttendees, fetchMyAttendance, updateAttendance } = useEvents()
 const { scopeLabel, scopeBadgeClass, categoryLabel, categoryBadgeClass, ensureLoaded: ensureEventScopeLoaded } = useEventScope()
+const { fetchPost } = useSpaces()
 
 const loading = ref(true)
 const loadError = ref('')
@@ -17,6 +19,9 @@ const event = ref<Event | null>(null)
 const attendees = ref<EventAttendee[]>([])
 const myStatus = ref<AttendanceStatus | null>(null)
 const updatingStatus = ref(false)
+// 掲示板のイベントスペース投稿から連携作成されたイベントは、投稿項目に「詳細」が
+// 無く、内容はリッチエディターで書かれた投稿本文そのものにあるため、そちらを表示する
+const linkedPostContent = ref('')
 
 onMounted(async () => {
   loading.value = true
@@ -31,6 +36,10 @@ onMounted(async () => {
     attendees.value = list
     myStatus.value = mine
     if (!ev) loadError.value = 'イベントが見つかりませんでした'
+    else if (ev.spaceId && ev.postId) {
+      const post = await fetchPost(ev.spaceId, ev.postId).catch(() => null)
+      if (post) linkedPostContent.value = post.content
+    }
   } catch (e: any) {
     loadError.value = e.message ?? 'イベントの取得に失敗しました'
   } finally {
@@ -156,6 +165,16 @@ const statusLabel = (status: string) => {
         </div>
         <div v-if="event.description" class="border-t border-gray-100 pt-4">
           <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{{ event.description }}</p>
+        </div>
+        <div v-if="linkedPostContent" class="border-t border-gray-100 pt-4">
+          <div class="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" v-html="linkedPostContent" />
+          <NuxtLink
+            v-if="event.spaceId && event.postId"
+            :to="`/portal/spaces/${event.spaceId}/posts/${event.postId}`"
+            class="mt-2 inline-flex items-center gap-1 text-xs text-primary-600 hover:underline"
+          >
+            掲示板で見る<Icon name="heroicons:arrow-top-right-on-square" class="h-3 w-3" />
+          </NuxtLink>
         </div>
       </div>
 

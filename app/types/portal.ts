@@ -19,6 +19,7 @@ export interface Space {
   isPinned?: boolean
   headerImage?: string
   pinnedPostId?: string
+  postCount?: number
   createdBy: string
   createdAt: Timestamp
   updatedAt: Timestamp

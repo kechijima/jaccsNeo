@@ -93,6 +93,16 @@ export const usePortalStore = () => {
     if (spacesLoaded.value && !force) return
     spaces.value = (await spacesApi.fetchAllSpaces()).filter(s => !s.isArchived)
     spacesLoaded.value = true
+
+    // postCount導入前に作成されたスペースは実際の件数で自己修復する（非同期・非ブロッキング）
+    for (const space of spaces.value) {
+      if (space.postCount === undefined) {
+        spacesApi.syncPostCount(space.id).then((count) => {
+          const target = spaces.value.find(s => s.id === space.id)
+          if (target) target.postCount = count
+        }).catch(() => {})
+      }
+    }
   }
 
   // ── 投稿一覧（スペースごとに取得しキャッシュへマージ） ───────────────

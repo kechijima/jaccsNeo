@@ -77,7 +77,7 @@ const excerpt = (html: string) => {
 const decorateSpace = (s: any) => ({
   ...s,
   color: spaceColorMap[s.type] ?? 'bg-indigo-100 text-indigo-700',
-  unread: s.id === 's002' ? 2 : s.id === 's001' ? 1 : 0,
+  postCount: s.postCount ?? 0,
   isFavorite: favoriteSpaceIds.value.includes(s.id),
 })
 const displaySpaces = computed(() => {
@@ -319,8 +319,8 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
                 <span class="truncate text-gray-700 text-xs">{{ space.name }}</span>
                 <Icon v-if="space.isFavorite" name="heroicons:star-solid" class="h-3 w-3 text-amber-400 shrink-0" />
               </div>
-              <span v-if="space.unread > 0" class="ml-2 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary-500 text-[9px] font-bold text-white">
-                {{ space.unread }}
+              <span v-if="space.postCount > 0" class="ml-2 badge bg-gray-100 text-gray-500 text-[9px] shrink-0">
+                {{ space.postCount }}件
               </span>
             </NuxtLink>
           </div>

@@ -19,6 +19,7 @@ import {
   runTransaction,
   writeBatch,
   Timestamp,
+  getCountFromServer,
   type DocumentData,
   type Unsubscribe,
 } from 'firebase/firestore'
@@ -115,6 +116,7 @@ export const useSpaces = () => {
       memberUids: [authStore.user?.uid],
       adminUids:  [authStore.user?.uid],
       isArchived: false,
+      postCount:  0,
       createdBy:  authStore.user?.uid,
       createdAt:  serverTimestamp(),
       updatedAt:  serverTimestamp(),
@@ -202,9 +204,10 @@ export const useSpaces = () => {
       updatedAt:      serverTimestamp(),
     })
 
-    // スペースの最終投稿日時を更新
+    // スペースの最終投稿日時・投稿数を更新
     await updateDoc(doc($db, 'spaces', spaceId), {
       lastPostAt: serverTimestamp(),
+      postCount:  increment(1),
       updatedAt:  serverTimestamp(),
     })
 
@@ -230,6 +233,18 @@ export const useSpaces = () => {
   // ===== 投稿削除 =====
   const deletePost = async (spaceId: string, postId: string): Promise<void> => {
     await deleteDoc(doc($db, 'spaces', spaceId, 'posts', postId))
+    await updateDoc(doc($db, 'spaces', spaceId), { postCount: increment(-1) })
+  }
+
+  // ===== 投稿数の自己修復 =====
+  // postCount導入前に作成されたスペースはこのフィールドを持たないため、
+  // サーバー側の集計クエリ（ドキュメント本体は取得しない、軽量な件数取得）で
+  // 実際の件数を求めて書き戻す。30件超の投稿があるスペースでも正確に数えられる
+  const syncPostCount = async (spaceId: string): Promise<number> => {
+    const snap = await getCountFromServer(postsCol(spaceId))
+    const count = snap.data().count
+    await updateDoc(doc($db, 'spaces', spaceId), { postCount: count })
+    return count
   }
 
   // ===== ピン留め =====
@@ -356,6 +371,7 @@ export const useSpaces = () => {
     linkPostToEvent,
     updatePost,
     deletePost,
+    syncPostCount,
     pinPost,
     toggleReaction,
     fetchComments,

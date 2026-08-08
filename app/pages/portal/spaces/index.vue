@@ -26,8 +26,6 @@ const typeLabelMap: Record<string, string> = {
   event:   'イベント',
 }
 
-const unreadMap: Record<string, number> = { s001: 1, s002: 2 }
-
 // HTMLタグを除去する（説明はリッチエディター由来のHTML）
 const stripHtml = (html: string) => html.replace(/<[^>]*>/g, '').trim()
 
@@ -43,7 +41,7 @@ const spaceGroups = computed(() => {
       description: s.description ? stripHtml(s.description) : '',
       isPinned:    s.isPinned,
       headerImage: s.headerImage,
-      unread:      unreadMap[s.id] ?? 0,
+      postCount:   s.postCount ?? 0,
     })
   }
 
@@ -115,7 +113,7 @@ const filteredSpaces = computed(() => {
             </div>
           </div>
           <div class="flex items-center gap-2 shrink-0">
-            <span v-if="space.unread > 0" class="badge bg-primary-500 text-white text-xs">{{ space.unread }}</span>
+            <span v-if="space.postCount > 0" class="badge bg-gray-100 text-gray-500 text-xs">{{ space.postCount }}件</span>
             <button
               type="button"
               class="flex items-center justify-center h-7 w-7 rounded-full transition shrink-0"
@@ -167,8 +165,8 @@ const filteredSpaces = computed(() => {
               </div>
             </div>
             <div class="flex items-center gap-2 shrink-0">
-              <span v-if="space.unread > 0" class="flex h-5 w-5 items-center justify-center rounded-full bg-primary-500 text-[10px] font-bold text-white">
-                {{ space.unread }}
+              <span v-if="space.postCount > 0" class="badge bg-gray-100 text-gray-500 text-[10px] shrink-0">
+                {{ space.postCount }}件
               </span>
               <button
                 type="button"

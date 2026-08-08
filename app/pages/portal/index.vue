@@ -124,7 +124,7 @@ const allSpaces = computed(() =>
   store.spaces.value.map(s => ({
     id:          s.id,
     name:        s.name,
-    unread:      s.id === 's002' ? 2 : s.id === 's001' ? 1 : 0,
+    postCount:   s.postCount ?? 0,
     color:       spaceColorMap[s.type] ?? 'bg-indigo-100 text-indigo-700',
     headerImage: s.headerImage,
   })),
@@ -428,8 +428,8 @@ const upcomingEvents = computed(() =>
                 <span class="truncate text-gray-700">{{ space.name }}</span>
               </div>
               <div class="flex items-center gap-1.5 shrink-0">
-                <span v-if="space.unread > 0" class="flex h-5 w-5 items-center justify-center rounded-full bg-primary-500 text-[10px] font-bold text-white">
-                  {{ space.unread }}
+                <span v-if="space.postCount > 0" class="badge bg-gray-100 text-gray-500 text-[10px] shrink-0">
+                  {{ space.postCount }}件
                 </span>
                 <button
                   type="button"

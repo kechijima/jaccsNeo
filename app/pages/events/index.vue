@@ -192,7 +192,11 @@ const nextMonth = () => {
   currentMonth.value = new Date(currentMonth.value.getFullYear(), currentMonth.value.getMonth() + 1, 1)
 }
 
-// 日付セルをクリックしたら、その日を開始日に設定してイベント作成画面を開く
+// 日付セルをクリックした際の挙動:
+// ・イベントが無い日 → その日を開始日にしてイベント作成画面を開く
+// ・イベントがある日 → 詳細を見るか新規作成するかを選べるパネルを開く
+//   （モバイルではカレンダー上にイベントへのリンクを表示していないため、
+//   タップすると常に作成画面に飛んでしまい、詳細を確認する手段がなかった）
 const dateParam = (d: Date) => {
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')
@@ -200,6 +204,28 @@ const dateParam = (d: Date) => {
   return `${y}-${m}-${day}`
 }
 const goToNewEventOnDate = (d: Date) => navigateTo(`/events/new?date=${dateParam(d)}`)
+
+const selectedDay = ref<{ date: Date; events: EventRow[] } | null>(null)
+
+const handleDayClick = (day: { date: Date; events: EventRow[] }) => {
+  if (day.events.length === 0) {
+    goToNewEventOnDate(day.date)
+  } else {
+    selectedDay.value = day
+  }
+}
+
+const selectedDayLabel = computed(() => {
+  if (!selectedDay.value) return ''
+  return selectedDay.value.date.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' })
+})
+
+const createEventOnSelectedDay = () => {
+  if (!selectedDay.value) return
+  const date = selectedDay.value.date
+  selectedDay.value = null
+  goToNewEventOnDate(date)
+}
 </script>
 
 <template>
@@ -385,8 +411,8 @@ const goToNewEventOnDate = (d: Date) => navigateTo(`/events/new?date=${dateParam
           :key="day.date.toISOString()"
           class="group relative border-b border-r border-gray-100 min-h-[64px] md:min-h-[96px] p-1 cursor-pointer hover:bg-primary-50/40 transition"
           :class="!day.isCurrentMonth ? 'bg-gray-50/60' : ''"
-          :title="`${dateParam(day.date)} のイベントを作成`"
-          @click="goToNewEventOnDate(day.date)"
+          :title="day.events.length > 0 ? `${dateParam(day.date)} のイベントを見る` : `${dateParam(day.date)} のイベントを作成`"
+          @click="handleDayClick(day)"
         >
           <!-- 日付 -->
           <div class="mb-0.5 md:mb-1 flex items-center justify-between">
@@ -442,6 +468,51 @@ const goToNewEventOnDate = (d: Date) => navigateTo(`/events/new?date=${dateParam
 
     </div>
     </template>
+
+    <!-- 日付選択パネル: 詳細を見るか新規作成するかを選ぶ -->
+    <Teleport to="body">
+      <div
+        v-if="selectedDay"
+        class="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40"
+        @click.self="selectedDay = null"
+      >
+        <div class="bg-white w-full md:max-w-sm rounded-t-2xl md:rounded-2xl shadow-xl max-h-[80vh] overflow-y-auto">
+          <div class="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100">
+            <h3 class="font-bold text-gray-900">{{ selectedDayLabel }}</h3>
+            <button type="button" class="text-gray-300 hover:text-gray-500 transition" @click="selectedDay = null">
+              <Icon name="heroicons:x-mark" class="h-5 w-5" />
+            </button>
+          </div>
+
+          <div class="divide-y divide-gray-50">
+            <NuxtLink
+              v-for="evt in selectedDay.events"
+              :key="evt.id"
+              :to="`/events/${evt.id}`"
+              class="flex items-start gap-3 px-5 py-3 hover:bg-gray-50 transition"
+              @click="selectedDay = null"
+            >
+              <div class="shrink-0 text-xs text-gray-400 tabular-nums pt-0.5 w-12">{{ formatTime(evt.startAt) }}</div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-gray-900 truncate">{{ evt.title }}</p>
+                <div class="mt-1 flex items-center gap-1.5 flex-wrap">
+                  <span class="badge text-[10px]" :class="categoryBadgeClass(evt)">{{ categoryLabel(evt) }}</span>
+                  <span class="badge text-[10px]" :class="scopeBadgeClass(evt)">{{ scopeLabel(evt) }}</span>
+                </div>
+              </div>
+              <Icon name="heroicons:chevron-right" class="h-4 w-4 text-gray-300 shrink-0 mt-1" />
+            </NuxtLink>
+          </div>
+
+          <div class="p-4 border-t border-gray-100">
+            <button type="button" class="btn-secondary w-full text-sm flex items-center justify-center gap-1.5" @click="createEventOnSelectedDay">
+              <Icon name="heroicons:plus" class="h-4 w-4" />
+              この日にイベントを作成する
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
   </div>
 </template>

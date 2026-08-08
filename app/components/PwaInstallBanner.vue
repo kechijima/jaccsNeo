@@ -50,7 +50,7 @@ const dismissIos = () => {
     <!-- Android/Chrome等: ネイティブのインストールプロンプトを起動 -->
     <div
       v-if="showAndroidPrompt"
-      class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] max-w-md rounded-xl bg-white shadow-lg ring-1 ring-gray-200 p-4 flex items-center gap-3"
+      class="fixed bottom-20 md:bottom-4 left-1/2 -translate-x-1/2 z-[60] w-[calc(100%-2rem)] max-w-md rounded-xl bg-white shadow-lg ring-1 ring-gray-200 p-4 flex items-center gap-3"
     >
       <img src="/logo.png" alt="" class="h-10 w-10 object-contain shrink-0" />
       <div class="flex-1 min-w-0">
@@ -68,7 +68,7 @@ const dismissIos = () => {
     <!-- iOS Safari: 手動での追加手順を案内 -->
     <div
       v-else-if="showIosPrompt"
-      class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] max-w-md rounded-xl bg-white shadow-lg ring-1 ring-gray-200 p-4 flex items-start gap-3"
+      class="fixed bottom-20 md:bottom-4 left-1/2 -translate-x-1/2 z-[60] w-[calc(100%-2rem)] max-w-md rounded-xl bg-white shadow-lg ring-1 ring-gray-200 p-4 flex items-start gap-3"
     >
       <img src="/logo.png" alt="" class="h-10 w-10 object-contain shrink-0" />
       <div class="flex-1 min-w-0">
