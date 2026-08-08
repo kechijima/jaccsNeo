@@ -14,8 +14,9 @@ const groups = ref<Group[]>([])
 onMounted(async () => { groups.value = await fetchGroups().catch(() => []) })
 
 // 所属グループとは独立して「特定の組合」を選べるよう、全グループの組合をまとめて検索対象にする
+// （解体済みの組合は選択肢から除外する）
 const allKumiai = computed(() =>
-  groups.value.flatMap(g => g.kumiai.map(k => ({ ...k, groupName: g.name }))),
+  groups.value.flatMap(g => g.kumiai.filter(k => !k.isDissolved).map(k => ({ ...k, groupName: g.name }))),
 )
 const kumiaiOptions = computed(() =>
   allKumiai.value.map(k => ({ id: k.id, label: k.name, sublabel: `${k.groupName}グループ` })),

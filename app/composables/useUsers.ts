@@ -61,10 +61,12 @@ export const useUsers = () => {
     mainSupporterUid?: string | null
     subSupporterUid?: string | null
     membershipPlan?: string | null
+    isWithdrawn?: boolean
   }): Promise<void> => {
     if (!authStore.isBoard) throw new Error('権限がありません')
     await updateDoc(doc($db, 'users', uid), {
       ...data,
+      ...(data.isWithdrawn ? { withdrawnAt: serverTimestamp() } : {}),
       updatedBy: authStore.user?.uid,
       updatedAt: serverTimestamp(),
     })

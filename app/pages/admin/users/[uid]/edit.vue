@@ -33,8 +33,11 @@ const existingUsers = ref<Array<{ uid: string; displayName: string }>>([])
 const groups = ref<Group[]>([])
 
 // 所属組合は所属グループとは独立して選択できる（別グループの組合に所属するケースがあるため）
+// 解体済みの組合は選択肢から除外する（ただし現在選択中のものは表示を保つ）
 const allKumiai = computed(() =>
-  groups.value.flatMap(g => g.kumiai.map(k => ({ ...k, groupName: g.name })))
+  groups.value.flatMap(g => g.kumiai
+    .filter(k => !k.isDissolved || k.id === form.value.kumiaiId)
+    .map(k => ({ ...k, groupName: g.name })))
 )
 const kumiaiOptions = computed(() =>
   allKumiai.value.map(k => ({ id: k.id, label: k.name, sublabel: k.groupName }))
@@ -46,7 +49,7 @@ onMounted(async () => {
     const [user, users, fetchedGroups] = await Promise.all([
       fetchUser(uid.value), fetchUsers().catch(() => []), fetchGroups().catch(() => []),
     ])
-    existingUsers.value = users.filter(u => u.uid !== uid.value)
+    existingUsers.value = users.filter(u => u.uid !== uid.value && !u.isWithdrawn)
     groups.value = fetchedGroups
     if (user) {
       form.value = {

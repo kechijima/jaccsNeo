@@ -10,7 +10,7 @@ import type { AppRequest } from '~/types/request'
 definePageMeta({ middleware: ['auth', 'board-or-above'] })
 
 const { requests, loading, fetchAll, markReviewed } = useRequests()
-const { createGroup, createKumiai } = useGroups()
+const { createGroup, createKumiai, updateKumiai } = useGroups()
 const { createAuthUser, updateUser, fetchUser } = useUsers()
 const { sendPasswordReset } = useAuth()
 const { sendNotification } = useNotifications()
@@ -73,6 +73,15 @@ const payloadRows = (r: AppRequest): { label: string; value: string }[] => {
       { label: '新しいサブサポート', value: p.subSupporterName || '（変更なし）' },
     ]
   }
+  if (r.type === 'kumiai_member_withdraw') {
+    return [{ label: '対象', value: p.targetName ?? '' }]
+  }
+  if (r.type === 'kumiai_dissolve') {
+    return [
+      { label: '所属グループ', value: p.groupName ?? p.groupId ?? '' },
+      { label: '組合名', value: p.kumiaiName ?? '' },
+    ]
+  }
   return []
 }
 
@@ -112,6 +121,12 @@ const applyRequest = async (r: AppRequest): Promise<void> => {
     // この申請には対象者の所属組合が含まれていないため、現在のプロフィールから取得する
     const target = await fetchUser(p.targetUid).catch(() => null)
     await syncDirectorIndexForSupporters(p.targetName ?? target?.displayName, target?.kumiaiName, p)
+  } else if (r.type === 'kumiai_member_withdraw') {
+    // データは削除せず脱退フラグのみ設定する。以後ログイン・システム利用はできなくなる
+    await updateUser(p.targetUid, { isWithdrawn: true })
+  } else if (r.type === 'kumiai_dissolve') {
+    // 組合データは残したまま解体フラグのみ設定する。以後、各種選択肢には表示されなくなる
+    await updateKumiai(p.groupId, p.kumiaiId, { isDissolved: true })
   }
 }
 

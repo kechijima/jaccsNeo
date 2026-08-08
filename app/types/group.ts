@@ -8,6 +8,9 @@ export interface Kumiai {
   adminName?: string
   memberCount: number
   displayOrder: number
+  // 組合の解体（申請承認で設定される）。データは残したまま、選択肢からのみ除外する
+  isDissolved?: boolean
+  dissolvedAt?: Timestamp
   createdAt: Timestamp
   updatedAt: Timestamp
 }

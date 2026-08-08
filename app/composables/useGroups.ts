@@ -115,11 +115,12 @@ export const useGroups = () => {
   const updateKumiai = async (
     groupId: GroupId,
     kumiaiId: string,
-    data: { name?: string; adminName?: string; displayOrder?: number },
+    data: { name?: string; adminName?: string; displayOrder?: number; isDissolved?: boolean },
   ): Promise<void> => {
     if (!authStore.isBoard) throw new Error('権限がありません')
     await updateDoc(doc($db, 'groups', groupId, 'kumiai', kumiaiId), {
       ...data,
+      ...(data.isDissolved ? { dissolvedAt: serverTimestamp() } : {}),
       updatedAt: serverTimestamp(),
     })
   }

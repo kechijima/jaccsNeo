@@ -39,6 +39,7 @@ const memberCreateForm = reactive({
 })
 const memberKumiaiOptions = computed(() =>
   (groups.value.find(g => g.id === memberCreateForm.groupId)?.kumiai ?? [])
+    .filter(k => !k.isDissolved)
     .map(k => ({ id: k.id, label: k.name })),
 )
 watch(() => memberCreateForm.groupId, () => { memberCreateForm.kumiaiId = '' })
@@ -48,9 +49,21 @@ const MEMBERSHIP_PLAN_OPTIONS = ['Sプラン', 'Bプラン']
 const planChangeForm = reactive({ targetUid: '', newPlan: MEMBERSHIP_PLAN_OPTIONS[0] })
 const supporterChangeForm = reactive({ targetUid: '', mainSupporterUid: '', subSupporterUid: '' })
 
+// ── 組合員の脱退 ────────────────────────────────────────────────────────
+const memberWithdrawForm = reactive({ targetUid: '' })
+
+// ── 組合の解体 ──────────────────────────────────────────────────────────
+const kumiaiDissolveForm = reactive({ groupId: '', kumiaiId: '' })
+const dissolveKumiaiOptions = computed(() =>
+  (groups.value.find(g => g.id === kumiaiDissolveForm.groupId)?.kumiai ?? [])
+    .filter(k => !k.isDissolved)
+    .map(k => ({ id: k.id, label: k.name })),
+)
+watch(() => kumiaiDissolveForm.groupId, () => { kumiaiDissolveForm.kumiaiId = '' })
+
 const note = ref('')
 
-const userOptions = computed(() => users.value.map(u => ({ uid: u.uid, displayName: u.displayName })))
+const userOptions = computed(() => users.value.filter(u => !u.isWithdrawn).map(u => ({ uid: u.uid, displayName: u.displayName })))
 
 const resetForms = () => {
   Object.assign(kumiaiCreateForm, { groupId: '', name: '', adminName: '' })
@@ -58,6 +71,8 @@ const resetForms = () => {
   Object.assign(memberCreateForm, { displayName: '', email: '', groupId: '', kumiaiId: '', position: '', mainSupporterUid: '', subSupporterUid: '' })
   Object.assign(planChangeForm, { targetUid: '', newPlan: MEMBERSHIP_PLAN_OPTIONS[0] })
   Object.assign(supporterChangeForm, { targetUid: '', mainSupporterUid: '', subSupporterUid: '' })
+  Object.assign(memberWithdrawForm, { targetUid: '' })
+  Object.assign(kumiaiDissolveForm, { groupId: '', kumiaiId: '' })
   note.value = ''
 }
 
@@ -67,6 +82,8 @@ const isValid = computed(() => {
   if (type.value === 'kumiai_member_create') return !!memberCreateForm.displayName.trim() && !!memberCreateForm.email.trim()
   if (type.value === 'plan_change') return !!planChangeForm.targetUid && !!planChangeForm.newPlan.trim()
   if (type.value === 'supporter_change') return !!supporterChangeForm.targetUid
+  if (type.value === 'kumiai_member_withdraw') return !!memberWithdrawForm.targetUid
+  if (type.value === 'kumiai_dissolve') return !!kumiaiDissolveForm.groupId && !!kumiaiDissolveForm.kumiaiId
   return false
 })
 
@@ -113,6 +130,18 @@ const handleSubmit = async () => {
         mainSupporterName: users.value.find(u => u.uid === supporterChangeForm.mainSupporterUid)?.displayName,
         subSupporterUid: supporterChangeForm.subSupporterUid || undefined,
         subSupporterName: users.value.find(u => u.uid === supporterChangeForm.subSupporterUid)?.displayName,
+      }
+    } else if (type.value === 'kumiai_member_withdraw') {
+      payload = {
+        targetUid: memberWithdrawForm.targetUid,
+        targetName: users.value.find(u => u.uid === memberWithdrawForm.targetUid)?.displayName,
+      }
+    } else if (type.value === 'kumiai_dissolve') {
+      payload = {
+        groupId: kumiaiDissolveForm.groupId,
+        groupName: groups.value.find(g => g.id === kumiaiDissolveForm.groupId)?.name,
+        kumiaiId: kumiaiDissolveForm.kumiaiId,
+        kumiaiName: dissolveKumiaiOptions.value.find(k => k.id === kumiaiDissolveForm.kumiaiId)?.label,
       }
     }
 
@@ -261,6 +290,37 @@ const handleSubmit = async () => {
             <label class="block text-sm font-medium text-gray-700 mb-1.5">新しいサブサポート（任意）</label>
             <SearchableUserSelect v-model="supporterChangeForm.subSupporterUid" :users="userOptions" />
           </div>
+        </div>
+      </template>
+
+      <!-- 組合員の脱退 -->
+      <template v-else-if="type === 'kumiai_member_withdraw'">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">対象の組合員 <span class="text-red-500">*</span></label>
+          <SearchableUserSelect v-model="memberWithdrawForm.targetUid" :users="userOptions" placeholder="対象を選択..." />
+        </div>
+        <div class="rounded-lg bg-red-50 border border-red-200 p-3 flex items-start gap-2">
+          <Icon name="heroicons:exclamation-triangle" class="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+          <p class="text-xs text-red-700">承認されると脱退フラグが設定され、対象者はシステムにログインできなくなります。</p>
+        </div>
+      </template>
+
+      <!-- 組合の解体 -->
+      <template v-else-if="type === 'kumiai_dissolve'">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">所属グループ <span class="text-red-500">*</span></label>
+          <select v-model="kumiaiDissolveForm.groupId" class="input-field">
+            <option value="">選択してください</option>
+            <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">解体する組合 <span class="text-red-500">*</span></label>
+          <SearchableSelect v-model="kumiaiDissolveForm.kumiaiId" :items="dissolveKumiaiOptions" placeholder="組合を選択..." search-placeholder="組合名で検索..." />
+        </div>
+        <div class="rounded-lg bg-red-50 border border-red-200 p-3 flex items-start gap-2">
+          <Icon name="heroicons:exclamation-triangle" class="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+          <p class="text-xs text-red-700">承認されると、以後この組合は各種選択肢に表示されなくなります（データ自体は削除されません）。</p>
         </div>
       </template>
 

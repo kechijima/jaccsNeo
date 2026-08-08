@@ -14,6 +14,8 @@ export const toAppUser = (uid: string, data: Record<string, any>, fallbackEmail 
   kumiaiName:   data.kumiaiName,
   position:     data.position,
   isActive:     data.isActive ?? true,
+  isWithdrawn:  data.isWithdrawn ?? false,
+  withdrawnAt:  data.withdrawnAt?.toDate?.(),
 
   lastName:        data.lastName,
   firstName:       data.firstName,

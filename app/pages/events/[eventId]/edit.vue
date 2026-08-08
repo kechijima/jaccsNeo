@@ -13,8 +13,11 @@ const { fetchEvent, updateEvent, deleteEvent } = useEvents()
 const { fetchGroups } = useGroups()
 
 const groups = ref<Group[]>([])
+// 解体済みの組合は選択肢から除外する（ただし現在選択中のものは表示を保つ）
 const allKumiai = computed(() =>
-  groups.value.flatMap(g => g.kumiai.map(k => ({ ...k, groupName: g.name }))),
+  groups.value.flatMap(g => g.kumiai
+    .filter(k => !k.isDissolved || k.id === form.value.targetKumiaiId)
+    .map(k => ({ ...k, groupName: g.name }))),
 )
 const kumiaiOptions = computed(() =>
   allKumiai.value.map(k => ({ id: k.id, label: k.name, sublabel: `${k.groupName}グループ` })),

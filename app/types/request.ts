@@ -7,15 +7,19 @@ export type RequestType =
   | 'kumiai_member_create'  // 組合員の登録
   | 'plan_change'           // 組合員のプラン変更
   | 'supporter_change'      // サポート者の変更
+  | 'kumiai_member_withdraw' // 組合員の脱退
+  | 'kumiai_dissolve'        // 組合の解体
 
 export type RequestStatus = 'pending' | 'approved' | 'rejected'
 
 export const REQUEST_TYPE_LABELS: Record<RequestType, string> = {
-  kumiai_create:        '組合の登録',
-  group_create:         'グループの登録',
-  kumiai_member_create: '組合員の登録',
-  plan_change:          '組合員のプラン変更',
-  supporter_change:     'サポート者の変更',
+  kumiai_create:          '組合の登録',
+  group_create:           'グループの登録',
+  kumiai_member_create:   '組合員の登録',
+  plan_change:            '組合員のプラン変更',
+  supporter_change:       'サポート者の変更',
+  kumiai_member_withdraw: '組合員の脱退',
+  kumiai_dissolve:        '組合の解体',
 }
 
 export const REQUEST_STATUS_LABELS: Record<RequestStatus, string> = {
@@ -65,12 +69,26 @@ export interface SupporterChangePayload {
   subSupporterName?: string
 }
 
+export interface KumiaiMemberWithdrawPayload {
+  targetUid: string
+  targetName: string
+}
+
+export interface KumiaiDissolvePayload {
+  groupId: string
+  groupName?: string
+  kumiaiId: string
+  kumiaiName: string
+}
+
 export type RequestPayload =
   | KumiaiCreatePayload
   | GroupCreatePayload
   | KumiaiMemberCreatePayload
   | PlanChangePayload
   | SupporterChangePayload
+  | KumiaiMemberWithdrawPayload
+  | KumiaiDissolvePayload
 
 export interface AppRequest {
   id: string

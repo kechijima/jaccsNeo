@@ -87,8 +87,16 @@ export const useAuth = () => {
         try {
           if (firebaseUser) {
             const user = await fetchUserDoc(firebaseUser)
-            authStore.setUser(user)
-            cacheUser(user)
+            if (user?.isWithdrawn) {
+              // 脱退フラグが立ったユーザーは、既存セッションが残っていても強制的に
+              // ログアウトさせる（組合員の脱退申請が承認された場合など）
+              await signOut($auth)
+              authStore.setUser(null)
+              cacheUser(null)
+            } else {
+              authStore.setUser(user)
+              cacheUser(user)
+            }
           } else {
             authStore.setUser(null)
             cacheUser(null)
@@ -118,6 +126,10 @@ export const useAuth = () => {
       if (!user) {
         await signOut($auth)
         throw { code: 'app/profile-not-found' }
+      }
+      if (user.isWithdrawn) {
+        await signOut($auth)
+        throw { code: 'app/withdrawn' }
       }
       authStore.setUser(user)
       authStore.setConfirmed(true)

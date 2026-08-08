@@ -29,13 +29,14 @@ const form = ref({
 const existingUsers = ref<Array<{ uid: string; displayName: string }>>([])
 const groups = ref<Group[]>([])
 onMounted(async () => {
-  existingUsers.value = await fetchUsers().catch(() => [])
+  existingUsers.value = (await fetchUsers().catch(() => [])).filter(u => !u.isWithdrawn)
   groups.value = await fetchGroups().catch(() => [])
 })
 
 // 所属組合は所属グループとは独立して選択できる（別グループの組合に所属するケースがあるため）
+// 解体済みの組合は選択肢から除外する
 const allKumiai = computed(() =>
-  groups.value.flatMap(g => g.kumiai.map(k => ({ ...k, groupName: g.name })))
+  groups.value.flatMap(g => g.kumiai.filter(k => !k.isDissolved).map(k => ({ ...k, groupName: g.name })))
 )
 const kumiaiOptions = computed(() =>
   allKumiai.value.map(k => ({ id: k.id, label: k.name, sublabel: k.groupName }))

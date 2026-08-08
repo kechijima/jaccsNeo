@@ -223,7 +223,8 @@ const openDetail = (u: any) => { selectedUser.value = u }
               <div v-if="u.position" class="text-xs text-gray-400 mt-0.5">{{ u.position }}</div>
             </td>
             <td class="px-4 py-3">
-              <span class="badge text-xs" :class="u.isActive !== false ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'">
+              <span v-if="u.isWithdrawn" class="badge text-xs bg-red-100 text-red-600">脱退済み</span>
+              <span v-else class="badge text-xs" :class="u.isActive !== false ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'">
                 {{ u.isActive !== false ? '有効' : '無効' }}
               </span>
             </td>

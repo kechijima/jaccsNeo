@@ -28,6 +28,10 @@ export interface AppUser {
   position?:    string
   isActive?:    boolean
 
+  // ── 組合員の脱退（申請承認で設定される。trueの場合はシステムを利用できない） ──
+  isWithdrawn?:  boolean
+  withdrawnAt?:  Date
+
   // ── 基本情報 ──────────────────────────────────────────────────────────
   lastName?:       string
   firstName?:      string
