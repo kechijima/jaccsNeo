@@ -1,20 +1,17 @@
 <script setup lang="ts">
-import { useAuthStore } from '~/stores/auth'
-
 const props = defineProps<{
   error: { statusCode?: number; statusMessage?: string; message?: string }
 }>()
 
-const authStore = useAuthStore()
-
-// 存在しないURL・想定外のエラーはいずれもダッシュボード（未ログイン時はログイン画面）へ誘導する
+// 存在しないURL・想定外のエラーはいずれもダッシュボードへ誘導する。
+// ここではまだ認証確認(initAuth)が終わっているとは限らないため、ログイン状態の
+// 判定は行わない（誤って未確定の状態を「未ログイン」とみなし、実際にはログイン中
+// なのにログイン画面へ飛ばしてしまう不具合の原因になっていた）。
+// 未ログインだった場合は、遷移先のauthミドルウェアが確認完了後に正しく
+// /loginへ振り分ける
 const redirect = async () => {
   await clearError()
-  if (!authStore.isLoggedIn) {
-    await navigateTo('/login', { replace: true })
-  } else {
-    await navigateTo('/dashboard', { replace: true })
-  }
+  await navigateTo('/dashboard', { replace: true })
 }
 
 onMounted(() => {
