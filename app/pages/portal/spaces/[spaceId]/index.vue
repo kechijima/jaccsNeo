@@ -208,7 +208,7 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
         <div class="absolute inset-0 flex items-end px-4 pb-3" style="background: rgba(0,0,0,0.35)">
           <div class="flex items-end justify-between w-full">
             <div>
-              <h1 class="text-2xl md:text-3xl font-bold text-white drop-shadow">{{ space.name }}</h1>
+              <p class="text-2xl md:text-3xl font-bold text-white drop-shadow">{{ space.name }}</p>
             </div>
             <div class="flex items-center gap-2 shrink-0 pb-0.5">
               <NuxtLink to="/portal" class="text-white/80 hover:text-white transition">
@@ -241,10 +241,13 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
       <!-- フィード -->
       <div class="flex-1 p-4 space-y-3 max-w-2xl w-full mx-auto">
 
-        <!-- スペースについて（説明） -->
-        <div v-if="space.description" class="bg-white border border-gray-200 rounded-lg p-4">
-          <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">スペースについて</p>
-          <div class="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" v-html="space.description" />
+        <!-- スペース名・説明 -->
+        <div class="bg-white border border-gray-200 rounded-lg p-4">
+          <h1 class="text-xl font-bold text-gray-900">{{ space.name }}</h1>
+          <template v-if="space.description">
+            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mt-3 mb-2">スペースについて</p>
+            <div class="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" v-html="space.description" />
+          </template>
         </div>
 
         <!-- ピン留め投稿 -->
