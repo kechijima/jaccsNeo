@@ -13,15 +13,16 @@ const { getGroupLabel, getGroupColor, ensureLoaded: ensureGroupLabelsLoaded } = 
 const { ensureLoaded: ensureThemeColorLoaded } = useThemeColor()
 onMounted(() => { ensureGroupLabelsLoaded(); ensureThemeColorLoaded() })
 
-const navItems = [
+// 「チーム」メニューは一般ロールのユーザーには表示しない
+const navItems = computed(() => [
   { label: 'ダッシュボード',   icon: 'heroicons:home',                   to: '/dashboard' },
   { label: 'パーソナルデータ', icon: 'heroicons:identification',         to: '/personal-data' },
   { label: 'アプリ',           icon: 'heroicons:squares-2x2',            to: '/services' },
   { label: '掲示板',           icon: 'heroicons:chat-bubble-left-right', to: '/portal' },
   { label: 'カレンダー',       icon: 'heroicons:calendar-days',          to: '/events' },
-  { label: 'チーム',           icon: 'heroicons:chart-bar',              to: '/team' },
+  ...(authStore.user?.role === 'general' ? [] : [{ label: 'チーム', icon: 'heroicons:chart-bar', to: '/team' }]),
   { label: '申請',             icon: 'heroicons:document-check',         to: '/requests' },
-]
+])
 
 // SPボトムナビ用（項目数を絞り、短いラベルで表示崩れを防ぐ）
 const mobileNavItems = [
@@ -272,6 +273,7 @@ const groupLabel = computed(() => getGroupLabel(user.value?.groupId))
                   マイページ
                 </NuxtLink>
                 <NuxtLink
+                  v-if="authStore.user?.role !== 'general'"
                   to="/team"
                   class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
                   :class="isActive('/team') ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100'"
