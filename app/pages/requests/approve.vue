@@ -242,7 +242,7 @@ const handleReject = async (r: AppRequest) => {
             <span class="badge text-xs bg-gray-100 text-gray-600">{{ REQUEST_TYPE_LABELS[r.type] }}</span>
             <span class="badge text-xs" :class="statusBadge(r.status)">{{ REQUEST_STATUS_LABELS[r.status] }}</span>
           </div>
-          <p class="text-xs text-gray-400">{{ r.requestedByName }} · {{ fmt(r.requestedAt) }}</p>
+          <p class="text-xs text-gray-400">申請者: {{ r.requestedByName }}（{{ fmt(r.requestedAt) }}）</p>
         </div>
 
         <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
@@ -255,7 +255,7 @@ const handleReject = async (r: AppRequest) => {
         <p v-if="r.note" class="mt-2 text-xs text-gray-500 border-t border-gray-100 pt-2">備考: {{ r.note }}</p>
         <p v-if="r.status === 'rejected' && r.rejectReason" class="mt-2 text-xs text-red-500">却下理由: {{ r.rejectReason }}</p>
         <p v-if="r.status !== 'pending' && r.reviewedByName" class="mt-1 text-xs text-gray-400">
-          {{ r.reviewedByName }} が{{ REQUEST_STATUS_LABELS[r.status] }}（{{ fmt(r.reviewedAt) }}）
+          承認者: {{ r.reviewedByName }}（{{ REQUEST_STATUS_LABELS[r.status] }} · {{ fmt(r.reviewedAt) }}）
         </p>
 
         <div v-if="r.status === 'pending'" class="mt-4 flex justify-end gap-2">

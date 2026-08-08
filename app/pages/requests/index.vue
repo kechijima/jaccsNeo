@@ -6,7 +6,7 @@ import type { AppRequest } from '~/types/request'
 
 definePageMeta({ middleware: ['auth'] })
 
-const { fetchMine } = useRequests()
+const { fetchMine, setResubmitDraft } = useRequests()
 const authStore = useAuthStore()
 
 const loading = ref(true)
@@ -33,11 +33,19 @@ const payloadSummary = (r: AppRequest): string => {
   if (r.type === 'kumiai_member_create') return `${p.displayName ?? ''}（${p.email ?? ''}）`
   if (r.type === 'plan_change') return `${p.targetName ?? ''} → ${p.newPlan ?? ''}`
   if (r.type === 'supporter_change') return `${p.targetName ?? ''} のサポート者変更`
+  if (r.type === 'kumiai_member_withdraw') return `${p.targetName ?? ''} の脱退`
+  if (r.type === 'kumiai_dissolve') return `${p.groupName ?? ''} / ${p.kumiaiName ?? ''} の解体`
   return ''
 }
 
 const fmt = (ts: any) =>
   ts?.toDate?.().toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) ?? ''
+
+// 却下された申請の内容をコピーして新規申請フォームへ引き継ぐ
+const handleResubmit = (r: AppRequest) => {
+  setResubmitDraft(r.type, r.payload)
+  navigateTo('/requests/new')
+}
 </script>
 
 <template>
@@ -87,8 +95,19 @@ const fmt = (ts: any) =>
               <span class="badge text-xs" :class="statusBadge(r.status)">{{ REQUEST_STATUS_LABELS[r.status] }}</span>
             </div>
             <p class="text-sm text-gray-800 truncate">{{ payloadSummary(r) }}</p>
-            <p class="text-xs text-gray-400 mt-0.5">{{ fmt(r.requestedAt) }} 申請</p>
+            <p class="text-xs text-gray-400 mt-0.5">申請者: {{ r.requestedByName }}（{{ fmt(r.requestedAt) }}）</p>
+            <p v-if="r.status !== 'pending' && r.reviewedByName" class="text-xs text-gray-400 mt-0.5">
+              承認者: {{ r.reviewedByName }}（{{ fmt(r.reviewedAt) }}）
+            </p>
             <p v-if="r.status === 'rejected' && r.rejectReason" class="text-xs text-red-500 mt-1">却下理由: {{ r.rejectReason }}</p>
+            <button
+              v-if="r.status === 'rejected'"
+              class="btn-secondary text-xs mt-2 flex items-center gap-1"
+              @click="handleResubmit(r)"
+            >
+              <Icon name="heroicons:document-duplicate" class="h-3.5 w-3.5" />
+              コピーして再申請
+            </button>
           </div>
         </div>
       </div>

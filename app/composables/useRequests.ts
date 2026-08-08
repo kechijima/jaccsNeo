@@ -2,10 +2,13 @@ import {
   collection, doc, getDocs, addDoc, updateDoc,
   query, where, orderBy, serverTimestamp, type DocumentData,
 } from 'firebase/firestore'
-import type { AppRequest, RequestForm, RequestStatus } from '~/types/request'
+import type { AppRequest, RequestForm, RequestStatus, RequestType } from '~/types/request'
 import { useAuthStore } from '~/stores/auth'
 
 const COLLECTION = 'requests'
+
+// 却下された申請を「コピーして再申請」する際に、内容を新規申請フォームへ引き継ぐための一時保存領域
+const resubmitDraft = () => useState<{ type: RequestType; payload: Record<string, any> } | null>('requests:resubmit-draft', () => null)
 
 // Firestoreはフィールド値にundefinedを許可せずエラーになるため、送信前に取り除く
 const stripUndefined = <T extends Record<string, any>>(obj: T): T => {
@@ -84,5 +87,18 @@ export const useRequests = () => {
 
   const pendingRequests = computed(() => requests.value.filter(r => r.status === 'pending'))
 
-  return { requests, loading, loaded, fetchAll, fetchMine, submit, markReviewed, pendingRequests }
+  // ===== 却下申請のコピー再申請 =====
+  const setResubmitDraft = (type: RequestType, payload: Record<string, any>) => {
+    resubmitDraft().value = { type, payload: { ...payload } }
+  }
+  const consumeResubmitDraft = () => {
+    const draft = resubmitDraft().value
+    resubmitDraft().value = null
+    return draft
+  }
+
+  return {
+    requests, loading, loaded, fetchAll, fetchMine, submit, markReviewed, pendingRequests,
+    setResubmitDraft, consumeResubmitDraft,
+  }
 }

@@ -9,16 +9,18 @@ import { TITLE_OPTIONS, type AppUser } from '~/types/user'
 
 definePageMeta({ middleware: ['auth'] })
 
-const { submit } = useRequests()
+const { submit, consumeResubmitDraft } = useRequests()
 const { fetchGroups } = useGroups()
 const { fetchUsers } = useUsers()
 
 const groups = ref<Group[]>([])
 const users = ref<AppUser[]>([])
+const resubmitted = ref(false)
 onMounted(async () => {
   const [g, u] = await Promise.all([fetchGroups().catch(() => []), fetchUsers().catch(() => [])])
   groups.value = g
   users.value = u
+  await applyResubmitDraft()
 })
 
 const type = ref<RequestType>('kumiai_member_create')
@@ -74,6 +76,35 @@ const resetForms = () => {
   Object.assign(memberWithdrawForm, { targetUid: '' })
   Object.assign(kumiaiDissolveForm, { groupId: '', kumiaiId: '' })
   note.value = ''
+  resubmitted.value = false
+}
+
+// 却下された申請の「コピーして再申請」で渡された内容をフォームへ反映する
+const FORMS_BY_TYPE: Record<RequestType, Record<string, any>> = {
+  kumiai_create:          kumiaiCreateForm,
+  group_create:           groupCreateForm,
+  kumiai_member_create:   memberCreateForm,
+  plan_change:            planChangeForm,
+  supporter_change:       supporterChangeForm,
+  kumiai_member_withdraw: memberWithdrawForm,
+  kumiai_dissolve:        kumiaiDissolveForm,
+}
+// groupId変更で連動して選択組合(kumiaiId)がリセットされるフォームがあるため、
+// groupIdを先に反映してwatchによるリセットを済ませてからkumiaiIdを反映する
+const applyResubmitDraft = async () => {
+  const draft = consumeResubmitDraft()
+  if (!draft) return
+  type.value = draft.type
+  const form = FORMS_BY_TYPE[draft.type]
+  for (const key of Object.keys(form)) {
+    if (key === 'kumiaiId') continue
+    if (draft.payload[key] !== undefined) form[key] = draft.payload[key]
+  }
+  await nextTick()
+  if ('kumiaiId' in form && draft.payload.kumiaiId !== undefined) {
+    form.kumiaiId = draft.payload.kumiaiId
+  }
+  resubmitted.value = true
 }
 
 const isValid = computed(() => {
@@ -177,6 +208,11 @@ const handleSubmit = async () => {
     </div>
 
     <form v-else class="card p-6 space-y-5" @submit.prevent="handleSubmit">
+
+      <div v-if="resubmitted" class="flex items-start gap-2 rounded-lg bg-blue-50 p-3 text-sm text-blue-700">
+        <Icon name="heroicons:document-duplicate" class="mt-0.5 h-4 w-4 shrink-0" />
+        却下された申請の内容をコピーしました。内容を確認・修正のうえ再申請してください。
+      </div>
 
       <div v-if="error" class="flex items-start gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700">
         <Icon name="heroicons:exclamation-circle" class="mt-0.5 h-4 w-4 shrink-0" />
