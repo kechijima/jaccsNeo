@@ -81,6 +81,16 @@ export const useUsers = () => {
     })
   }
 
+  // ===== 他ユーザーのプロフィール更新（システム管理者のみ許可） =====
+  const updateUserProfile = async (targetUid: string, data: Record<string, any>): Promise<void> => {
+    if (!authStore.isSystemAdmin) throw new Error('権限がありません')
+    await updateDoc(doc($db, 'users', targetUid), {
+      ...data,
+      updatedBy: authStore.user?.uid,
+      updatedAt: serverTimestamp(),
+    })
+  }
+
   // ===== ユーザー作成（Firebase Auth + Firestoreプロフィール） =====
   // クライアントSDKのcreateUserWithEmailAndPasswordは呼び出した管理者自身の
   // セッションを新規ユーザーに置き換えてしまうため、Admin SDKを使える
@@ -107,6 +117,7 @@ export const useUsers = () => {
     fetchUser,
     updateUser,
     updateMyProfile,
+    updateUserProfile,
     createAuthUser,
   }
 }

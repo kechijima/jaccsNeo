@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { AppUser } from '~/types/user'
 import { useGroupLabels } from '~/composables/useGroupLabels'
+import { useAuthStore } from '~/stores/auth'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -9,6 +10,7 @@ const uid = computed(() => route.params.uid as string)
 
 const { fetchUser } = useUsers()
 const { user: currentUser } = useCurrentUser()
+const authStore = useAuthStore()
 const { getGroupLabel, ensureLoaded: ensureGroupLabelsLoaded } = useGroupLabels()
 onMounted(() => { ensureGroupLabelsLoaded() })
 
@@ -101,6 +103,10 @@ const activeTab = ref<typeof tabs[number]['key']>('basic')
         <NuxtLink v-if="isOwnProfile" to="/mypage" class="btn-secondary text-xs flex items-center gap-1.5 shrink-0">
           <Icon name="heroicons:pencil" class="h-3.5 w-3.5" />
           編集する
+        </NuxtLink>
+        <NuxtLink v-else-if="authStore.isSystemAdmin" :to="`/team/${uid}/edit`" class="btn-secondary text-xs flex items-center gap-1.5 shrink-0">
+          <Icon name="heroicons:pencil" class="h-3.5 w-3.5" />
+          編集する（管理者）
         </NuxtLink>
       </div>
 

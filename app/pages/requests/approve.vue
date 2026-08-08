@@ -3,6 +3,7 @@ import { useRequests } from '~/composables/useRequests'
 import { useGroups } from '~/composables/useGroups'
 import { useUsers } from '~/composables/useUsers'
 import { useNotifications } from '~/composables/useNotifications'
+import { useDirectorIndex } from '~/composables/useDirectorIndex'
 import { REQUEST_TYPE_LABELS, REQUEST_STATUS_LABELS } from '~/types/request'
 import type { AppRequest } from '~/types/request'
 
@@ -10,9 +11,10 @@ definePageMeta({ middleware: ['auth', 'board-or-above'] })
 
 const { requests, loading, fetchAll, markReviewed } = useRequests()
 const { createGroup, createKumiai } = useGroups()
-const { createAuthUser, updateUser } = useUsers()
+const { createAuthUser, updateUser, fetchUser } = useUsers()
 const { sendPasswordReset } = useAuth()
 const { sendNotification } = useNotifications()
+const { upsertDirectorAssignment } = useDirectorIndex()
 
 await fetchAll()
 
@@ -99,6 +101,7 @@ const applyRequest = async (r: AppRequest): Promise<void> => {
       subSupporterUid:  p.subSupporterUid || null,
     })
     await sendPasswordReset(p.email).catch(() => {})
+    await syncDirectorIndexForSupporters(p.displayName, p.kumiaiName, p)
   } else if (r.type === 'plan_change') {
     await updateUser(p.targetUid, { membershipPlan: p.newPlan })
   } else if (r.type === 'supporter_change') {
@@ -106,6 +109,24 @@ const applyRequest = async (r: AppRequest): Promise<void> => {
       mainSupporterUid: p.mainSupporterUid || null,
       subSupporterUid:  p.subSupporterUid || null,
     })
+    // この申請には対象者の所属組合が含まれていないため、現在のプロフィールから取得する
+    const target = await fetchUser(p.targetUid).catch(() => null)
+    await syncDirectorIndexForSupporters(p.targetName ?? target?.displayName, target?.kumiaiName, p)
+  }
+}
+
+// メインサポート/サブサポートの設定をディレクター逆引きへ反映する
+const syncDirectorIndexForSupporters = async (
+  memberName: string | undefined,
+  kumiaiName: string | undefined,
+  p: Record<string, any>,
+): Promise<void> => {
+  if (!memberName || !kumiaiName) return
+  if (p.mainSupporterName) {
+    await upsertDirectorAssignment({ directorName: p.mainSupporterName, kumiaiName, role: 'main', memberName }).catch(() => {})
+  }
+  if (p.subSupporterName) {
+    await upsertDirectorAssignment({ directorName: p.subSupporterName, kumiaiName, role: 'sub', memberName }).catch(() => {})
   }
 }
 

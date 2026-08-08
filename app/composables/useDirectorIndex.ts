@@ -1,10 +1,15 @@
 import { collection, doc, getDocs, writeBatch, type DocumentData } from 'firebase/firestore'
 import { DIRECTOR_INDEX_DATA } from '~/data/directorIndexData'
-import type { DirectorIndexRow } from '~/types/directorIndex'
+import type { DirectorIndexRow, DirectorRole } from '~/types/directorIndex'
 
 const COLLECTION = 'directorIndex'
 
 const toRow = (id: string, data: DocumentData): DirectorIndexRow => ({ id, ...data }) as DirectorIndexRow
+
+const currentYearMonth = () => {
+  const d = new Date()
+  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`
+}
 
 // ディレクター（サポート者）×組合×役割の検索インデックス。Firestoreのdirector Indexコレクションで管理する
 export const useDirectorIndex = () => {
@@ -53,5 +58,62 @@ export const useDirectorIndex = () => {
 
   const directorNames = computed(() => [...new Set(rows.value.map(r => r.directorName))].sort((a, b) => a.localeCompare(b, 'ja')))
 
-  return { rows, loading, loaded, fetchAll, seedFromStatic, searchByDirector, directorNames }
+  // 申請承認によるメインサポート/サブサポートの設定をディレクター逆引きへ反映する。
+  // 同じroleで別のディレクター・組合に担当されていた場合はそちらから外し、
+  // 新しい担当（directorName × kumiaiName × role）へ付け替える
+  const upsertDirectorAssignment = async (params: {
+    directorName: string
+    kumiaiName: string
+    role: DirectorRole
+    memberName: string
+  }): Promise<void> => {
+    const { directorName, kumiaiName, role, memberName } = params
+    if (!directorName?.trim() || !kumiaiName?.trim() || !memberName?.trim()) return
+
+    await fetchAll()
+
+    const batch = writeBatch($db)
+    let touched = false
+
+    for (const row of rows.value) {
+      if (row.role !== role) continue
+      if (row.directorName === directorName && row.kumiaiName === kumiaiName) continue
+      if (!row.memberNames.includes(memberName)) continue
+      const nextNames = row.memberNames.filter(n => n !== memberName)
+      if (nextNames.length === 0) {
+        batch.delete(doc($db, COLLECTION, row.id))
+      } else {
+        batch.update(doc($db, COLLECTION, row.id), { memberNames: nextNames })
+      }
+      touched = true
+    }
+
+    const existing = rows.value.find(r => r.role === role && r.directorName === directorName && r.kumiaiName === kumiaiName)
+    if (existing) {
+      if (!existing.memberNames.includes(memberName)) {
+        batch.update(doc($db, COLLECTION, existing.id), {
+          memberNames: [...existing.memberNames, memberName],
+          yearMonth:   currentYearMonth(),
+        })
+        touched = true
+      }
+    } else {
+      const newRef = doc(collection($db, COLLECTION))
+      batch.set(newRef, {
+        yearMonth:   currentYearMonth(),
+        directorName,
+        kumiaiName,
+        role,
+        memberNames: [memberName],
+      })
+      touched = true
+    }
+
+    if (touched) {
+      await batch.commit()
+      await fetchAll(true)
+    }
+  }
+
+  return { rows, loading, loaded, fetchAll, seedFromStatic, searchByDirector, directorNames, upsertDirectorAssignment }
 }
