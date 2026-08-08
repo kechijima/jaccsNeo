@@ -5,6 +5,7 @@
 import type { Space, Post, Comment as SpaceComment } from '~/types/portal'
 import { useSpaces } from '~/composables/useSpaces'
 import { useEvents } from '~/composables/useEvents'
+import { useAuthStore } from '~/stores/auth'
 
 const stripHtml = (html: string) => html.replace(/<[^>]*>/g, '').trim()
 
@@ -175,12 +176,19 @@ export const usePortalStore = () => {
       const title = space?.name
         ? (excerpt ? `【${space.name}】${excerpt}` : space.name)
         : (excerpt || 'イベント')
+
+      // イベント掲示板への投稿では対象グループを入力する項目がなく、後から編集が
+      // 必要になっていたため、投稿者（ログインユーザー）自身の所属グループを
+      // 自動的に登録する（投稿者が未所属の場合のみスペース側のグループにフォールバック）
+      const authStore = useAuthStore()
+      const inferredGroupId = authStore.user?.groupId ?? space?.groupId
+
       const eventId = await createEvent({
         title,
         startAt: eventOptions.startAt.toISOString(),
         endAt: eventOptions.endAt?.toISOString(),
-        scope: space?.groupId ? 'group' : 'space',
-        groupId: space?.groupId,
+        scope: inferredGroupId ? 'group' : 'space',
+        groupId: inferredGroupId,
         spaceId,
         postId: postId ?? undefined,
         category: 'event',
