@@ -4,7 +4,7 @@ import { DIRECTOR_INDEX_DATA } from '~/data/directorIndexData'
 
 definePageMeta({ middleware: ['auth', 'admin'] })
 
-const { fetchAll, seedFromStatic, rows } = useDirectorIndex()
+const { fetchAll, seedFromStatic, cleanupWithdrawnMembers, rows } = useDirectorIndex()
 
 const checking = ref(true)
 const seeding  = ref(false)
@@ -33,6 +33,26 @@ const runSeed = async () => {
     error.value = e.message ?? '投入に失敗しました'
   } finally {
     seeding.value = false
+  }
+}
+
+// ── 脱退済みメンバーのクリーンアップ ─────────────────────────────────────
+// この機能を追加する前に脱退承認された組合員が、ディレクター逆引きに
+// 残ったままになっている場合の一括除去
+const cleaning = ref(false)
+const cleanupResult = ref<{ removedNames: string[]; touchedRows: number } | null>(null)
+const cleanupError = ref('')
+
+const runCleanup = async () => {
+  cleaning.value = true
+  cleanupError.value = ''
+  cleanupResult.value = null
+  try {
+    cleanupResult.value = await cleanupWithdrawnMembers()
+  } catch (e: any) {
+    cleanupError.value = e.message ?? '除去処理に失敗しました'
+  } finally {
+    cleaning.value = false
   }
 }
 </script>
@@ -110,6 +130,46 @@ const runSeed = async () => {
           <Icon name="heroicons:users" class="h-4 w-4" />
           メンバー一覧で確認
         </NuxtLink>
+      </div>
+
+      <!-- 脱退済みメンバーのクリーンアップ -->
+      <div class="border-t border-gray-100 pt-6 mt-2 space-y-3">
+        <div>
+          <h2 class="font-semibold text-gray-900 flex items-center gap-2">
+            <Icon name="heroicons:user-minus" class="h-5 w-5 text-primary-600" />
+            脱退済みメンバーのクリーンアップ
+          </h2>
+          <p class="text-sm text-gray-500 mt-0.5">
+            組合員の脱退承認時にディレクター逆引きから自動的に除外する機能を追加する前に脱退承認されたメンバーが、
+            担当メンバー一覧に残ったままになっている場合があります。このボタンで一括除去できます（何度実行しても問題ありません）。
+          </p>
+        </div>
+
+        <div v-if="cleanupError" class="rounded-lg bg-red-50 border border-red-200 px-4 py-3 flex items-start gap-3">
+          <Icon name="heroicons:exclamation-circle" class="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+          <p class="text-sm text-red-700">{{ cleanupError }}</p>
+        </div>
+
+        <div v-if="cleanupResult" class="rounded-lg bg-green-50 border border-green-200 px-4 py-3 flex items-start gap-3">
+          <Icon name="heroicons:check-circle" class="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
+          <div class="text-sm text-green-700">
+            <p v-if="cleanupResult.removedNames.length === 0">脱退済みメンバーの残留はありませんでした。</p>
+            <p v-else>{{ cleanupResult.removedNames.length }}名を{{ cleanupResult.touchedRows }}件の担当行から除外しました。</p>
+            <p v-if="cleanupResult.removedNames.length > 0" class="mt-0.5 text-green-600">
+              除外したメンバー: {{ cleanupResult.removedNames.join('、') }}
+            </p>
+          </div>
+        </div>
+
+        <button
+          class="btn-secondary flex items-center gap-2"
+          :disabled="cleaning"
+          @click="runCleanup"
+        >
+          <Icon v-if="cleaning" name="heroicons:arrow-path" class="h-4 w-4 animate-spin" />
+          <Icon v-else name="heroicons:user-minus" class="h-4 w-4" />
+          {{ cleaning ? '確認中...' : '脱退済みメンバーを除去する' }}
+        </button>
       </div>
     </template>
 

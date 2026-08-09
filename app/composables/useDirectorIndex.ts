@@ -1,6 +1,7 @@
 import { collection, doc, getDocs, writeBatch, type DocumentData } from 'firebase/firestore'
 import { DIRECTOR_INDEX_DATA } from '~/data/directorIndexData'
 import type { DirectorIndexRow, DirectorRole } from '~/types/directorIndex'
+import { useUsers } from '~/composables/useUsers'
 
 const COLLECTION = 'directorIndex'
 
@@ -14,6 +15,7 @@ const currentYearMonth = () => {
 // ディレクター（サポート者）×組合×役割の検索インデックス。Firestoreのdirector Indexコレクションで管理する
 export const useDirectorIndex = () => {
   const { $db } = useNuxtApp()
+  const { fetchUsers } = useUsers()
 
   const rows    = useState<DirectorIndexRow[]>('directorIndex:list', () => [])
   const loaded  = useState<boolean>('directorIndex:loaded', () => false)
@@ -142,8 +144,40 @@ export const useDirectorIndex = () => {
     }
   }
 
+  // 過去（本機能追加前）に脱退承認されたメンバーが、ディレクター逆引きに
+  // 残ったままになっているケースの一括クリーンアップ（管理画面から手動実行）
+  const cleanupWithdrawnMembers = async (): Promise<{ removedNames: string[]; touchedRows: number }> => {
+    const users = await fetchUsers()
+    const withdrawnNames = new Set(users.filter(u => u.isWithdrawn).map(u => u.displayName).filter(Boolean))
+
+    await fetchAll()
+
+    const batch = writeBatch($db)
+    const removedNames = new Set<string>()
+    let touchedRows = 0
+
+    for (const row of rows.value) {
+      const nextNames = row.memberNames.filter(n => !withdrawnNames.has(n))
+      if (nextNames.length === row.memberNames.length) continue
+      row.memberNames.filter(n => withdrawnNames.has(n)).forEach(n => removedNames.add(n))
+      if (nextNames.length === 0) {
+        batch.delete(doc($db, COLLECTION, row.id))
+      } else {
+        batch.update(doc($db, COLLECTION, row.id), { memberNames: nextNames })
+      }
+      touchedRows++
+    }
+
+    if (touchedRows > 0) {
+      await batch.commit()
+      await fetchAll(true)
+    }
+
+    return { removedNames: [...removedNames], touchedRows }
+  }
+
   return {
     rows, loading, loaded, fetchAll, seedFromStatic, searchByDirector, directorNames,
-    upsertDirectorAssignment, removeMemberFromIndex,
+    upsertDirectorAssignment, removeMemberFromIndex, cleanupWithdrawnMembers,
   }
 }
