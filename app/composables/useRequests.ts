@@ -2,8 +2,11 @@ import {
   collection, doc, getDocs, addDoc, updateDoc,
   query, where, orderBy, serverTimestamp, type DocumentData,
 } from 'firebase/firestore'
-import type { AppRequest, RequestForm, RequestStatus, RequestType } from '~/types/request'
+import { REQUEST_TYPE_LABELS, type AppRequest, type RequestForm, type RequestStatus, type RequestType } from '~/types/request'
+import type { AppUser } from '~/types/user'
 import { useAuthStore } from '~/stores/auth'
+import { useNotifications } from '~/composables/useNotifications'
+import { useUsers } from '~/composables/useUsers'
 
 const COLLECTION = 'requests'
 
@@ -26,8 +29,24 @@ const toRequest = (id: string, data: DocumentData): AppRequest => ({ id, ...data
 export const useRequests = () => {
   const { $db } = useNuxtApp()
   const authStore = useAuthStore()
+  const { sendNotification } = useNotifications()
+  const { fetchUsers } = useUsers()
 
   const requestsCol = () => collection($db, COLLECTION)
+
+  // 新規申請が提出されたことを理事会メンバー・システム管理者へ通知する
+  const notifyReviewers = async (type: RequestType, requestId: string): Promise<void> => {
+    const users = await fetchUsers().catch(() => [] as AppUser[])
+    const currentUid = authStore.user?.uid
+    const reviewers = users.filter(u => (u.role === 'board' || u.role === 'system_admin') && u.uid !== currentUid)
+    await Promise.all(reviewers.map(u => sendNotification(u.uid, {
+      type:      'system',
+      title:     '新しい申請があります',
+      body:      `${authStore.user?.displayName ?? '申請者'}さんから「${REQUEST_TYPE_LABELS[type]}」の申請が届きました。`,
+      linkUrl:   '/requests/approve',
+      relatedId: requestId,
+    }).catch(() => {})))
+  }
 
   const requests = useState<AppRequest[]>('requests:list', () => [])
   const loading  = useState<boolean>('requests:loading', () => false)
@@ -68,6 +87,7 @@ export const useRequests = () => {
       updatedAt:       serverTimestamp(),
     }))
     await fetchAll(true)
+    await notifyReviewers(form.type, ref.id).catch(() => {})
     return ref.id
   }
 
