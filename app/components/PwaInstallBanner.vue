@@ -19,7 +19,9 @@ onMounted(() => {
   iosDismissed.value = localStorage.getItem(IOS_DISMISS_KEY) === '1'
 })
 
-const showAndroidPrompt = computed(() => !!$pwa?.showInstallPrompt?.value)
+// $pwaは@vite-pwa/nuxtがreactive()で公開しているため、内部のrefは既に
+// アンラップ済み。誤って.valueを付けると常にundefined（＝表示されない）になる
+const showAndroidPrompt = computed(() => !!$pwa?.showInstallPrompt)
 const showIosPrompt = computed(() => isIos.value && !isStandalone.value && !iosDismissed.value)
 
 const handleInstall = async () => {

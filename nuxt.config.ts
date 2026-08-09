@@ -55,9 +55,14 @@ export default defineNuxtConfig({
   },
 
   pwa: {
-    registerType: 'autoUpdate',
+    // 'prompt': 新しいバージョンが見つかっても即座には適用せず、$pwa.needRefresh を
+    // trueにするだけにとどめる。UI側（UpdateAvailableBanner.vue）で「更新する」を
+    // 押したときだけ適用・再読み込みする（入力中の内容が急に失われるのを防ぐため）
+    registerType: 'prompt',
     client: {
       installPrompt: true,
+      // タブを開いたままでも新しいデプロイに気づけるよう、定期的に更新をチェックする（30分ごと）
+      periodicSyncForUpdates: 1800,
     },
     manifest: {
       name: 'JACCS Neo',
