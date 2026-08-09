@@ -1,16 +1,25 @@
-// デプロイ後もService Workerの更新サイクルが正しく進まず、古いJS/画像等が
-// 表示され続けることがある（ハードリロードしても改善しないケースが複数報告された）。
+// デプロイ後に画面を開いたまま古いJS/画像等が表示され続けることがあったため、
 // Nuxtがビルドごとに発行するbuildIdを前回訪問時と比較し、変化していれば
-// 「新しいデプロイが反映された」とみなして、古いService Worker登録とキャッシュを
-// 完全に削除してから一度だけ再読み込みする。通常のSW更新フローに依存しない、
-// より確実な手段としてこの仕組みを用意する
+// 「新しいデプロイが反映された」とみなして一度だけ再読み込みする。
+//
+// 以前はここでService Worker登録とキャッシュを完全に削除してから再読み込み
+// していたが、以下の理由でそこまでの破壊的な処理は不要と判断し、単純な
+// reloadのみに変更した:
+// - ナビゲーション（HTML取得）はnuxt.config.tsのworkbox設定でNetworkFirst
+//   （まずネットワークから取得）にしてあり、reloadすれば必ず最新のHTMLが
+//   届く。ここが以前の「表示が更新されない」不具合の本質的な原因だった
+// - JS/CSSは内容に応じたハッシュ付きファイル名で配信されるため、古いキャッシュが
+//   残っていても新しいファイルの取得を妨げない（無関係な古いファイルが少し
+//   残るだけ）
+// - Service Workerとキャッシュを全削除すると、次回起動時にすべてのファイルを
+//   ネットワークから再取得することになり、特にモバイル回線で「起動時の
+//   読み込みが数十秒終わらない」不具合の原因になっていた
 export default defineNuxtPlugin(() => {
-  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return
+  if (typeof window === 'undefined') return
 
   const STORAGE_KEY = 'jaccsneo:build-id'
-  // 短時間に連続してデプロイされた場合、reload後にすぐ次の新しいbuildIdを検出して
-  // また削除→reloadしてしまい、reloadが連鎖して「読み込み中のまま止まらない」ように
-  // 見える不具合を防ぐためのクールダウン（この時間内は強制reloadを行わない）
+  // 短時間に連続してデプロイされた場合、reload直後にまた新しいbuildIdを検出して
+  // reloadを繰り返してしまわないようにするクールダウン
   const RELOAD_COOLDOWN_KEY = 'jaccsneo:force-update-reloaded-at'
   const RELOAD_COOLDOWN_MS = 30_000
 
@@ -25,24 +34,10 @@ export default defineNuxtPlugin(() => {
     return Date.now() - at < RELOAD_COOLDOWN_MS
   })()
 
+  localStorage.setItem(STORAGE_KEY, currentBuildId)
+
   if (lastBuildId && lastBuildId !== currentBuildId && !withinCooldown) {
-    localStorage.setItem(STORAGE_KEY, currentBuildId)
     sessionStorage.setItem(RELOAD_COOLDOWN_KEY, String(Date.now()))
-    ;(async () => {
-      try {
-        const regs = await navigator.serviceWorker.getRegistrations()
-        await Promise.all(regs.map(r => r.unregister()))
-        if ('caches' in window) {
-          const keys = await caches.keys()
-          await Promise.all(keys.map(k => caches.delete(k)))
-        }
-      } catch (e) {
-        console.error('古いキャッシュの削除に失敗しました', e)
-      } finally {
-        window.location.reload()
-      }
-    })()
-  } else {
-    localStorage.setItem(STORAGE_KEY, currentBuildId)
+    window.location.reload()
   }
 })

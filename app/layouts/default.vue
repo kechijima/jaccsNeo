@@ -285,6 +285,15 @@ const groupLabel = computed(() => getGroupLabel(user.value?.groupId))
                   マイページ
                 </NuxtLink>
                 <NuxtLink
+                  to="/requests"
+                  class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
+                  :class="isActive('/requests') ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100'"
+                  @click="isMobileMenuOpen = false"
+                >
+                  <Icon name="heroicons:document-check" class="h-5 w-5 shrink-0" />
+                  申請
+                </NuxtLink>
+                <NuxtLink
                   v-if="authStore.user?.role !== 'general'"
                   to="/team"
                   class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
