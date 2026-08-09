@@ -101,14 +101,24 @@ const handleResubmit = (r: AppRequest) => {
               承認者: {{ r.reviewedByName }}（{{ fmt(r.reviewedAt) }}）
             </p>
             <p v-if="r.status === 'rejected' && r.rejectReason" class="text-xs text-red-500 mt-1">却下理由: {{ r.rejectReason }}</p>
-            <button
-              v-if="r.status === 'rejected'"
-              class="btn-secondary text-xs mt-2 flex items-center gap-1"
-              @click="handleResubmit(r)"
-            >
-              <Icon name="heroicons:document-duplicate" class="h-3.5 w-3.5" />
-              コピーして再申請
-            </button>
+            <div class="flex items-center gap-2 mt-2">
+              <NuxtLink
+                v-if="r.status === 'pending'"
+                :to="`/requests/new?edit=${r.id}`"
+                class="btn-secondary text-xs flex items-center gap-1"
+              >
+                <Icon name="heroicons:pencil-square" class="h-3.5 w-3.5" />
+                編集する
+              </NuxtLink>
+              <button
+                v-if="r.status === 'rejected'"
+                class="btn-secondary text-xs flex items-center gap-1"
+                @click="handleResubmit(r)"
+              >
+                <Icon name="heroicons:document-duplicate" class="h-3.5 w-3.5" />
+                コピーして再申請
+              </button>
+            </div>
           </div>
         </div>
       </div>

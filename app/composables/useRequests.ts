@@ -71,6 +71,18 @@ export const useRequests = () => {
     return ref.id
   }
 
+  // ===== 自分の申請の編集（承認待ちの間のみ。ミス申請の修正用） =====
+  const updateMyRequest = async (id: string, form: RequestForm): Promise<void> => {
+    await updateDoc(doc($db, COLLECTION, id), {
+      type:      form.type,
+      payload:   stripUndefined(form.payload),
+      note:      form.note ?? '',
+      updatedAt: serverTimestamp(),
+    })
+    const idx = requests.value.findIndex(r => r.id === id)
+    if (idx >= 0) requests.value[idx] = { ...requests.value[idx], type: form.type, payload: form.payload, note: form.note }
+  }
+
   // ===== 承認・却下（実データへの反映は呼び出し側で行い、成功後にこれを呼ぶ） =====
   const markReviewed = async (id: string, status: RequestStatus, rejectReason?: string): Promise<void> => {
     await updateDoc(doc($db, COLLECTION, id), stripUndefined({
@@ -98,7 +110,7 @@ export const useRequests = () => {
   }
 
   return {
-    requests, loading, loaded, fetchAll, fetchMine, submit, markReviewed, pendingRequests,
+    requests, loading, loaded, fetchAll, fetchMine, submit, updateMyRequest, markReviewed, pendingRequests,
     setResubmitDraft, consumeResubmitDraft,
   }
 }

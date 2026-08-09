@@ -10,9 +10,11 @@ import { requestStatusBadge, requestPayloadSummary } from '~/utils/requestSummar
 
 definePageMeta({ middleware: ['auth'] })
 
-const { submit, consumeResubmitDraft, fetchMine } = useRequests()
+const { submit, updateMyRequest, consumeResubmitDraft, fetchMine } = useRequests()
 const { fetchGroups } = useGroups()
 const { fetchUsers } = useUsers()
+const route = useRoute()
+const router = useRouter()
 
 const groups = ref<Group[]>([])
 const users = ref<AppUser[]>([])
@@ -32,12 +34,30 @@ const loadPastRequests = async () => {
     pastLoading.value = false
   }
 }
+
+// ── 承認待ちの自分の申請を編集する（ミス申請の修正用。承認/却下後は編集不可） ──
+const isEditing  = ref(false)
+const editingId  = ref('')
+const editSaved  = ref(false)
+const editError  = ref('')
+
 onMounted(async () => {
   const [g, u] = await Promise.all([fetchGroups().catch(() => []), fetchUsers().catch(() => [])])
   groups.value = g
   users.value = u
   await applyResubmitDraft()
   await loadPastRequests()
+
+  const editId = route.query.edit as string | undefined
+  if (editId) {
+    const target = pastRequests.value.find(r => r.id === editId)
+    if (target && target.status === 'pending') {
+      await startEditing(target)
+    } else {
+      editError.value = '編集できる申請が見つかりませんでした（承認待ちの申請のみ編集できます）'
+    }
+    router.replace({ query: {} })
+  }
 })
 
 const fmt = (ts: any) =>
@@ -59,12 +79,12 @@ const memberCreateForm = reactive({
   displayName: '', email: '', groupId: '', kumiaiId: '', position: '',
   mainSupporterUid: '', subSupporterUid: '',
 })
+// 所属組合は所属グループとは独立して選択できる（別グループの組合に所属するケースがあるため）
 const memberKumiaiOptions = computed(() =>
-  (groups.value.find(g => g.id === memberCreateForm.groupId)?.kumiai ?? [])
-    .filter(k => !k.isDissolved)
-    .map(k => ({ id: k.id, label: k.name })),
+  groups.value.flatMap(g => g.kumiai
+    .filter(k => !k.isDissolved || k.id === memberCreateForm.kumiaiId)
+    .map(k => ({ id: k.id, label: k.name, sublabel: g.name }))),
 )
-watch(() => memberCreateForm.groupId, () => { memberCreateForm.kumiaiId = '' })
 
 // ── プラン変更・サポート者変更（対象ユーザー選択は共通） ────────────────
 const MEMBERSHIP_PLAN_OPTIONS = ['Sプラン', 'Bプラン']
@@ -122,18 +142,38 @@ const applyDraft = async (draft: { type: RequestType; payload: Record<string, an
   if ('kumiaiId' in form && draft.payload.kumiaiId !== undefined) {
     form.kumiaiId = draft.payload.kumiaiId
   }
-  resubmitted.value = true
 }
 const applyResubmitDraft = async () => {
   const draft = consumeResubmitDraft()
   if (!draft) return
   await applyDraft(draft)
+  resubmitted.value = true
 }
 // 過去の申請一覧から直接「コピーして再申請」した場合（画面遷移せずそのままフォームへ反映）
 const handleResubmitFromHistory = async (r: AppRequest) => {
   done.value = false
+  isEditing.value = false
+  editingId.value = ''
+  editSaved.value = false
   await applyDraft({ type: r.type, payload: r.payload })
+  resubmitted.value = true
   window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+// 承認待ちの自分の申請を編集モードで開く（画面遷移せずそのままフォームへ反映）
+const startEditing = async (r: AppRequest) => {
+  done.value = false
+  editSaved.value = false
+  resubmitted.value = false
+  isEditing.value = true
+  editingId.value = r.id
+  await applyDraft({ type: r.type, payload: r.payload })
+  note.value = r.note ?? ''
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+const cancelEditing = () => {
+  isEditing.value = false
+  editingId.value = ''
+  resetForms()
 }
 
 const isValid = computed(() => {
@@ -147,8 +187,16 @@ const isValid = computed(() => {
   return false
 })
 
-const handleSubmit = async () => {
+// Enterキー押下でも<form>のsubmitイベントは発火してしまうため、誤申請防止のため
+// 実際の送信前に必ず確認ダイアログを挟む（ボタンクリックでも同様に確認する）
+const handleSubmit = () => {
   if (!isValid.value) return
+  const confirmMessage = isEditing.value ? 'この内容で申請を更新しますか？' : 'この内容で申請しますか？'
+  if (!confirm(confirmMessage)) return
+  doSubmit()
+}
+
+const doSubmit = async () => {
   submitting.value = true
   error.value = ''
   try {
@@ -205,12 +253,19 @@ const handleSubmit = async () => {
       }
     }
 
-    await submit({ type: type.value, payload, note: note.value.trim() || undefined })
-    done.value = true
-    resetForms()
+    if (isEditing.value && editingId.value) {
+      await updateMyRequest(editingId.value, { type: type.value, payload, note: note.value.trim() || undefined })
+      isEditing.value = false
+      editingId.value = ''
+      editSaved.value = true
+    } else {
+      await submit({ type: type.value, payload, note: note.value.trim() || undefined })
+      done.value = true
+      resetForms()
+    }
     await loadPastRequests()
   } catch (e: any) {
-    error.value = e.message ?? '申請に失敗しました'
+    error.value = e.message ?? (isEditing.value ? '更新に失敗しました' : '申請に失敗しました')
   } finally {
     submitting.value = false
   }
@@ -223,10 +278,15 @@ const handleSubmit = async () => {
     <div class="flex items-center gap-2 text-sm text-gray-400">
       <NuxtLink to="/requests">申請</NuxtLink>
       <Icon name="heroicons:chevron-right" class="h-3 w-3" />
-      <span class="text-gray-600">新規申請</span>
+      <span class="text-gray-600">{{ isEditing ? '申請の編集' : '新規申請' }}</span>
     </div>
 
-    <h1 class="text-xl font-bold text-gray-900">新規申請</h1>
+    <h1 class="text-xl font-bold text-gray-900">{{ isEditing ? '申請の編集' : '新規申請' }}</h1>
+
+    <div v-if="editError" class="flex items-start gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+      <Icon name="heroicons:exclamation-circle" class="mt-0.5 h-4 w-4 shrink-0" />
+      {{ editError }}
+    </div>
 
     <div v-if="done" class="card p-8 text-center space-y-3">
       <Icon name="heroicons:check-circle" class="h-12 w-12 text-green-400 mx-auto" />
@@ -237,7 +297,21 @@ const handleSubmit = async () => {
       </div>
     </div>
 
+    <div v-else-if="editSaved" class="card p-8 text-center space-y-3">
+      <Icon name="heroicons:check-circle" class="h-12 w-12 text-green-400 mx-auto" />
+      <p class="text-gray-700 font-medium">申請内容を更新しました。理事会の承認をお待ちください。</p>
+      <div class="flex items-center justify-center gap-3 pt-1">
+        <NuxtLink to="/requests" class="btn-primary text-sm">申請一覧へ</NuxtLink>
+      </div>
+    </div>
+
     <form v-else class="card p-6 space-y-5" @submit.prevent="handleSubmit">
+
+      <div v-if="isEditing" class="flex items-start gap-2 rounded-lg bg-blue-50 p-3 text-sm text-blue-700">
+        <Icon name="heroicons:pencil-square" class="mt-0.5 h-4 w-4 shrink-0" />
+        承認待ちの申請を編集しています。内容を確認して更新してください。
+        <button type="button" class="ml-auto text-xs text-blue-600 hover:underline shrink-0" @click="cancelEditing">編集をやめる</button>
+      </div>
 
       <div v-if="resubmitted" class="flex items-start gap-2 rounded-lg bg-blue-50 p-3 text-sm text-blue-700">
         <Icon name="heroicons:document-duplicate" class="mt-0.5 h-4 w-4 shrink-0" />
@@ -304,7 +378,8 @@ const handleSubmit = async () => {
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1.5">所属組合</label>
-            <SearchableSelect v-model="memberCreateForm.kumiaiId" :items="memberKumiaiOptions" placeholder="（なし）" />
+            <SearchableSelect v-model="memberCreateForm.kumiaiId" :items="memberKumiaiOptions" placeholder="（なし）" search-placeholder="組合名で検索..." />
+            <p class="mt-1 text-xs text-gray-400">所属グループとは別のグループの組合も選択できます</p>
           </div>
         </div>
         <div>
@@ -400,7 +475,7 @@ const handleSubmit = async () => {
         <NuxtLink to="/requests" class="btn-secondary">キャンセル</NuxtLink>
         <button type="submit" class="btn-primary" :disabled="submitting || !isValid">
           <Icon v-if="submitting" name="heroicons:arrow-path" class="h-4 w-4 animate-spin mr-1" />
-          {{ submitting ? '送信中...' : '申請する' }}
+          {{ submitting ? (isEditing ? '更新中...' : '送信中...') : (isEditing ? '更新する' : '申請する') }}
         </button>
       </div>
 
@@ -437,14 +512,24 @@ const handleSubmit = async () => {
               <p class="text-sm text-gray-800 truncate">{{ requestPayloadSummary(r) }}</p>
               <p class="text-xs text-gray-400 mt-0.5">{{ fmt(r.requestedAt) }} 申請</p>
               <p v-if="r.status === 'rejected' && r.rejectReason" class="text-xs text-red-500 mt-1">却下理由: {{ r.rejectReason }}</p>
-              <button
-                v-if="r.status === 'rejected'"
-                class="btn-secondary text-xs mt-2 flex items-center gap-1"
-                @click="handleResubmitFromHistory(r)"
-              >
-                <Icon name="heroicons:document-duplicate" class="h-3.5 w-3.5" />
-                コピーして再申請
-              </button>
+              <div class="flex items-center gap-2 mt-2">
+                <button
+                  v-if="r.status === 'pending'"
+                  class="btn-secondary text-xs flex items-center gap-1"
+                  @click="startEditing(r)"
+                >
+                  <Icon name="heroicons:pencil-square" class="h-3.5 w-3.5" />
+                  編集する
+                </button>
+                <button
+                  v-if="r.status === 'rejected'"
+                  class="btn-secondary text-xs flex items-center gap-1"
+                  @click="handleResubmitFromHistory(r)"
+                >
+                  <Icon name="heroicons:document-duplicate" class="h-3.5 w-3.5" />
+                  コピーして再申請
+                </button>
+              </div>
             </div>
           </div>
         </div>
