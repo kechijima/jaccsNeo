@@ -62,7 +62,7 @@ onMounted(async () => {
         specialTeams: user.specialTeams ?? [],
         mainSupporterUid: user.mainSupporterUid ?? '',
         subSupporterUid:  user.subSupporterUid ?? '',
-        isActive:     true,
+        isActive:     user.isActive !== false,
       }
     }
   } catch (e: any) {
@@ -100,7 +100,7 @@ const handleSubmit = async () => {
 const handleDeactivate = async () => {
   if (!confirm(`「${form.value.name}」のアカウントを無効化しますか？`)) return
   try {
-    await updateUser(uid.value, { isDisabled: true })
+    await updateUser(uid.value, { isActive: false })
     form.value.isActive = false
   } catch (e: any) {
     error.value = e.message ?? '無効化に失敗しました'

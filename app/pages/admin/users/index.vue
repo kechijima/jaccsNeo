@@ -46,24 +46,33 @@ const groupLabels = computed<Record<string, string>>(() =>
 )
 
 // ── フィルター ────────────────────────────────────────────────────────
-const searchQuery  = ref('')
-const filterGroup  = ref('')
-const filterRole   = ref('')
-const showFilter   = ref(false)
+const searchQuery     = ref('')
+const filterGroup     = ref('')
+const filterRole      = ref('')
+const withdrawnFilter = ref<'exclude' | 'include' | 'only'>('exclude')  // 脱退者の表示方法（デフォルトは除外）
+const showFilter      = ref(false)
 
 const activeCount = computed(() =>
-  [filterGroup.value, filterRole.value].filter(Boolean).length
+  [filterGroup.value, filterRole.value].filter(Boolean).length +
+  (withdrawnFilter.value !== 'exclude' ? 1 : 0)
 )
 
 const resetFilters = () => {
   searchQuery.value = ''
   filterGroup.value = ''
   filterRole.value  = ''
+  withdrawnFilter.value = 'exclude'
 }
+
+// 脱退者は人数集計の対象外とする
+const activeUserCount = computed(() => allUsers.value.filter(u => !u.isWithdrawn).length)
 
 // ── フィルタリング ─────────────────────────────────────────────────────
 const users = computed(() => {
   let list = allUsers.value
+
+  if (withdrawnFilter.value === 'exclude') list = list.filter(u => !u.isWithdrawn)
+  else if (withdrawnFilter.value === 'only') list = list.filter(u => u.isWithdrawn)
 
   const q = searchQuery.value.trim().toLowerCase()
   if (q) {
@@ -97,7 +106,7 @@ const openDetail = (u: any) => { selectedUser.value = u }
     <div class="flex items-start justify-between gap-3">
       <div>
         <h1 class="text-xl font-bold text-gray-900">ユーザー管理</h1>
-        <p class="text-sm text-gray-500 mt-0.5">{{ users.length }}名表示中（全{{ allUsers.length }}名）</p>
+        <p class="text-sm text-gray-500 mt-0.5">{{ users.length }}名表示中（全{{ activeUserCount }}名）</p>
       </div>
       <NuxtLink to="/admin/users/new" class="btn-primary text-sm flex items-center gap-1.5">
         <Icon name="heroicons:user-plus" class="h-4 w-4" />
@@ -161,6 +170,14 @@ const openDetail = (u: any) => { selectedUser.value = u }
           <select v-model="filterRole" class="input-field text-sm py-1.5">
             <option value="">すべて</option>
             <option v-for="(label, key) in roleLabels" :key="key" :value="key">{{ label }}</option>
+          </select>
+        </div>
+        <div class="space-y-1 col-span-2">
+          <label class="text-xs font-medium text-gray-500">脱退者の表示</label>
+          <select v-model="withdrawnFilter" class="input-field text-sm py-1.5">
+            <option value="exclude">脱退者を除く（デフォルト）</option>
+            <option value="include">脱退者も含めて表示</option>
+            <option value="only">脱退者のみ表示</option>
           </select>
         </div>
       </div>

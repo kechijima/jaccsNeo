@@ -57,7 +57,7 @@ export const useUsers = () => {
     kumiaiId?: string | null
     kumiaiName?: string | null
     position?: string | null
-    isDisabled?: boolean
+    isActive?: boolean
     mainSupporterUid?: string | null
     subSupporterUid?: string | null
     membershipPlan?: string | null
@@ -66,7 +66,8 @@ export const useUsers = () => {
     if (!authStore.isBoard) throw new Error('権限がありません')
     await updateDoc(doc($db, 'users', uid), {
       ...data,
-      ...(data.isWithdrawn ? { withdrawnAt: serverTimestamp() } : {}),
+      // 脱退が確定したユーザーはアカウントも無効化する（ログイン不可・一覧上も「無効」扱い）
+      ...(data.isWithdrawn ? { withdrawnAt: serverTimestamp(), isActive: false } : {}),
       updatedBy: authStore.user?.uid,
       updatedAt: serverTimestamp(),
     })
