@@ -13,14 +13,17 @@ const { getGroupLabel, getGroupColor, ensureLoaded: ensureGroupLabelsLoaded } = 
 const { ensureLoaded: ensureThemeColorLoaded } = useThemeColor()
 onMounted(() => { ensureGroupLabelsLoaded(); ensureThemeColorLoaded() })
 
-// 「チーム」メニューは一般ロールのユーザーには表示しない
+// 「チーム」メニュー（実績等の統計）は一般ロールには表示しないが、他メンバーを
+// 見る導線が全くなくなってしまうため、代わりに「メンバー一覧」だけは表示する
 const navItems = computed(() => [
   { label: 'ダッシュボード',   icon: 'heroicons:home',                   to: '/dashboard' },
   { label: 'パーソナルデータ', icon: 'heroicons:identification',         to: '/personal-data' },
   { label: 'アプリ',           icon: 'heroicons:squares-2x2',            to: '/services' },
   { label: '掲示板',           icon: 'heroicons:chat-bubble-left-right', to: '/portal' },
   { label: 'カレンダー',       icon: 'heroicons:calendar-days',          to: '/events' },
-  ...(authStore.user?.role === 'general' ? [] : [{ label: 'チーム', icon: 'heroicons:chart-bar', to: '/team' }]),
+  ...(authStore.user?.role === 'general'
+    ? [{ label: 'メンバー一覧', icon: 'heroicons:users', to: '/team/members' }]
+    : [{ label: 'チーム', icon: 'heroicons:chart-bar', to: '/team' }]),
   { label: '申請',             icon: 'heroicons:document-check',         to: '/requests' },
 ])
 
@@ -107,6 +110,18 @@ const groupLabel = computed(() => getGroupLabel(user.value?.groupId))
             </span>
           </div>
           通知
+        </NuxtLink>
+
+        <!-- 検索 -->
+        <NuxtLink
+          to="/search"
+          class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
+          :class="isActive('/search')
+            ? 'bg-primary-50 text-primary-700'
+            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'"
+        >
+          <Icon name="heroicons:magnifying-glass" class="h-5 w-5 shrink-0" />
+          検索
         </NuxtLink>
 
         <!-- マニュアル -->
@@ -302,6 +317,25 @@ const groupLabel = computed(() => getGroupLabel(user.value?.groupId))
                 >
                   <Icon name="heroicons:chart-bar" class="h-5 w-5 shrink-0" />
                   チーム
+                </NuxtLink>
+                <NuxtLink
+                  v-else
+                  to="/team/members"
+                  class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
+                  :class="isActive('/team/members') ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100'"
+                  @click="isMobileMenuOpen = false"
+                >
+                  <Icon name="heroicons:users" class="h-5 w-5 shrink-0" />
+                  メンバー一覧
+                </NuxtLink>
+                <NuxtLink
+                  to="/search"
+                  class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
+                  :class="isActive('/search') ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100'"
+                  @click="isMobileMenuOpen = false"
+                >
+                  <Icon name="heroicons:magnifying-glass" class="h-5 w-5 shrink-0" />
+                  検索
                 </NuxtLink>
                 <NuxtLink
                   to="/help"
