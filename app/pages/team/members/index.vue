@@ -68,7 +68,8 @@ onMounted(async () => {
   loading.value = true
   error.value = ''
   try {
-    const users: AppUser[] = await fetchUsers()
+    // 脱退済みの組合員はメンバー一覧に表示しない
+    const users: AppUser[] = (await fetchUsers()).filter(u => !u.isWithdrawn)
 
     // Group users by groupId; users without a groupId go into a fallback group
     const groupMap = new Map<string, AppUser[]>()
