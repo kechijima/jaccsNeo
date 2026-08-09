@@ -109,6 +109,18 @@ const groupLabel = computed(() => getGroupLabel(user.value?.groupId))
           通知
         </NuxtLink>
 
+        <!-- マニュアル -->
+        <NuxtLink
+          to="/help"
+          class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
+          :class="isActive('/help')
+            ? 'bg-primary-50 text-primary-700'
+            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'"
+        >
+          <Icon name="heroicons:book-open" class="h-5 w-5 shrink-0" />
+          マニュアル
+        </NuxtLink>
+
         <!-- 管理者メニュー（system_adminのみ） -->
         <template v-if="authStore.isSystemAdmin">
           <div class="pt-3 pb-1">
@@ -281,6 +293,15 @@ const groupLabel = computed(() => getGroupLabel(user.value?.groupId))
                 >
                   <Icon name="heroicons:chart-bar" class="h-5 w-5 shrink-0" />
                   チーム
+                </NuxtLink>
+                <NuxtLink
+                  to="/help"
+                  class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
+                  :class="isActive('/help') ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100'"
+                  @click="isMobileMenuOpen = false"
+                >
+                  <Icon name="heroicons:book-open" class="h-5 w-5 shrink-0" />
+                  マニュアル
                 </NuxtLink>
 
                 <template v-if="authStore.isSystemAdmin">
