@@ -14,7 +14,7 @@ const { createGroup, createKumiai, updateKumiai } = useGroups()
 const { createAuthUser, updateUser, fetchUser } = useUsers()
 const { sendPasswordReset } = useAuth()
 const { sendNotification } = useNotifications()
-const { upsertDirectorAssignment } = useDirectorIndex()
+const { upsertDirectorAssignment, removeMemberFromIndex } = useDirectorIndex()
 
 await fetchAll()
 
@@ -124,6 +124,9 @@ const applyRequest = async (r: AppRequest): Promise<void> => {
   } else if (r.type === 'kumiai_member_withdraw') {
     // データは削除せず脱退フラグのみ設定する。以後ログイン・システム利用はできなくなる
     await updateUser(p.targetUid, { isWithdrawn: true })
+    // ディレクター逆引きの担当メンバー一覧からも除外する
+    const target = await fetchUser(p.targetUid).catch(() => null)
+    await removeMemberFromIndex(p.targetName ?? target?.displayName ?? '').catch(() => {})
   } else if (r.type === 'kumiai_dissolve') {
     // 組合データは残したまま解体フラグのみ設定する。以後、各種選択肢には表示されなくなる
     await updateKumiai(p.groupId, p.kumiaiId, { isDissolved: true })

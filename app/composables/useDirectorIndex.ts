@@ -115,5 +115,35 @@ export const useDirectorIndex = () => {
     }
   }
 
-  return { rows, loading, loaded, fetchAll, seedFromStatic, searchByDirector, directorNames, upsertDirectorAssignment }
+  // 組合員の脱退が承認された際、ディレクター逆引きの担当メンバー一覧から名前を除外する。
+  // 除外した結果メンバーが0人になった行は削除する
+  const removeMemberFromIndex = async (memberName: string): Promise<void> => {
+    if (!memberName?.trim()) return
+
+    await fetchAll()
+
+    const batch = writeBatch($db)
+    let touched = false
+
+    for (const row of rows.value) {
+      if (!row.memberNames.includes(memberName)) continue
+      const nextNames = row.memberNames.filter(n => n !== memberName)
+      if (nextNames.length === 0) {
+        batch.delete(doc($db, COLLECTION, row.id))
+      } else {
+        batch.update(doc($db, COLLECTION, row.id), { memberNames: nextNames })
+      }
+      touched = true
+    }
+
+    if (touched) {
+      await batch.commit()
+      await fetchAll(true)
+    }
+  }
+
+  return {
+    rows, loading, loaded, fetchAll, seedFromStatic, searchByDirector, directorNames,
+    upsertDirectorAssignment, removeMemberFromIndex,
+  }
 }
