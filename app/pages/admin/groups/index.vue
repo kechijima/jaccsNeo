@@ -44,6 +44,14 @@ const kumiaiMemberCount = (kumiaiId: string) => users.value.filter(u => u.kumiai
 // 管理者は必ずしもアプリのユーザーとは限らないため自由入力も許可する
 const adminNameSuggestions = computed(() => users.value.map(u => u.displayName).filter(Boolean))
 
+// 解体済み組合の表示方法（脱退者と同様、デフォルトは除外）
+const kumiaiFilter = ref<'exclude' | 'include' | 'only'>('exclude')
+const visibleKumiai = (group: Group) => {
+  if (kumiaiFilter.value === 'exclude') return group.kumiai.filter(k => !k.isDissolved)
+  if (kumiaiFilter.value === 'only') return group.kumiai.filter(k => k.isDissolved)
+  return group.kumiai
+}
+
 // ── グループ追加モーダル ───────────────────────────────────────────────
 const showAddGroup = ref(false)
 const newGroupName = ref('')
@@ -182,15 +190,25 @@ const deleteKumiai = async (g: Group, kumiaiId: string) => {
     </div>
 
     <!-- ヘッダー -->
-    <div class="flex items-start justify-between gap-3">
-      <div>
+    <div class="flex items-start justify-between gap-3 flex-wrap">
+      <div class="min-w-0">
         <h1 class="text-xl font-bold text-gray-900">グループ・組合マスタ</h1>
         <p class="text-sm text-gray-500 mt-0.5">グループとその配下の組合を管理します。人数はユーザー管理での所属設定から自動集計されます</p>
       </div>
-      <button class="btn-primary text-sm flex items-center gap-1.5" @click="openAddGroup">
+      <button class="btn-primary text-sm flex items-center gap-1.5 shrink-0" @click="openAddGroup">
         <Icon name="heroicons:plus" class="h-4 w-4" />
         グループを追加
       </button>
+    </div>
+
+    <!-- 解体済み組合の表示 -->
+    <div class="flex items-center gap-2">
+      <label class="text-xs font-medium text-gray-500 shrink-0">組合の表示</label>
+      <select v-model="kumiaiFilter" class="input-field text-sm py-1.5 w-auto">
+        <option value="exclude">解体済みを除く（デフォルト）</option>
+        <option value="include">解体済みも含めて表示</option>
+        <option value="only">解体済みのみ表示</option>
+      </select>
     </div>
 
     <!-- 読み込み中 -->
@@ -234,13 +252,19 @@ const deleteKumiai = async (g: Group, kumiaiId: string) => {
         <div v-if="group.kumiai.length === 0" class="px-5 py-4 text-sm text-gray-400">
           組合がまだ登録されていません
         </div>
+        <div v-else-if="visibleKumiai(group).length === 0" class="px-5 py-4 text-sm text-gray-400">
+          表示できる組合がありません（絞り込み条件をご確認ください）
+        </div>
         <div
-          v-for="k in group.kumiai"
+          v-for="k in visibleKumiai(group)"
           :key="k.id"
           class="flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition"
         >
           <div>
-            <p class="text-sm font-medium text-gray-900">{{ k.name }}</p>
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <p class="text-sm font-medium text-gray-900">{{ k.name }}</p>
+              <span v-if="k.isDissolved" class="badge text-xs bg-red-100 text-red-600">解体済み</span>
+            </div>
             <p class="text-xs text-gray-400 mt-0.5">
               <span v-if="k.adminName">管理者: {{ k.adminName }} · </span>
               {{ kumiaiMemberCount(k.id) }}名
