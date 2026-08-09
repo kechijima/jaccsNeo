@@ -63,6 +63,29 @@ onMounted(async () => {
 const fmt = (ts: any) =>
   ts?.toDate?.().toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) ?? ''
 
+// ── 過去の申請の絞り込み（ステータス・申請日） ──────────────────────────
+const pastFilterStatus   = ref<'all' | 'pending' | 'approved' | 'rejected'>('all')
+const pastFilterDateFrom = ref('')
+const pastFilterDateTo   = ref('')
+const pastShowFilter     = ref(false)
+
+const pastActiveFilterCount = computed(() =>
+  (pastFilterStatus.value !== 'all' ? 1 : 0) + (pastFilterDateFrom.value ? 1 : 0) + (pastFilterDateTo.value ? 1 : 0)
+)
+const resetPastFilters = () => {
+  pastFilterStatus.value = 'all'
+  pastFilterDateFrom.value = ''
+  pastFilterDateTo.value = ''
+}
+const pastRequestDateStr = (r: AppRequest) => r.requestedAt?.toDate?.().toISOString().slice(0, 10) ?? ''
+const filteredPastRequests = computed(() => {
+  let list = pastRequests.value
+  if (pastFilterStatus.value !== 'all') list = list.filter(r => r.status === pastFilterStatus.value)
+  if (pastFilterDateFrom.value) list = list.filter(r => pastRequestDateStr(r) >= pastFilterDateFrom.value)
+  if (pastFilterDateTo.value)   list = list.filter(r => pastRequestDateStr(r) <= pastFilterDateTo.value)
+  return list
+})
+
 const type = ref<RequestType>('kumiai_member_create')
 const submitting = ref(false)
 const error = ref('')
@@ -483,10 +506,64 @@ const doSubmit = async () => {
 
     <!-- 過去の自分の申請 -->
     <div class="space-y-2">
-      <h2 class="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
-        <Icon name="heroicons:clock" class="h-4 w-4 text-gray-400" />
-        過去の申請
-      </h2>
+      <div class="flex items-center justify-between gap-2 flex-wrap">
+        <h2 class="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+          <Icon name="heroicons:clock" class="h-4 w-4 text-gray-400" />
+          過去の申請
+        </h2>
+        <div v-if="!pastLoading && !pastError && pastRequests.length > 0" class="flex items-center gap-2">
+          <button
+            class="relative flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition"
+            :class="pastActiveFilterCount > 0
+              ? 'border-primary-400 bg-primary-50 text-primary-700'
+              : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'"
+            @click="pastShowFilter = !pastShowFilter"
+          >
+            <Icon name="heroicons:adjustments-horizontal" class="h-3.5 w-3.5" />
+            絞り込み
+            <span
+              v-if="pastActiveFilterCount > 0"
+              class="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-primary-500 text-[9px] text-white font-bold"
+            >{{ pastActiveFilterCount }}</span>
+          </button>
+          <button
+            v-if="pastActiveFilterCount > 0"
+            class="text-xs text-gray-400 hover:text-red-500 transition flex items-center gap-0.5"
+            @click="resetPastFilters"
+          >
+            <Icon name="heroicons:x-mark" class="h-3.5 w-3.5" />リセット
+          </button>
+        </div>
+      </div>
+
+      <Transition
+        enter-active-class="transition duration-150"
+        enter-from-class="opacity-0 -translate-y-2"
+        enter-to-class="opacity-100 translate-y-0"
+        leave-active-class="transition duration-100"
+        leave-from-class="opacity-100 translate-y-0"
+        leave-to-class="opacity-0 -translate-y-2"
+      >
+        <div v-if="pastShowFilter" class="card p-3 grid sm:grid-cols-3 gap-3">
+          <div class="space-y-1">
+            <label class="text-xs font-medium text-gray-500">ステータス</label>
+            <select v-model="pastFilterStatus" class="input-field text-sm py-1.5">
+              <option value="all">すべて</option>
+              <option value="pending">承認待ち</option>
+              <option value="approved">承認済み</option>
+              <option value="rejected">却下</option>
+            </select>
+          </div>
+          <div class="space-y-1">
+            <label class="text-xs font-medium text-gray-500">申請日（開始）</label>
+            <input v-model="pastFilterDateFrom" type="date" class="input-field text-sm py-1.5" />
+          </div>
+          <div class="space-y-1">
+            <label class="text-xs font-medium text-gray-500">申請日（終了）</label>
+            <input v-model="pastFilterDateTo" type="date" class="input-field text-sm py-1.5" />
+          </div>
+        </div>
+      </Transition>
 
       <div v-if="pastLoading" class="card p-6 text-center">
         <Icon name="heroicons:arrow-path" class="h-5 w-5 text-gray-300 mx-auto animate-spin" />
@@ -501,9 +578,14 @@ const doSubmit = async () => {
         過去の申請はありません
       </div>
 
+      <div v-else-if="filteredPastRequests.length === 0" class="card p-6 text-center text-sm text-gray-400">
+        条件に一致する申請がありません
+        <button class="block mx-auto mt-1 text-xs text-primary-600 hover:underline" @click="resetPastFilters">絞り込みをリセット</button>
+      </div>
+
       <div v-else class="card overflow-hidden">
         <div class="divide-y divide-gray-50">
-          <div v-for="r in pastRequests" :key="r.id" class="px-5 py-3 flex items-start justify-between gap-3">
+          <div v-for="r in filteredPastRequests" :key="r.id" class="px-5 py-3 flex items-start justify-between gap-3">
             <div class="min-w-0">
               <div class="flex items-center gap-2 flex-wrap mb-1">
                 <span class="badge text-xs bg-gray-100 text-gray-600">{{ REQUEST_TYPE_LABELS[r.type] }}</span>
