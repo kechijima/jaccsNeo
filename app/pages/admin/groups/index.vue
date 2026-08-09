@@ -40,6 +40,10 @@ const getColor = (id: string) => getGroupColor(id)
 const groupMemberCount = (groupId: string) => users.value.filter(u => u.groupId === groupId).length
 const kumiaiMemberCount = (kumiaiId: string) => users.value.filter(u => u.kumiaiId === kumiaiId).length
 
+// 組合の管理者名入力（コンボボックス）の候補。既存ユーザーの氏名を候補として出しつつ、
+// 管理者は必ずしもアプリのユーザーとは限らないため自由入力も許可する
+const adminNameSuggestions = computed(() => users.value.map(u => u.displayName).filter(Boolean))
+
 // ── グループ追加モーダル ───────────────────────────────────────────────
 const showAddGroup = ref(false)
 const newGroupName = ref('')
@@ -359,7 +363,7 @@ const deleteKumiai = async (g: Group, kumiaiId: string) => {
             </div>
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1">管理者名</label>
-              <input v-model="newKumiai.adminName" type="text" placeholder="例: 山田 一郎" class="input-field" />
+              <ComboBox v-model="newKumiai.adminName" :items="adminNameSuggestions" placeholder="例: 山田 一郎" />
             </div>
           </div>
           <div class="flex gap-3 pt-2">
@@ -395,7 +399,7 @@ const deleteKumiai = async (g: Group, kumiaiId: string) => {
             </div>
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1">管理者名</label>
-              <input v-model="editKumiaiForm.adminName" type="text" class="input-field" />
+              <ComboBox v-model="editKumiaiForm.adminName" :items="adminNameSuggestions" placeholder="例: 山田 一郎" />
             </div>
           </div>
           <div class="flex gap-3 pt-2">

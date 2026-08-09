@@ -129,6 +129,7 @@ watch(() => kumiaiDissolveForm.groupId, () => { kumiaiDissolveForm.kumiaiId = ''
 const note = ref('')
 
 const userOptions = computed(() => users.value.filter(u => !u.isWithdrawn).map(u => ({ uid: u.uid, displayName: u.displayName })))
+const adminNameSuggestions = computed(() => users.value.map(u => u.displayName).filter(Boolean))
 
 const resetForms = () => {
   Object.assign(kumiaiCreateForm, { groupId: '', name: '', adminName: '' })
@@ -369,7 +370,7 @@ const doSubmit = async () => {
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">組合管理者名（任意）</label>
-          <input v-model="kumiaiCreateForm.adminName" type="text" class="input-field" />
+          <ComboBox v-model="kumiaiCreateForm.adminName" :items="adminNameSuggestions" placeholder="例: 山田 一郎" />
         </div>
       </template>
 
