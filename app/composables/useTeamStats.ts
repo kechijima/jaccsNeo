@@ -74,7 +74,8 @@ export const useTeamStats = () => {
       // ── グループ別: 人数・当月新規パーソナルデータ・当月活動報告件数 ──
       const groupIds: GroupId[] = allGroups.map(g => g.id)
       groupStats.value = groupIds.map((gid) => {
-        const members = users.value.filter(u => u.groupId === gid)
+        // 脱退済みの組合員は人数集計の対象外とする
+        const members = users.value.filter(u => u.groupId === gid && !u.isWithdrawn)
         const memberUids  = new Set(members.map(u => u.uid))
         const memberNames = new Set(members.map(u => u.displayName))
 
