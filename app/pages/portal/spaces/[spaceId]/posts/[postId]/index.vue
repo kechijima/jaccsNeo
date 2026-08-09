@@ -71,12 +71,22 @@ const deletePost = async () => {
   <div class="p-4 md:p-6 max-w-3xl mx-auto space-y-5">
 
     <!-- パンくず -->
-    <div class="flex items-center gap-2 text-sm text-gray-400 flex-wrap">
-      <NuxtLink to="/portal">掲示板</NuxtLink>
-      <Icon name="heroicons:chevron-right" class="h-3 w-3" />
-      <NuxtLink :to="`/portal/spaces/${spaceId}`">{{ space?.name ?? 'スペース' }}</NuxtLink>
-      <Icon name="heroicons:chevron-right" class="h-3 w-3" />
-      <span class="text-gray-600">投稿詳細</span>
+    <div class="flex items-center justify-between gap-3 flex-wrap">
+      <div class="flex items-center gap-2 text-sm text-gray-400 flex-wrap">
+        <NuxtLink to="/portal">掲示板</NuxtLink>
+        <Icon name="heroicons:chevron-right" class="h-3 w-3" />
+        <NuxtLink :to="`/portal/spaces/${spaceId}`">{{ space?.name ?? 'スペース' }}</NuxtLink>
+        <Icon name="heroicons:chevron-right" class="h-3 w-3" />
+        <span class="text-gray-600">投稿詳細</span>
+      </div>
+      <NuxtLink
+        v-if="space?.type === 'event'"
+        :to="post?.linkedEventId ? `/events/${post.linkedEventId}` : '/events'"
+        class="btn-secondary text-xs flex items-center gap-1.5 shrink-0"
+      >
+        <Icon name="heroicons:calendar-days" class="h-3.5 w-3.5" />
+        カレンダーで見る
+      </NuxtLink>
     </div>
 
     <!-- 投稿が見つからない -->
