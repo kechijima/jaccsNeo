@@ -1,27 +1,38 @@
 <script setup lang="ts">
-import type { RequestType } from '~/types/request'
-import { REQUEST_TYPE_LABELS } from '~/types/request'
+import type { RequestType, AppRequest } from '~/types/request'
+import { REQUEST_TYPE_LABELS, REQUEST_STATUS_LABELS } from '~/types/request'
 import { useRequests } from '~/composables/useRequests'
 import { useGroups } from '~/composables/useGroups'
 import { useUsers } from '~/composables/useUsers'
 import type { Group } from '~/types/group'
 import { TITLE_OPTIONS, type AppUser } from '~/types/user'
+import { requestStatusBadge, requestPayloadSummary } from '~/utils/requestSummary'
 
 definePageMeta({ middleware: ['auth'] })
 
-const { submit, consumeResubmitDraft } = useRequests()
+const { submit, consumeResubmitDraft, fetchMine } = useRequests()
 const { fetchGroups } = useGroups()
 const { fetchUsers } = useUsers()
 
 const groups = ref<Group[]>([])
 const users = ref<AppUser[]>([])
 const resubmitted = ref(false)
+const pastRequests = ref<AppRequest[]>([])
+const pastLoading = ref(true)
 onMounted(async () => {
   const [g, u] = await Promise.all([fetchGroups().catch(() => []), fetchUsers().catch(() => [])])
   groups.value = g
   users.value = u
   await applyResubmitDraft()
+  try {
+    pastRequests.value = await fetchMine()
+  } finally {
+    pastLoading.value = false
+  }
 })
+
+const fmt = (ts: any) =>
+  ts?.toDate?.().toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) ?? ''
 
 const type = ref<RequestType>('kumiai_member_create')
 const submitting = ref(false)
@@ -91,9 +102,7 @@ const FORMS_BY_TYPE: Record<RequestType, Record<string, any>> = {
 }
 // groupId変更で連動して選択組合(kumiaiId)がリセットされるフォームがあるため、
 // groupIdを先に反映してwatchによるリセットを済ませてからkumiaiIdを反映する
-const applyResubmitDraft = async () => {
-  const draft = consumeResubmitDraft()
-  if (!draft) return
+const applyDraft = async (draft: { type: RequestType; payload: Record<string, any> }) => {
   type.value = draft.type
   const form = FORMS_BY_TYPE[draft.type]
   for (const key of Object.keys(form)) {
@@ -105,6 +114,17 @@ const applyResubmitDraft = async () => {
     form.kumiaiId = draft.payload.kumiaiId
   }
   resubmitted.value = true
+}
+const applyResubmitDraft = async () => {
+  const draft = consumeResubmitDraft()
+  if (!draft) return
+  await applyDraft(draft)
+}
+// 過去の申請一覧から直接「コピーして再申請」した場合（画面遷移せずそのままフォームへ反映）
+const handleResubmitFromHistory = async (r: AppRequest) => {
+  done.value = false
+  await applyDraft({ type: r.type, payload: r.payload })
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 const isValid = computed(() => {
@@ -179,6 +199,7 @@ const handleSubmit = async () => {
     await submit({ type: type.value, payload, note: note.value.trim() || undefined })
     done.value = true
     resetForms()
+    pastRequests.value = await fetchMine().catch(() => pastRequests.value)
   } catch (e: any) {
     error.value = e.message ?? '申請に失敗しました'
   } finally {
@@ -375,5 +396,47 @@ const handleSubmit = async () => {
       </div>
 
     </form>
+
+    <!-- 過去の自分の申請 -->
+    <div class="space-y-2">
+      <h2 class="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+        <Icon name="heroicons:clock" class="h-4 w-4 text-gray-400" />
+        過去の申請
+      </h2>
+
+      <div v-if="pastLoading" class="card p-6 text-center">
+        <Icon name="heroicons:arrow-path" class="h-5 w-5 text-gray-300 mx-auto animate-spin" />
+      </div>
+
+      <div v-else-if="pastRequests.length === 0" class="card p-6 text-center text-sm text-gray-400">
+        過去の申請はありません
+      </div>
+
+      <div v-else class="card overflow-hidden">
+        <div class="divide-y divide-gray-50">
+          <div v-for="r in pastRequests" :key="r.id" class="px-5 py-3 flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 flex-wrap mb-1">
+                <span class="badge text-xs bg-gray-100 text-gray-600">{{ REQUEST_TYPE_LABELS[r.type] }}</span>
+                <span class="badge text-xs" :class="requestStatusBadge(r.status)">{{ REQUEST_STATUS_LABELS[r.status] }}</span>
+              </div>
+              <p class="text-sm text-gray-800 truncate">{{ requestPayloadSummary(r) }}</p>
+              <p class="text-xs text-gray-400 mt-0.5">{{ fmt(r.requestedAt) }} 申請</p>
+              <p v-if="r.status === 'rejected' && r.rejectReason" class="text-xs text-red-500 mt-1">却下理由: {{ r.rejectReason }}</p>
+              <button
+                v-if="r.status === 'rejected'"
+                class="btn-secondary text-xs mt-2 flex items-center gap-1"
+                @click="handleResubmitFromHistory(r)"
+              >
+                <Icon name="heroicons:document-duplicate" class="h-3.5 w-3.5" />
+                コピーして再申請
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <NuxtLink to="/requests" class="text-xs text-primary-600 hover:underline inline-block">申請一覧をすべて見る →</NuxtLink>
+    </div>
   </div>
 </template>
