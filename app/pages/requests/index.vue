@@ -11,15 +11,23 @@ const { fetchMine, setResubmitDraft } = useRequests()
 const authStore = useAuthStore()
 
 const loading = ref(true)
+const loadError = ref('')
 const myRequests = ref<AppRequest[]>([])
 
-onMounted(async () => {
+const loadMyRequests = async () => {
+  loading.value = true
+  loadError.value = ''
   try {
     myRequests.value = await fetchMine()
+  } catch (e: any) {
+    console.error('自分の申請一覧の取得に失敗しました', e)
+    loadError.value = e.message ?? '申請一覧の取得に失敗しました'
   } finally {
     loading.value = false
   }
-})
+}
+
+onMounted(loadMyRequests)
 
 const statusBadge = requestStatusBadge
 const payloadSummary = requestPayloadSummary
@@ -62,6 +70,13 @@ const handleResubmit = (r: AppRequest) => {
     <div v-if="loading" class="card p-12 text-center">
       <Icon name="heroicons:arrow-path" class="h-8 w-8 text-gray-300 mx-auto mb-2 animate-spin" />
       <p class="text-sm text-gray-400">読み込み中...</p>
+    </div>
+
+    <!-- エラー -->
+    <div v-else-if="loadError" class="card p-12 text-center">
+      <Icon name="heroicons:exclamation-circle" class="h-8 w-8 text-red-300 mx-auto mb-2" />
+      <p class="text-sm text-red-500">{{ loadError }}</p>
+      <button class="mt-3 text-xs text-primary-600 hover:underline" @click="loadMyRequests">再試行</button>
     </div>
 
     <!-- 空の状態 -->

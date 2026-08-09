@@ -19,16 +19,25 @@ const users = ref<AppUser[]>([])
 const resubmitted = ref(false)
 const pastRequests = ref<AppRequest[]>([])
 const pastLoading = ref(true)
+const pastError = ref('')
+const loadPastRequests = async () => {
+  pastLoading.value = true
+  pastError.value = ''
+  try {
+    pastRequests.value = await fetchMine()
+  } catch (e: any) {
+    console.error('過去の申請一覧の取得に失敗しました', e)
+    pastError.value = e.message ?? '過去の申請の取得に失敗しました'
+  } finally {
+    pastLoading.value = false
+  }
+}
 onMounted(async () => {
   const [g, u] = await Promise.all([fetchGroups().catch(() => []), fetchUsers().catch(() => [])])
   groups.value = g
   users.value = u
   await applyResubmitDraft()
-  try {
-    pastRequests.value = await fetchMine()
-  } finally {
-    pastLoading.value = false
-  }
+  await loadPastRequests()
 })
 
 const fmt = (ts: any) =>
@@ -199,7 +208,7 @@ const handleSubmit = async () => {
     await submit({ type: type.value, payload, note: note.value.trim() || undefined })
     done.value = true
     resetForms()
-    pastRequests.value = await fetchMine().catch(() => pastRequests.value)
+    await loadPastRequests()
   } catch (e: any) {
     error.value = e.message ?? '申請に失敗しました'
   } finally {
@@ -406,6 +415,11 @@ const handleSubmit = async () => {
 
       <div v-if="pastLoading" class="card p-6 text-center">
         <Icon name="heroicons:arrow-path" class="h-5 w-5 text-gray-300 mx-auto animate-spin" />
+      </div>
+
+      <div v-else-if="pastError" class="card p-6 text-center">
+        <p class="text-sm text-red-500">{{ pastError }}</p>
+        <button class="mt-2 text-xs text-primary-600 hover:underline" @click="loadPastRequests">再試行</button>
       </div>
 
       <div v-else-if="pastRequests.length === 0" class="card p-6 text-center text-sm text-gray-400">
