@@ -202,6 +202,12 @@ const groupLabel = computed(() => getGroupLabel(user.value?.groupId))
           <span class="text-sm font-bold text-gray-900">JACCS Neo</span>
         </div>
         <div class="flex items-center gap-1">
+          <NuxtLink to="/search" class="rounded-lg p-2 text-gray-500 hover:bg-gray-100" aria-label="検索">
+            <Icon name="heroicons:magnifying-glass" class="h-5 w-5" />
+          </NuxtLink>
+          <NuxtLink to="/help" class="rounded-lg p-2 text-gray-500 hover:bg-gray-100" aria-label="マニュアル">
+            <Icon name="heroicons:book-open" class="h-5 w-5" />
+          </NuxtLink>
           <NuxtLink to="/notifications" class="relative rounded-lg p-2 text-gray-500 hover:bg-gray-100">
             <Icon name="heroicons:bell" class="h-5 w-5" />
             <span

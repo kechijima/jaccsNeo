@@ -126,16 +126,17 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
         </p>
       </div>
       <div class="flex items-center gap-2">
+        <!-- スマホでは検索・マニュアルは常設のスマホヘッダーに移動したためここでは非表示（PCはサイドバーと重複するが常設のクイックアクションとして残す） -->
         <NuxtLink
           to="/search"
-          class="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 transition shrink-0"
+          class="hidden md:flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 transition shrink-0"
           aria-label="検索"
         >
           <Icon name="heroicons:magnifying-glass" class="h-5 w-5" />
         </NuxtLink>
         <NuxtLink
           to="/help"
-          class="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 transition shrink-0"
+          class="hidden md:flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 transition shrink-0"
           aria-label="マニュアル"
         >
           <Icon name="heroicons:book-open" class="h-5 w-5" />
