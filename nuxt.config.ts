@@ -105,28 +105,17 @@ export default defineNuxtConfig({
         },
       ],
     },
+    // Service Workerは「ホーム画面に追加」できるようにする（PWAインストール）ためだけに
+    // 登録し、画面・データの先読みキャッシュや横取りは一切行わない。
+    // 以前はnavigateFallback + precache + runtimeCachingで画面を積極的にキャッシュして
+    // いたが、デプロイのたびに「更新されない」「起動が固まる」といった不具合を繰り返し
+    // 引き起こしていた。このアプリは常時Firestore通信が前提でオフライン利用の必要性が
+    // 低いため、キャッシュの野心を捨てて通常のブラウザキャッシュ（ファイル名にハッシュが
+    // 付くため安全に長期キャッシュされる）に任せる方針にした
     workbox: {
-      navigateFallback: '/index.html',
-      globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-      runtimeCaching: [
-        // ページ読み込み（ナビゲーション）は常に最新のindex.htmlをネットワークから
-        // 優先して取得する。precacheされたindex.htmlをそのまま返してしまうと、
-        // 新しいバージョンをデプロイしても古い画面（真っ白な画面など）がいつまでも
-        // 表示され続けることがあるため
-        {
-          urlPattern: ({ request }) => request.mode === 'navigate',
-          handler: 'NetworkFirst',
-          options: {
-            cacheName: 'html-cache',
-            networkTimeoutSeconds: 3,
-          },
-        },
-        {
-          urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-          handler: 'CacheFirst',
-          options: { cacheName: 'google-fonts-cache' },
-        },
-      ],
+      navigateFallback: undefined,
+      globPatterns: [],
+      runtimeCaching: [],
     },
     devOptions: {
       enabled: false,
