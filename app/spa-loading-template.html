@@ -1,4 +1,4 @@
-<div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#ffffff;z-index:9999;">
+<div id="jaccsneo-boot-splash" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#ffffff;z-index:9999;">
   <div style="display:flex;flex-direction:column;align-items:center;gap:16px;">
     <img src="/logo.png" alt="" style="width:64px;height:64px;object-fit:contain;" />
     <div style="display:flex;align-items:center;gap:8px;font-size:14px;color:#6b7280;font-family:-apple-system,BlinkMacSystemFont,'Noto Sans JP',sans-serif;">
@@ -10,3 +10,44 @@
 <style>
 @keyframes jaccsneo-spin { to { transform: rotate(360deg); } }
 </style>
+<script>
+// 初回起動時、何らかの理由（古いService Workerとの競合など）でJSの起動自体が
+// スタックし、この静的な読み込み画面のまま止まってしまうことがある。
+// 「再読み込みすると開く」という回避策をユーザーに毎回させないよう、
+// 一定時間経ってもこの画面（#jaccsneo-boot-splash）がVueの起動によって
+// 置き換えられていなければ、1セッションにつき1回だけ自動的に再読み込みする
+(function () {
+  try {
+    var RETRY_KEY = 'jaccsneo:boot-retry';
+    if (sessionStorage.getItem(RETRY_KEY)) return;
+    setTimeout(function () {
+      if (!document.getElementById('jaccsneo-boot-splash')) return;
+      sessionStorage.setItem(RETRY_KEY, '1');
+      // スタックする原因として、以前登録された古いService Workerが、既に
+      // サーバー上には存在しない古いビルドのファイルをキャッシュ経由で
+      // 返そうとしている可能性があるため、本当に詰まった場合に限り
+      // Service Workerとキャッシュを削除してから再読み込みする
+      // （通常のデプロイ検知のたびには行わない。あくまで最終手段）
+      var reloaded = false;
+      var reload = function () {
+        if (reloaded) return;
+        reloaded = true;
+        location.reload();
+      };
+      if ('serviceWorker' in navigator && 'caches' in window) {
+        setTimeout(reload, 3000); // 削除処理自体が固まった場合の保険
+        Promise.all([
+          navigator.serviceWorker.getRegistrations().then(function (regs) {
+            return Promise.all(regs.map(function (r) { return r.unregister(); }));
+          }),
+          caches.keys().then(function (keys) {
+            return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+          }),
+        ]).then(reload, reload);
+      } else {
+        reload();
+      }
+    }, 12000);
+  } catch (e) {}
+})();
+</script>
