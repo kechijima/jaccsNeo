@@ -19,21 +19,22 @@ const { fetchUsers } = useUsers()
 
 const query = ref((route.query.q as string) ?? '')
 const loading = ref(true)
-const loadError = ref('')
 
 const users = ref<AppUser[]>([])
+const customerScopeError = ref(false)
+const postFetchError = ref(false)
+const userFetchError = ref(false)
 
+// パーソナルデータ・組合員・掲示板の取得はそれぞれ独立させ、いずれか1つが
+// 失敗しても他の検索対象まで巻き添えで使えなくならないようにする
 onMounted(async () => {
   loading.value = true
-  loadError.value = ''
   try {
     await Promise.all([
-      ensureScope(),
-      portalStore.fetchAllPosts(),
-      fetchUsers().then((u) => { users.value = u }),
+      ensureScope().catch((e) => { console.error('パーソナルデータの閲覧範囲の取得に失敗しました', e); customerScopeError.value = true }),
+      portalStore.fetchAllPosts().catch((e) => { console.error('掲示板の投稿取得に失敗しました', e); postFetchError.value = true }),
+      fetchUsers().then((u) => { users.value = u }).catch((e) => { console.error('組合員一覧の取得に失敗しました', e); userFetchError.value = true }),
     ])
-  } catch (e: any) {
-    loadError.value = e.message ?? '検索データの取得に失敗しました'
   } finally {
     loading.value = false
   }
@@ -60,6 +61,10 @@ const customerResults = computed<Customer[]>(() => {
   return scopedCustomers.value.filter(c => includesQuery(
     c.name, c.nameKana, c.tel, c.email, c.address, c.companyName, c.companyNameKana,
     c.employer, c.assignedFpName, c.hometown,
+    // 相談内容・進捗メモなど自由記述の項目も検索対象に含める
+    // （名前・連絡先だけでなく、記録されたやり取りの内容からも探せるようにするため）
+    c.status1, c.status2, c.postFollowStatus, c.referralSource,
+    c.ceoName, c.ceoNameKana, c.headOffice, c.industry, c.otherFamily,
   ))
 })
 
@@ -110,16 +115,21 @@ const postExcerpt = (p: PostView) => stripHtml(p.content).slice(0, 80).trim()
       />
     </div>
 
+    <!-- 一部のデータ取得に失敗した場合の注意（該当があれば結果自体は表示する） -->
+    <div v-if="!loading && q && (customerScopeError || postFetchError || userFetchError)" class="flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-700">
+      <Icon name="heroicons:exclamation-triangle" class="mt-0.5 h-4 w-4 shrink-0" />
+      <span>
+        <template v-if="customerScopeError">パーソナルデータ、</template>
+        <template v-if="userFetchError">組合員情報、</template>
+        <template v-if="postFetchError">掲示板の投稿、</template>
+        の取得に失敗したため、検索結果に含まれていない可能性があります。再読み込みしてお試しください。
+      </span>
+    </div>
+
     <!-- 読み込み中 -->
     <div v-if="loading" class="card p-12 text-center">
       <Icon name="heroicons:arrow-path" class="h-8 w-8 text-gray-300 mx-auto mb-2 animate-spin" />
       <p class="text-sm text-gray-400">検索データを準備中...</p>
-    </div>
-
-    <!-- エラー -->
-    <div v-else-if="loadError" class="card p-12 text-center">
-      <Icon name="heroicons:exclamation-circle" class="h-8 w-8 text-red-300 mx-auto mb-2" />
-      <p class="text-sm text-red-500">{{ loadError }}</p>
     </div>
 
     <!-- 未入力 -->
