@@ -50,6 +50,18 @@ export default defineNuxtConfig({
         // 静的HTMLには出力されない。PWAインストール判定に必須なので、ここでも
         // 直接指定して確実にmanifestが読み込まれるようにする
         { rel: 'manifest', href: '/manifest.webmanifest' },
+        // Google Fontsへの接続を前もって確立し、フォントCSS取得の待ち時間を短縮する
+        { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+        { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
+        // main.cssの@importは描画をブロックしてしまう（モバイル回線が不安定な場合、
+        // フォント取得待ちで画面全体の表示が数秒〜数十秒単位で遅れる原因になり得る）ため、
+        // ここでは非ブロッキングで読み込む（読み込み完了まではシステムフォントで表示される）
+        {
+          rel: 'stylesheet',
+          href: 'https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap',
+          media: 'print',
+          onload: "this.media='all'",
+        },
       ],
     },
   },
