@@ -6,7 +6,13 @@ import { DIRECTOR_ROLE_LABELS } from '~/types/directorIndex'
 definePageMeta({ middleware: ['auth'] })
 
 const { fetchUsers } = useUsers()
+const { user } = useCurrentUser()
 const viewMode = ref<'list' | 'lookup'>('list')
+
+// 一般ロールは「チーム」メニュー自体を表示していない
+// （/teamの個人ダッシュボードはまだダミーの実績値のため）。
+// パンくずリストから遷移できてしまわないよう、一般ロールではリンクにしない
+const canViewTeamDashboard = computed(() => user.value?.role !== 'general')
 
 // ── ディレクター逆引き検索（添付Excelの検索インデックスを取り込んだデータ） ──
 const {
@@ -127,7 +133,8 @@ onMounted(async () => {
   <div class="p-4 md:p-6 max-w-5xl mx-auto space-y-5">
 
     <div class="flex items-center gap-2 text-sm text-gray-400">
-      <NuxtLink to="/team">チーム</NuxtLink>
+      <NuxtLink v-if="canViewTeamDashboard" to="/team">チーム</NuxtLink>
+      <span v-else>チーム</span>
       <Icon name="heroicons:chevron-right" class="h-3 w-3" />
       <span class="text-gray-600">メンバー一覧</span>
     </div>
