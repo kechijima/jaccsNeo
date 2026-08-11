@@ -53,6 +53,13 @@ export default defineNuxtConfig({
         // Google Fontsへの接続を前もって確立し、フォントCSS取得の待ち時間を短縮する
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
+        // Firebase Auth/Firestoreへの接続も前もって確立しておく。JSバンドルの読み込みが
+        // 終わってからDNS・TLSのコールドスタートを行うと直列に時間がかかるため、
+        // HTML解析の早い段階から並行して準備しておくことで、認証確認・データ取得の
+        // 開始を早める
+        { rel: 'preconnect', href: 'https://identitytoolkit.googleapis.com', crossorigin: '' },
+        { rel: 'preconnect', href: 'https://securetoken.googleapis.com', crossorigin: '' },
+        { rel: 'preconnect', href: 'https://firestore.googleapis.com', crossorigin: '' },
         // main.cssの@importは描画をブロックしてしまう（モバイル回線が不安定な場合、
         // フォント取得待ちで画面全体の表示が数秒〜数十秒単位で遅れる原因になり得る）ため、
         // ここでは非ブロッキングで読み込む（読み込み完了まではシステムフォントで表示される）

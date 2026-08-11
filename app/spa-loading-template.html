@@ -11,20 +11,17 @@
 @keyframes jaccsneo-spin { to { transform: rotate(360deg); } }
 </style>
 <script>
-// モバイル回線では、しばらく操作していない状態からアプリを開いた際に
-// 最初の通信だけ（回線が休眠状態から復帰するタイミングなどで）固まり、
-// 再読み込みすると問題なく開く、という事象が確認されている
-// （Service Workerの有無やブラウザ/PWAどちらの起動方法でも発生するため、
-// アプリ固有の不具合というより、こうした回線都合による停止と考えられる）。
-// 「再読み込みすると開く」という回避策をユーザーに毎回させないよう、
-// 一定時間経ってもこの画面（#jaccsneo-boot-splash）がVueの起動によって
-// 置き換えられていなければ、1セッションにつき最大2回まで自動的に
-// 再読み込みする（待つより retry したほうが速く回復するため、待機時間は
-// 短めにしてある）
+// 待機時間を短くして試したところ、かえって遅くなるという報告があった。
+// これは「途中で止まっている」のではなく「初回接続の確立自体に時間が
+// かかっている（DNS/TLSのコールドスタート）」だけの可能性が高く、
+// その場合は早期にreloadしてしまうと進行中の読み込みを中断し、
+// 最初からやり直しになる分むしろ遅くなる。そのため待機時間は長めに戻し、
+// 本当に止まっている場合の最終手段としてのみ働くようにしてある
+// （回線そのものの高速化は preconnect 等、別の対策で行う）
 (function () {
   try {
     var RETRY_KEY = 'jaccsneo:boot-retry-count';
-    var MAX_RETRIES = 2;
+    var MAX_RETRIES = 1;
     var count = Number(sessionStorage.getItem(RETRY_KEY) || '0');
     if (count >= MAX_RETRIES) return;
     setTimeout(function () {
@@ -39,7 +36,7 @@
       // 念のため、古いService Worker・キャッシュが残っていれば削除してから
       // 再読み込みする（通常のデプロイ検知のたびには行わない。あくまで最終手段）
       if ('serviceWorker' in navigator && 'caches' in window) {
-        setTimeout(reload, 2000); // 削除処理自体が固まった場合の保険
+        setTimeout(reload, 3000); // 削除処理自体が固まった場合の保険
         Promise.all([
           navigator.serviceWorker.getRegistrations().then(function (regs) {
             return Promise.all(regs.map(function (r) { return r.unregister(); }));
@@ -51,7 +48,7 @@
       } else {
         reload();
       }
-    }, 6000);
+    }, 20000);
   } catch (e) {}
 })();
 </script>
