@@ -4,11 +4,13 @@ import { useAnnouncementStore } from '~/composables/useAnnouncementStore'
 import { useNotifications } from '~/composables/useNotifications'
 import { useAnnouncementScope } from '~/composables/useAnnouncementScope'
 import { useFavorites } from '~/composables/useFavorites'
+import { useHelpDrawer } from '~/composables/useHelpDrawer'
 import { SERVICE_LABELS } from '~/types/service'
 
 definePageMeta({ middleware: ['auth'] })
 
 const { user, displayName } = useCurrentUser()
+const { open: openHelp } = useHelpDrawer()
 const portalStore = usePortalStore()
 const announcementStore = useAnnouncementStore()
 const { subscribeUnreadCount } = useNotifications()
@@ -134,13 +136,14 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
         >
           <Icon name="heroicons:magnifying-glass" class="h-5 w-5" />
         </NuxtLink>
-        <NuxtLink
-          to="/help"
+        <button
+          type="button"
           class="hidden md:flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 transition shrink-0"
           aria-label="マニュアル"
+          @click="openHelp"
         >
           <Icon name="heroicons:book-open" class="h-5 w-5" />
-        </NuxtLink>
+        </button>
         <NuxtLink
           to="/notifications"
           class="relative flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 transition shrink-0"

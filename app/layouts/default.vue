@@ -3,8 +3,10 @@ import { useAuthStore } from '~/stores/auth'
 import { useNotifications } from '~/composables/useNotifications'
 import { useGroupLabels } from '~/composables/useGroupLabels'
 import { useThemeColor } from '~/composables/useThemeColor'
+import { useHelpDrawer } from '~/composables/useHelpDrawer'
 
 const { logout } = useAuth()
+const { open: openHelp } = useHelpDrawer()
 const { displayName, user } = useCurrentUser()
 const authStore = useAuthStore()
 const route = useRoute()
@@ -124,17 +126,15 @@ const groupLabel = computed(() => getGroupLabel(user.value?.groupId))
           検索
         </NuxtLink>
 
-        <!-- マニュアル -->
-        <NuxtLink
-          to="/help"
-          class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
-          :class="isActive('/help')
-            ? 'bg-primary-50 text-primary-700'
-            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'"
+        <!-- マニュアル（右からのスライドパネルで開く） -->
+        <button
+          type="button"
+          class="w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+          @click="openHelp"
         >
           <Icon name="heroicons:book-open" class="h-5 w-5 shrink-0" />
           マニュアル
-        </NuxtLink>
+        </button>
 
         <!-- 管理者メニュー（system_adminのみ） -->
         <template v-if="authStore.isSystemAdmin">
@@ -205,9 +205,9 @@ const groupLabel = computed(() => getGroupLabel(user.value?.groupId))
           <NuxtLink to="/search" class="rounded-lg p-2 text-gray-500 hover:bg-gray-100" aria-label="検索">
             <Icon name="heroicons:magnifying-glass" class="h-5 w-5" />
           </NuxtLink>
-          <NuxtLink to="/help" class="rounded-lg p-2 text-gray-500 hover:bg-gray-100" aria-label="マニュアル">
+          <button type="button" class="rounded-lg p-2 text-gray-500 hover:bg-gray-100" aria-label="マニュアル" @click="openHelp">
             <Icon name="heroicons:book-open" class="h-5 w-5" />
-          </NuxtLink>
+          </button>
           <NuxtLink to="/notifications" class="relative rounded-lg p-2 text-gray-500 hover:bg-gray-100">
             <Icon name="heroicons:bell" class="h-5 w-5" />
             <span
@@ -343,15 +343,14 @@ const groupLabel = computed(() => getGroupLabel(user.value?.groupId))
                   <Icon name="heroicons:magnifying-glass" class="h-5 w-5 shrink-0" />
                   検索
                 </NuxtLink>
-                <NuxtLink
-                  to="/help"
-                  class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
-                  :class="isActive('/help') ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100'"
-                  @click="isMobileMenuOpen = false"
+                <button
+                  type="button"
+                  class="w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition text-gray-600 hover:bg-gray-100"
+                  @click="isMobileMenuOpen = false; openHelp()"
                 >
                   <Icon name="heroicons:book-open" class="h-5 w-5 shrink-0" />
                   マニュアル
-                </NuxtLink>
+                </button>
 
                 <template v-if="authStore.isSystemAdmin">
                   <div class="pt-3 pb-1">
