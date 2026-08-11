@@ -1,15 +1,50 @@
 <div id="jaccsneo-boot-splash" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#ffffff;z-index:9999;">
-  <div style="display:flex;flex-direction:column;align-items:center;gap:16px;">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:16px;max-width:20rem;padding:0 1.5rem;text-align:center;">
     <img src="/logo.png" alt="" style="width:64px;height:64px;object-fit:contain;" />
     <div style="display:flex;align-items:center;gap:8px;font-size:14px;color:#6b7280;font-family:-apple-system,BlinkMacSystemFont,'Noto Sans JP',sans-serif;">
       <span style="width:16px;height:16px;border:2px solid #00afcc;border-top-color:transparent;border-radius:50%;display:inline-block;animation:jaccsneo-spin 0.8s linear infinite;"></span>
       読み込み中...
+    </div>
+    <!-- 回線状況によっては起動に時間がかかることがあるため、待たせるだけにならないよう
+         簡単な使い方のヒントを表示する（この画面自体はVue起動前の静的な画面のため、
+         ここでは実際のマニュアル画面へのリンク・アコーディオン等の対話的な機能は使えず、
+         プレーンなテキストのみで案内する） -->
+    <div id="jaccsneo-boot-tip" style="display:none;font-size:12px;color:#9ca3af;line-height:1.6;font-family:-apple-system,BlinkMacSystemFont,'Noto Sans JP',sans-serif;">
     </div>
   </div>
 </div>
 <style>
 @keyframes jaccsneo-spin { to { transform: rotate(360deg); } }
 </style>
+<script>
+(function () {
+  try {
+    var TIPS = [
+      'ヒント: サイドバー・スマホメニューの「マニュアル」から各画面の使い方をいつでも確認できます',
+      'ヒント: 「検索」から組合員・パーソナルデータ・掲示板の投稿を横断的に探せます',
+      'ヒント: アプリ・掲示板の★アイコンでお気に入り登録すると、ダッシュボードにまとめて表示されます',
+      'ヒント: 申請は「新規申請」から。承認待ちの間は内容を編集できます',
+    ];
+    var el = document.getElementById('jaccsneo-boot-tip');
+    if (!el) return;
+    var i = 0;
+    var intervalId = null;
+    var show = function () {
+      if (!document.getElementById('jaccsneo-boot-splash')) {
+        if (intervalId) clearInterval(intervalId);
+        return;
+      }
+      el.textContent = TIPS[i % TIPS.length];
+      el.style.display = 'block';
+      i++;
+    };
+    setTimeout(function () {
+      show();
+      intervalId = setInterval(show, 5000);
+    }, 3000);
+  } catch (e) {}
+})();
+</script>
 <script>
 // 待機時間を短くして試したところ、かえって遅くなるという報告があった。
 // これは「途中で止まっている」のではなく「初回接続の確立自体に時間が

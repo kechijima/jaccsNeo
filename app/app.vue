@@ -21,14 +21,17 @@ initAuth()
     <UpdateAvailableBanner v-if="initialized" />
     <!-- 認証初期化中はスプラッシュ表示 -->
     <Transition name="fade">
-      <div v-if="!initialized" class="fixed inset-0 z-50 flex items-center justify-center bg-white">
-        <div class="flex flex-col items-center gap-4">
+      <div v-if="!initialized" class="fixed inset-0 z-50 flex flex-col items-center overflow-y-auto bg-white py-10">
+        <div class="flex flex-1 flex-col items-center justify-center gap-4 min-h-[40vh]">
           <img src="/logo.png" alt="" class="w-16 h-16 object-contain" />
           <div class="flex items-center gap-2 text-sm text-gray-500">
             <Icon name="heroicons:arrow-path" class="h-4 w-4 animate-spin" />
             読み込み中...
           </div>
         </div>
+        <!-- 回線状況によっては起動に時間がかかることがあるため、待っている間に
+             マニュアルを見られるようにする -->
+        <BootManualPreview />
       </div>
     </Transition>
   </div>
