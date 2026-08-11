@@ -4,13 +4,11 @@ import { useAnnouncementStore } from '~/composables/useAnnouncementStore'
 import { useNotifications } from '~/composables/useNotifications'
 import { useAnnouncementScope } from '~/composables/useAnnouncementScope'
 import { useFavorites } from '~/composables/useFavorites'
-import { useHelpDrawer } from '~/composables/useHelpDrawer'
 import { SERVICE_LABELS } from '~/types/service'
 
 definePageMeta({ middleware: ['auth'] })
 
 const { user, displayName } = useCurrentUser()
-const { open: openHelp } = useHelpDrawer()
 const portalStore = usePortalStore()
 const announcementStore = useAnnouncementStore()
 const { subscribeUnreadCount } = useNotifications()
@@ -128,7 +126,8 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
         </p>
       </div>
       <div class="flex items-center gap-2">
-        <!-- スマホでは検索・マニュアルは常設のスマホヘッダーに移動したためここでは非表示（PCはサイドバーと重複するが常設のクイックアクションとして残す） -->
+        <!-- スマホでは検索は常設のスマホヘッダーに移動したためここでは非表示（PCはサイドバーと重複するが常設のクイックアクションとして残す）。
+             マニュアルはPCヘッダー右上（日付の横）に移動したためここには置かない -->
         <NuxtLink
           to="/search"
           class="hidden md:flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 transition shrink-0"
@@ -136,14 +135,6 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
         >
           <Icon name="heroicons:magnifying-glass" class="h-5 w-5" />
         </NuxtLink>
-        <button
-          type="button"
-          class="hidden md:flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 transition shrink-0"
-          aria-label="マニュアル"
-          @click="openHelp"
-        >
-          <Icon name="heroicons:book-open" class="h-5 w-5" />
-        </button>
         <NuxtLink
           to="/notifications"
           class="relative flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 transition shrink-0"

@@ -126,16 +126,6 @@ const groupLabel = computed(() => getGroupLabel(user.value?.groupId))
           検索
         </NuxtLink>
 
-        <!-- マニュアル（右からのスライドパネルで開く） -->
-        <button
-          type="button"
-          class="w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-          @click="openHelp"
-        >
-          <Icon name="heroicons:book-open" class="h-5 w-5 shrink-0" />
-          マニュアル
-        </button>
-
         <!-- 管理者メニュー（system_adminのみ） -->
         <template v-if="authStore.isSystemAdmin">
           <div class="pt-3 pb-1">
@@ -190,8 +180,18 @@ const groupLabel = computed(() => getGroupLabel(user.value?.groupId))
         <div>
           <slot name="header" />
         </div>
-        <div class="text-sm text-gray-500">
-          {{ new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' }) }}
+        <div class="flex items-center gap-3">
+          <div class="text-sm text-gray-500">
+            {{ new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' }) }}
+          </div>
+          <button
+            type="button"
+            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 transition"
+            aria-label="マニュアル"
+            @click="openHelp"
+          >
+            <Icon name="heroicons:book-open" class="h-5 w-5" />
+          </button>
         </div>
       </header>
 
