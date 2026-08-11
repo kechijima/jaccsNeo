@@ -11,31 +11,35 @@
 @keyframes jaccsneo-spin { to { transform: rotate(360deg); } }
 </style>
 <script>
-// 初回起動時、何らかの理由（古いService Workerとの競合など）でJSの起動自体が
-// スタックし、この静的な読み込み画面のまま止まってしまうことがある。
+// モバイル回線では、しばらく操作していない状態からアプリを開いた際に
+// 最初の通信だけ（回線が休眠状態から復帰するタイミングなどで）固まり、
+// 再読み込みすると問題なく開く、という事象が確認されている
+// （Service Workerの有無やブラウザ/PWAどちらの起動方法でも発生するため、
+// アプリ固有の不具合というより、こうした回線都合による停止と考えられる）。
 // 「再読み込みすると開く」という回避策をユーザーに毎回させないよう、
 // 一定時間経ってもこの画面（#jaccsneo-boot-splash）がVueの起動によって
-// 置き換えられていなければ、1セッションにつき1回だけ自動的に再読み込みする
+// 置き換えられていなければ、1セッションにつき最大2回まで自動的に
+// 再読み込みする（待つより retry したほうが速く回復するため、待機時間は
+// 短めにしてある）
 (function () {
   try {
-    var RETRY_KEY = 'jaccsneo:boot-retry';
-    if (sessionStorage.getItem(RETRY_KEY)) return;
+    var RETRY_KEY = 'jaccsneo:boot-retry-count';
+    var MAX_RETRIES = 2;
+    var count = Number(sessionStorage.getItem(RETRY_KEY) || '0');
+    if (count >= MAX_RETRIES) return;
     setTimeout(function () {
       if (!document.getElementById('jaccsneo-boot-splash')) return;
-      sessionStorage.setItem(RETRY_KEY, '1');
-      // スタックする原因として、以前登録された古いService Workerが、既に
-      // サーバー上には存在しない古いビルドのファイルをキャッシュ経由で
-      // 返そうとしている可能性があるため、本当に詰まった場合に限り
-      // Service Workerとキャッシュを削除してから再読み込みする
-      // （通常のデプロイ検知のたびには行わない。あくまで最終手段）
+      sessionStorage.setItem(RETRY_KEY, String(count + 1));
       var reloaded = false;
       var reload = function () {
         if (reloaded) return;
         reloaded = true;
         location.reload();
       };
+      // 念のため、古いService Worker・キャッシュが残っていれば削除してから
+      // 再読み込みする（通常のデプロイ検知のたびには行わない。あくまで最終手段）
       if ('serviceWorker' in navigator && 'caches' in window) {
-        setTimeout(reload, 3000); // 削除処理自体が固まった場合の保険
+        setTimeout(reload, 2000); // 削除処理自体が固まった場合の保険
         Promise.all([
           navigator.serviceWorker.getRegistrations().then(function (regs) {
             return Promise.all(regs.map(function (r) { return r.unregister(); }));
@@ -47,7 +51,7 @@
       } else {
         reload();
       }
-    }, 12000);
+    }, 6000);
   } catch (e) {}
 })();
 </script>
