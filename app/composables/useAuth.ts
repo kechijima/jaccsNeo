@@ -40,6 +40,7 @@ const getCachedUser = (): AppUser | null => {
 export const useAuth = () => {
   const authStore = useAuthStore()
   const router = useRouter()
+  const route = useRoute()
 
   // Firestoreからユーザー情報を取得
   const fetchUserDoc = async (firebaseUser: FirebaseUser): Promise<AppUser | null> => {
@@ -134,7 +135,11 @@ export const useAuth = () => {
       authStore.setUser(user)
       authStore.setConfirmed(true)
       cacheUser(user)
-      await router.push('/dashboard')
+      const redirect = route.query.redirect
+      const target = typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//')
+        ? redirect
+        : '/dashboard'
+      await router.push(target)
     } finally {
       authStore.setLoading(false)
     }
