@@ -1328,6 +1328,13 @@
     protobufjs "^7.2.5"
     yargs "^17.7.2"
 
+"@iconify-json/heroicons@^1.2.3":
+  version "1.2.3"
+  resolved "https://registry.npmjs.org/@iconify-json/heroicons/-/heroicons-1.2.3.tgz"
+  integrity sha512-n+vmCEgTesRsOpp5AB5ILB6srsgsYK+bieoQBNlafvoEhjVXLq8nIGN4B0v/s4DUfa0dOrjwE/cKJgIKdJXOEg==
+  dependencies:
+    "@iconify/types" "*"
+
 "@iconify/collections@^1.0.563":
   version "1.0.670"
   resolved "https://registry.npmjs.org/@iconify/collections/-/collections-1.0.670.tgz"

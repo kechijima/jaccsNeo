@@ -19,6 +19,22 @@ export default defineNuxtConfig({
     '@vite-pwa/nuxt',
   ],
 
+  // @nuxt/iconは既定では、ビルド時にバンドルされていないアイコンを
+  // /api/_nuxt_icon/:collection（Nuxtサーバー）→ 見つからなければ
+  // 外部のIconify API（api.iconify.design）へフォールバック取得する。
+  // このアプリはssr:false + 静的ホスティング（Firebase Hosting）のため
+  // サーバー自体が存在せず、本番では常に外部APIへのフェッチが発生していた
+  // （モバイル回線では特に、この余分な外部ドメインへの通信がページ表示の
+  // 遅延要因になり得る）。使用しているアイコンをビルド時にクライアント
+  // バンドルへ埋め込み、実行時のアイコン取得を完全になくす
+  icon: {
+    provider: 'none',
+    clientBundle: {
+      scan: true,
+      includeCustomCollections: false,
+    },
+  },
+
   runtimeConfig: {
     public: {
       firebaseApiKey: process.env.FIREBASE_API_KEY,
