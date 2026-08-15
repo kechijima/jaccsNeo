@@ -32,6 +32,7 @@ onMounted(async () => {
   try {
     await Promise.all([
       ensureScope().catch((e) => { console.error('パーソナルデータの閲覧範囲の取得に失敗しました', e); customerScopeError.value = true }),
+      customerStore.ensureLoaded().catch((e) => { console.error('パーソナルデータの取得に失敗しました', e); customerScopeError.value = true }),
       portalStore.fetchAllPosts().catch((e) => { console.error('掲示板の投稿取得に失敗しました', e); postFetchError.value = true }),
       fetchUsers().then((u) => { users.value = u }).catch((e) => { console.error('組合員一覧の取得に失敗しました', e); userFetchError.value = true }),
     ])

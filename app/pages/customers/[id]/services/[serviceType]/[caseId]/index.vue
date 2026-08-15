@@ -19,7 +19,8 @@ const { uploadFile } = useStorage()
 const { canEditCustomer: checkEditPermission } = usePermission()
 const authStore = useAuthStore()
 
-const { getById } = useCustomerStore()
+const { getById, ensureLoaded } = useCustomerStore()
+await ensureLoaded()
 const customer = getById(customerId)
 const customerName = computed(() => customer.value?.name ?? '')
 

@@ -14,7 +14,7 @@ const { user } = useCurrentUser()
 
 // ── 閲覧範囲（ロールに応じて担当FPで絞り込む） ──────────────────────────
 const { scopedFpNames, ensureScope } = useDataScope()
-await ensureScope()
+await Promise.all([ensureScope(), store.ensureLoaded()])
 
 // 自分の権限で閲覧できる担当FP名の範囲に、まず絞り込む（一般・EM2以上はここで強制的に制限される）
 const scopedCustomers = computed(() => {

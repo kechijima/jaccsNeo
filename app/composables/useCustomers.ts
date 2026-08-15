@@ -23,6 +23,7 @@ export const useCustomers = () => {
 
   // ===== 一覧取得 =====
   const fetchCustomers = async (opts?: { searchName?: string; assignedFpId?: string }) => {
+    await store.ensureLoaded()
     let list = store.customers.value
 
     if (!authStore.isEm2Above && !authStore.isBoard && !authStore.isSystemAdmin) {
@@ -41,6 +42,7 @@ export const useCustomers = () => {
 
   // ===== 名前検索 =====
   const searchByName = async (nameQuery: string) => {
+    await store.ensureLoaded()
     const q = nameQuery.toLowerCase()
     return store.customers.value
       .filter(c => c.name.toLowerCase().includes(q))
@@ -50,6 +52,7 @@ export const useCustomers = () => {
 
   // ===== 1件取得 =====
   const fetchCustomer = async (id: string): Promise<Customer | null> => {
+    await store.ensureLoaded()
     return store.customers.value.find(c => c.id === id) ?? null
   }
 
@@ -64,18 +67,27 @@ export const useCustomers = () => {
 
   // ===== 更新 =====
   const updateCustomer = async (id: string, form: Partial<CustomerForm>): Promise<void> => {
-    store.update(id, form)
+    await store.update(id, form)
   }
 
   // ===== 削除 =====
   const deleteCustomer = async (id: string): Promise<void> => {
-    store.remove(id)
+    await store.remove(id)
   }
 
   // ===== バルクインポート =====
   const bulkImport = async (customers: CustomerForm[]): Promise<{ success: number; errors: string[] }> => {
-    customers.forEach(c => store.create(c, authStore.user?.uid ?? '', authStore.user?.displayName ?? ''))
-    return { success: customers.length, errors: [] }
+    const errors: string[] = []
+    let success = 0
+    for (const c of customers) {
+      try {
+        await store.create(c, authStore.user?.uid ?? '', authStore.user?.displayName ?? '')
+        success++
+      } catch (e: any) {
+        errors.push(e.message ?? String(e))
+      }
+    }
+    return { success, errors }
   }
 
   return {

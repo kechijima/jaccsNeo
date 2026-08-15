@@ -17,7 +17,7 @@ export interface DerivedCase {
 }
 
 export const useAppServices = () => {
-  const { customers } = useCustomerStore()
+  const { customers, ensureLoaded } = useCustomerStore()
 
   const resolveKey = (serviceType: string) => SERVICE_KEY_ALIAS[serviceType] ?? serviceType
 
@@ -45,5 +45,5 @@ export const useAppServices = () => {
   const getServiceValue = (customer: Customer | null, serviceType: string): string =>
     customer ? ((customer.services as any)?.[resolveKey(serviceType)] ?? '') : ''
 
-  return { getCasesForType, countForType, getServiceValue, resolveKey }
+  return { getCasesForType, countForType, getServiceValue, resolveKey, ensureLoaded }
 }

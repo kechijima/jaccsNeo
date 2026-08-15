@@ -6,12 +6,12 @@ definePageMeta({ middleware: ['auth'] })
 const route = useRoute()
 
 const id       = computed(() => route.params.id as string)
-const { getById } = useCustomerStore()
+const { getById, ensureLoaded, remove } = useCustomerStore()
 const customer = getById(id)
 
 // 自分の閲覧範囲外の顧客（一般は自分の担当分のみ、EM2以上は自分がサポートする範囲のみ）は表示しない
 const { ensureScope, isNameInScope } = useDataScope()
-await ensureScope()
+await Promise.all([ensureScope(), ensureLoaded()])
 
 const error = computed(() => {
   if (!customer.value) return '顧客が見つかりません'
@@ -20,10 +20,9 @@ const error = computed(() => {
 })
 
 // ===== 削除 =====
-const { remove } = useCustomerStore()
-const handleDelete = () => {
+const handleDelete = async () => {
   if (!confirm('この顧客を削除しますか？')) return
-  remove(id.value)
+  await remove(id.value)
   navigateTo('/personal-data')
 }
 

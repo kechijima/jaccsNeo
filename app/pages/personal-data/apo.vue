@@ -7,12 +7,12 @@ import type { Customer } from '~/types/customer'
 
 definePageMeta({ middleware: ['auth'] })
 
-const { customers } = useCustomerStore()
+const { customers, ensureLoaded: ensureCustomersLoaded } = useCustomerStore()
 
 // ── 閲覧範囲（ロールに応じて担当FPで絞り込む） ──────────────────────────
 // 一般: 自分のみ / EM2以上: 自分と自分がサポートするメンバー / 理事会・システム管理者: 制限なし
 const { scopedFpNames, ensureScope } = useDataScope()
-await ensureScope()
+await Promise.all([ensureScope(), ensureCustomersLoaded()])
 const authStore = useAuthStore()
 const scopeMessage = computed(() => {
   if (scopedFpNames.value === null) return '全メンバーのアポ状況を分析できます'

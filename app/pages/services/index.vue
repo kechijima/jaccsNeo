@@ -7,10 +7,10 @@ import { useFavorites } from '~/composables/useFavorites'
 
 definePageMeta({ middleware: ['auth'] })
 
-const { customers } = useCustomerStore()
+const { customers, ensureLoaded: ensureCustomersLoaded } = useCustomerStore()
 const { countForType } = useAppServices()
 const { cases: liCases, fetchAll: fetchLiCases } = useLifeInsuranceCases()
-await fetchLiCases()
+await Promise.all([fetchLiCases(), ensureCustomersLoaded()])
 
 const { isFavoriteApp, toggleFavoriteApp, ensureLoaded: ensureFavoritesLoaded } = useFavorites()
 ensureFavoritesLoaded()

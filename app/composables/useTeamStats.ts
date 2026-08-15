@@ -47,7 +47,7 @@ export interface FpRankingRow {
 
 export const useTeamStats = () => {
   const { fetchUsers } = useUsers()
-  const { customers } = useCustomerStore()
+  const { customers, ensureLoaded: ensureCustomersLoaded } = useCustomerStore()
   const portalStore = usePortalStore()
   const { getCasesForType, countForType } = useAppServices()
   const { cases: liCases, fetchAll: fetchLiCases } = useLifeInsuranceCases()
@@ -65,7 +65,7 @@ export const useTeamStats = () => {
     if (loaded.value && !force) return
     loading.value = true
     try {
-      const [allGroups] = await Promise.all([fetchGroups(), fetchLiCases(), portalStore.fetchAllPosts(), ensureGroupLabelsLoaded()])
+      const [allGroups] = await Promise.all([fetchGroups(), fetchLiCases(), portalStore.fetchAllPosts(), ensureGroupLabelsLoaded(), ensureCustomersLoaded()])
       users.value = await fetchUsers()
 
       const byName = new Map(users.value.map(u => [u.displayName, u]))

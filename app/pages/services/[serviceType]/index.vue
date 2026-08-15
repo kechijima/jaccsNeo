@@ -19,7 +19,8 @@ const { cases: liCases, loading: liLoading, fetchAll: fetchLiCases } = useLifeIn
 if (isLifeInsurance.value) await fetchLiCases()
 
 // ── その他サービス：パーソナルデータの対応状況から導出 ──────────────
-const { getCasesForType } = useAppServices()
+const { getCasesForType, ensureLoaded: ensureCustomersLoaded } = useAppServices()
+if (!isLifeInsurance.value) await ensureCustomersLoaded()
 const genericCases = computed(() => getCasesForType(serviceType.value))
 
 const totalCount = computed(() => isLifeInsurance.value ? liCases.value.length : genericCases.value.length)
