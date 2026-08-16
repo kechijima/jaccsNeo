@@ -320,7 +320,7 @@ const createEventOnSelectedDay = () => {
             <div class="flex-1 min-w-0">
               <div class="flex items-start justify-between gap-2">
                 <h3 class="font-semibold text-gray-900 text-sm">{{ evt.title }}</h3>
-                <div class="flex items-center gap-1.5 shrink-0">
+                <div v-if="evt.category !== 'meeting'" class="flex items-center gap-1.5 shrink-0">
                   <span v-if="evt.isAttending" class="badge bg-green-100 text-green-700 text-xs">参加予定</span>
                   <span v-else class="badge bg-gray-100 text-gray-500 text-xs">未回答</span>
                 </div>
@@ -341,7 +341,7 @@ const createEventOnSelectedDay = () => {
                   <Icon name="heroicons:map-pin" class="h-3.5 w-3.5" />
                   {{ evt.location }}
                 </p>
-                <p class="flex items-center gap-1">
+                <p v-if="evt.category !== 'meeting'" class="flex items-center gap-1">
                   <Icon name="heroicons:user-group" class="h-3.5 w-3.5" />
                   {{ evt.attendeeCount }}名参加
                 </p>

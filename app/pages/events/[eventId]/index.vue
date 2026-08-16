@@ -2,6 +2,7 @@
 import { useEvents } from '~/composables/useEvents'
 import { useEventScope } from '~/composables/useEventScope'
 import { useSpaces } from '~/composables/useSpaces'
+import { useEventMinutes } from '~/composables/useEventMinutes'
 import type { Event, EventAttendee, AttendanceStatus } from '~/types/event'
 
 definePageMeta({ middleware: ['auth'] })
@@ -12,6 +13,24 @@ const eventId = computed(() => route.params.eventId as string)
 const { fetchEvent, fetchAttendees, fetchMyAttendance, updateAttendance } = useEvents()
 const { scopeLabel, scopeBadgeClass, categoryLabel, categoryBadgeClass, ensureLoaded: ensureEventScopeLoaded } = useEventScope()
 const { fetchPost } = useSpaces()
+
+// ── 議事録（種別「会議」のみ） ────────────────────────────────────────
+const { minutes, loading: minutesLoading, fetchMinutes, addMinutes } = useEventMinutes(eventId.value)
+const minutesDraft = ref('')
+const minutesSubmitting = ref(false)
+
+const submitMinutes = async () => {
+  if (!minutesDraft.value.trim() || minutesSubmitting.value) return
+  minutesSubmitting.value = true
+  try {
+    await addMinutes(minutesDraft.value)
+    minutesDraft.value = ''
+  } finally {
+    minutesSubmitting.value = false
+  }
+}
+
+const minutesFmt = (d: Date) => d.toLocaleString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 
 const loading = ref(true)
 const loadError = ref('')
@@ -35,10 +54,14 @@ onMounted(async () => {
     event.value = ev
     attendees.value = list
     myStatus.value = mine
-    if (!ev) loadError.value = 'イベントが見つかりませんでした'
-    else if (ev.spaceId && ev.postId) {
-      const post = await fetchPost(ev.spaceId, ev.postId).catch(() => null)
-      if (post) linkedPostContent.value = post.content
+    if (!ev) {
+      loadError.value = 'イベントが見つかりませんでした'
+    } else {
+      if (ev.spaceId && ev.postId) {
+        const post = await fetchPost(ev.spaceId, ev.postId).catch(() => null)
+        if (post) linkedPostContent.value = post.content
+      }
+      if (ev.category === 'meeting') await fetchMinutes()
     }
   } catch (e: any) {
     loadError.value = e.message ?? 'イベントの取得に失敗しました'
@@ -133,7 +156,7 @@ const statusLabel = (status: string) => {
             <span class="badge text-xs" :class="scopeBadgeClass(event)">
               {{ scopeLabel(event) }}
             </span>
-            <span v-if="myStatus === 'attending'" class="badge bg-green-100 text-green-700 text-xs">参加予定</span>
+            <span v-if="event.category !== 'meeting' && myStatus === 'attending'" class="badge bg-green-100 text-green-700 text-xs">参加予定</span>
           </div>
           <h1 class="text-xl font-bold text-gray-900">{{ event.title }}</h1>
         </div>
@@ -159,7 +182,7 @@ const statusLabel = (status: string) => {
           <Icon name="heroicons:map-pin" class="h-5 w-5 text-primary-600 shrink-0" />
           <span class="text-gray-900">{{ event.location }}</span>
         </div>
-        <div class="flex items-center gap-3 text-sm">
+        <div v-if="event.category !== 'meeting'" class="flex items-center gap-3 text-sm">
           <Icon name="heroicons:user-group" class="h-5 w-5 text-primary-600 shrink-0" />
           <span class="text-gray-900">{{ attendingCount }}名参加予定</span>
         </div>
@@ -178,8 +201,8 @@ const statusLabel = (status: string) => {
         </div>
       </div>
 
-      <!-- 出欠確認 -->
-      <div class="card p-5">
+      <!-- 出欠確認（種別「会議」は不要） -->
+      <div v-if="event.category !== 'meeting'" class="card p-5">
         <h2 class="font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <Icon name="heroicons:clipboard-document-check" class="h-5 w-5 text-primary-600" />
           出欠確認
@@ -227,6 +250,43 @@ const statusLabel = (status: string) => {
               <span class="text-sm text-gray-700">{{ a.displayName }}</span>
             </div>
             <span class="badge text-xs" :class="statusBadge(a.status)">{{ statusLabel(a.status) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 議事録（種別「会議」のみ） -->
+      <div v-if="event.category === 'meeting'" class="card p-5 space-y-4">
+        <h2 class="font-semibold text-gray-900 flex items-center gap-2">
+          <Icon name="heroicons:document-text" class="h-5 w-5 text-primary-600" />
+          議事録
+        </h2>
+
+        <!-- 新規投稿 -->
+        <div class="space-y-2">
+          <RichTextEditor v-model="minutesDraft" placeholder="議事録を入力..." class="min-h-[120px]" />
+          <div class="flex justify-end">
+            <button
+              type="button"
+              class="btn-primary text-sm"
+              :disabled="!minutesDraft.trim() || minutesSubmitting"
+              @click="submitMinutes"
+            >
+              <Icon v-if="minutesSubmitting" name="heroicons:arrow-path" class="h-3.5 w-3.5 animate-spin mr-1" />
+              議事録を保存
+            </button>
+          </div>
+        </div>
+
+        <!-- 一覧（新着順） -->
+        <div v-if="minutesLoading" class="text-center text-xs text-gray-400 py-4">読み込み中...</div>
+        <div v-else-if="minutes.length === 0" class="text-center text-xs text-gray-400 py-4">議事録はまだありません</div>
+        <div v-else class="space-y-3 border-t border-gray-100 pt-4">
+          <div v-for="m in minutes" :key="m.id" class="rounded-lg bg-gray-50 p-3">
+            <div class="flex items-center justify-between mb-1.5">
+              <p class="text-xs font-semibold text-gray-700">{{ m.authorName || '不明' }}</p>
+              <p class="text-[10px] text-gray-400">{{ minutesFmt(m.createdAt) }}</p>
+            </div>
+            <div class="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" v-html="m.content" />
           </div>
         </div>
       </div>

@@ -66,6 +66,15 @@ export interface EventAttendee {
   updatedAt: Timestamp
 }
 
+// 議事録（種別「会議」のイベントのみ投稿可能。1つのイベントに複数件、時系列で蓄積する）
+export interface EventMinutes {
+  id: string
+  content: string
+  authorUid: string
+  authorName: string
+  createdAt: Date
+}
+
 export interface EventForm {
   title: string
   description?: string
