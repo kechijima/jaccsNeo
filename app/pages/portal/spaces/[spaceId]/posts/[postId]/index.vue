@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { usePortalStore } from '~/composables/usePortalStore'
 import { useAuthorProfileModal } from '~/composables/useAuthorProfileModal'
+import { useMentionClick } from '~/composables/useMentionClick'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -11,6 +12,7 @@ const postId = computed(() => route.params.postId as string)
 const { user } = useCurrentUser()
 const store = usePortalStore()
 const { openAuthorProfile } = useAuthorProfileModal()
+const { handleMentionClick } = useMentionClick()
 
 await store.fetchPostsForSpace(spaceId.value)
 const postRef = store.getPost(postId)
@@ -147,7 +149,7 @@ const deletePost = async () => {
               </div>
             </div>
             <!-- 本文 -->
-            <div v-else class="mt-3 text-sm text-gray-800 leading-relaxed prose prose-sm max-w-none" v-html="post.content" />
+            <div v-else class="mt-3 text-sm text-gray-800 leading-relaxed prose prose-sm max-w-none" v-html="post.content" @click="handleMentionClick" />
           </div>
         </div>
 

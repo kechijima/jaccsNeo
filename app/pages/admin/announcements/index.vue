@@ -3,9 +3,12 @@ import { useAnnouncementStore } from '~/composables/useAnnouncementStore'
 import { useAnnouncementScope } from '~/composables/useAnnouncementScope'
 import { useStorage } from '~/composables/useStorage'
 import { useGroups } from '~/composables/useGroups'
+import { useMentionClick } from '~/composables/useMentionClick'
 import type { Announcement, AnnouncementScope } from '~/types/announcement'
 
 definePageMeta({ middleware: ['auth', 'admin'] })
+
+const { handleMentionClick } = useMentionClick()
 
 const { user } = useCurrentUser()
 const store = useAnnouncementStore()
@@ -231,7 +234,7 @@ const fmt = (d: Date) => d.toLocaleDateString('ja-JP', { year: 'numeric', month:
                 <span class="text-xs text-gray-400">{{ fmt(a.publishedAt) }}</span>
               </div>
               <p class="font-semibold text-gray-900">{{ a.title }}</p>
-              <div class="text-sm text-gray-500 mt-1 line-clamp-2 prose prose-sm max-w-none" v-html="a.body" />
+              <div class="text-sm text-gray-500 mt-1 line-clamp-2 prose prose-sm max-w-none" v-html="a.body" @click="handleMentionClick" />
               <p class="text-xs text-gray-400 mt-1">投稿者: {{ a.authorName }}</p>
             </div>
             <div class="flex items-center gap-1.5 shrink-0">

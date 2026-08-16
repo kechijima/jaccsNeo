@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { usePortalStore } from '~/composables/usePortalStore'
 import { useAuthorProfileModal } from '~/composables/useAuthorProfileModal'
+import { useMentionClick } from '~/composables/useMentionClick'
 import { useEvents } from '~/composables/useEvents'
 import { useEventScope } from '~/composables/useEventScope'
 import { useFavorites } from '~/composables/useFavorites'
@@ -11,6 +12,7 @@ definePageMeta({ middleware: ['auth'] })
 
 const store = usePortalStore()
 const { openAuthorProfile } = useAuthorProfileModal()
+const { handleMentionClick } = useMentionClick()
 const { isFavoriteSpace, toggleFavoriteSpace, ensureLoaded: ensureFavoritesLoaded } = useFavorites()
 ensureFavoritesLoaded()
 
@@ -342,9 +344,10 @@ const upcomingEvents = computed(() =>
 
               <!-- 本文（タップで詳細へ） -->
               <NuxtLink :to="`/portal/spaces/${post.spaceId}/posts/${post.id}`" class="block mt-2">
-                <div 
+                <div
                   class="text-sm text-gray-700 leading-relaxed line-clamp-4 hover:text-gray-900 transition-colors prose prose-sm max-w-none"
                   v-html="post.content"
+                  @click="handleMentionClick"
                 />
               </NuxtLink>
 

@@ -69,3 +69,13 @@
     @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
   }
 }
+
+/* v-htmlで表示される投稿・コメント等に含まれる@メンション（Tiptapが出力するspan）は
+   クリックしてマイページを開けるようにしている（useMentionClick.ts）ため、
+   保存済みHTMLの新旧を問わずクリック可能であることが分かるようにする */
+[data-type='mention'] {
+  cursor: pointer;
+}
+[data-type='mention']:hover {
+  text-decoration: underline;
+}

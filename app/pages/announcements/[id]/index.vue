@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { useAnnouncementStore } from '~/composables/useAnnouncementStore'
 import { useAnnouncementScope } from '~/composables/useAnnouncementScope'
+import { useMentionClick } from '~/composables/useMentionClick'
 
 definePageMeta({ middleware: ['auth'] })
+
+const { handleMentionClick } = useMentionClick()
 
 const route = useRoute()
 const id = computed(() => route.params.id as string)
@@ -67,7 +70,7 @@ const fmt = (d: Date) => d.toLocaleDateString('ja-JP', { year: 'numeric', month:
 
           <p class="text-xs text-gray-400">投稿者: {{ announcement.authorName }}</p>
 
-          <div class="prose prose-sm max-w-none text-gray-800 pt-2 border-t border-gray-100" v-html="announcement.body" />
+          <div class="prose prose-sm max-w-none text-gray-800 pt-2 border-t border-gray-100" v-html="announcement.body" @click="handleMentionClick" />
         </div>
       </div>
     </template>

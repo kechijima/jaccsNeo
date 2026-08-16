@@ -9,8 +9,11 @@ import { useLifeInsuranceCases } from '~/composables/useLifeInsuranceCases'
 import { useCaseComments } from '~/composables/useCaseComments'
 import { useStorage } from '~/composables/useStorage'
 import { useToast } from '~/composables/useToast'
+import { useMentionClick } from '~/composables/useMentionClick'
 
 definePageMeta({ middleware: ['auth'] })
+
+const { handleMentionClick } = useMentionClick()
 
 const route = useRoute()
 const serviceType = computed(() => route.params.serviceType as string)
@@ -452,7 +455,7 @@ const handleLiSubmit = async () => {
                 {{ c.authorName || '不明' }}
                 <span class="font-normal text-gray-400 ml-1">{{ commentFmt(c.createdAt) }}</span>
               </p>
-              <div class="text-xs text-gray-600 mt-0.5 leading-relaxed prose prose-sm max-w-none" v-html="c.content" />
+              <div class="text-xs text-gray-600 mt-0.5 leading-relaxed prose prose-sm max-w-none" v-html="c.content" @click="handleMentionClick" />
             </div>
           </div>
         </template>

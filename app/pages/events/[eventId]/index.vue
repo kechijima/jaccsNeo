@@ -3,6 +3,7 @@ import { useEvents } from '~/composables/useEvents'
 import { useEventScope } from '~/composables/useEventScope'
 import { useSpaces } from '~/composables/useSpaces'
 import { useEventMinutes } from '~/composables/useEventMinutes'
+import { useMentionClick } from '~/composables/useMentionClick'
 import type { Event, EventAttendee, AttendanceStatus } from '~/types/event'
 
 definePageMeta({ middleware: ['auth'] })
@@ -13,6 +14,7 @@ const eventId = computed(() => route.params.eventId as string)
 const { fetchEvent, fetchAttendees, fetchMyAttendance, updateAttendance } = useEvents()
 const { scopeLabel, scopeBadgeClass, categoryLabel, categoryBadgeClass, ensureLoaded: ensureEventScopeLoaded } = useEventScope()
 const { fetchPost } = useSpaces()
+const { handleMentionClick } = useMentionClick()
 
 // ── 議事録（種別「会議」のみ） ────────────────────────────────────────
 const { user: currentUser } = useCurrentUser()
@@ -217,7 +219,7 @@ const statusLabel = (status: string) => {
           <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{{ event.description }}</p>
         </div>
         <div v-if="linkedPostContent" class="border-t border-gray-100 pt-4">
-          <div class="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" v-html="linkedPostContent" />
+          <div class="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" v-html="linkedPostContent" @click="handleMentionClick" />
           <NuxtLink
             v-if="event.spaceId && event.postId"
             :to="`/portal/spaces/${event.spaceId}/posts/${event.postId}`"
@@ -339,7 +341,7 @@ const statusLabel = (status: string) => {
                 </button>
               </div>
             </template>
-            <div v-else class="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" v-html="m.content" />
+            <div v-else class="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" v-html="m.content" @click="handleMentionClick" />
           </div>
         </div>
       </div>

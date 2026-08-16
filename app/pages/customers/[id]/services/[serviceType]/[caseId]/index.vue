@@ -5,9 +5,12 @@ import { useServices } from '~/composables/useServices'
 import { useNotifications } from '~/composables/useNotifications'
 import { useStorage } from '~/composables/useStorage'
 import { usePermission } from '~/composables/usePermission'
+import { useMentionClick } from '~/composables/useMentionClick'
 import { useAuthStore } from '~/stores/auth'
 
 definePageMeta({ middleware: ['auth'] })
+
+const { handleMentionClick } = useMentionClick()
 
 const route = useRoute()
 const customerId = computed(() => route.params.id as string)
@@ -381,6 +384,7 @@ const handleDelete = () => {
               <div
                 class="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none"
                 v-html="rep.content"
+                @click="handleMentionClick"
               />
 
               <!-- 報告内添付ファイル -->

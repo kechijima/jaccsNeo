@@ -3,6 +3,7 @@ import { usePortalStore } from '~/composables/usePortalStore'
 import { useNotifications } from '~/composables/useNotifications'
 import { useUsers } from '~/composables/useUsers'
 import { useAuthorProfileModal } from '~/composables/useAuthorProfileModal'
+import { useMentionClick } from '~/composables/useMentionClick'
 import { resolveSpaceMembers } from '~/composables/useSpaces'
 import { useGroupLabels } from '~/composables/useGroupLabels'
 import { useFavorites } from '~/composables/useFavorites'
@@ -17,6 +18,7 @@ const store = usePortalStore()
 const { sendMentionNotifications } = useNotifications()
 const { fetchUsers } = useUsers()
 const { openAuthorProfile } = useAuthorProfileModal()
+const { handleMentionClick } = useMentionClick()
 const { getGroupLabel, getGroupColor: getGroupColorClass, ensureLoaded: ensureGroupLabelsLoaded } = useGroupLabels()
 const { isFavoriteSpace, toggleFavoriteSpace, ensureLoaded: ensureFavoritesLoaded } = useFavorites()
 ensureFavoritesLoaded()
@@ -294,7 +296,7 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
           <h1 class="text-xl font-bold text-gray-900">{{ space.name }}</h1>
           <template v-if="space.description">
             <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mt-3 mb-2">スペースについて</p>
-            <div class="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" v-html="space.description" />
+            <div class="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" v-html="space.description" @click="handleMentionClick" />
           </template>
         </div>
 
@@ -318,7 +320,7 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
               </button>
               <div class="flex-1 min-w-0">
                 <p class="text-sm font-semibold text-gray-900">{{ pinnedPost.authorName }}</p>
-                <div class="text-sm text-gray-700 mt-1 leading-relaxed prose prose-sm max-w-none" v-html="pinnedPost.content" />
+                <div class="text-sm text-gray-700 mt-1 leading-relaxed prose prose-sm max-w-none" v-html="pinnedPost.content" @click="handleMentionClick" />
               </div>
             </div>
           </div>
@@ -391,7 +393,7 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
                 </div>
               </template>
               <template v-else>
-                <div class="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" v-html="draft.content" />
+                <div class="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" v-html="draft.content" @click="handleMentionClick" />
                 <div class="flex items-center justify-end gap-3 mt-2">
                   <button type="button" class="text-xs text-gray-400 hover:text-red-500 transition" @click="handleDeleteDraft(draft.id)">削除</button>
                   <button type="button" class="text-xs text-gray-500 hover:text-primary-600 transition" @click="openEdit(draft)">編集</button>
@@ -525,6 +527,7 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
                 <div
                   class="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none"
                   v-html="post.content"
+                  @click="handleMentionClick"
                 />
               </NuxtLink>
             </div>
