@@ -206,6 +206,9 @@ const groupLabel = computed(() => getGroupLabel(user.value?.groupId))
           <NuxtLink to="/search" class="rounded-lg p-2 text-gray-500 hover:bg-gray-100" aria-label="検索">
             <Icon name="heroicons:magnifying-glass" class="h-5 w-5" />
           </NuxtLink>
+          <NuxtLink to="/reminders" class="rounded-lg p-2 text-gray-500 hover:bg-gray-100" aria-label="リマインダー">
+            <Icon name="heroicons:bell-alert" class="h-5 w-5" />
+          </NuxtLink>
           <button type="button" class="rounded-lg p-2 text-gray-500 hover:bg-gray-100" aria-label="マニュアル" @click="openHelp">
             <Icon name="heroicons:book-open" class="h-5 w-5" />
           </button>
@@ -305,6 +308,15 @@ const groupLabel = computed(() => getGroupLabel(user.value?.groupId))
                 >
                   <Icon name="heroicons:user-circle" class="h-5 w-5 shrink-0" />
                   マイページ
+                </NuxtLink>
+                <NuxtLink
+                  to="/reminders"
+                  class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
+                  :class="isActive('/reminders') ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100'"
+                  @click="isMobileMenuOpen = false"
+                >
+                  <Icon name="heroicons:bell-alert" class="h-5 w-5 shrink-0" />
+                  リマインダー
                 </NuxtLink>
                 <NuxtLink
                   to="/requests"
