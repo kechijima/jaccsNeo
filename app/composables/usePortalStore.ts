@@ -41,6 +41,7 @@ export interface PostView {
   comments: CommentView[]
   showComments: boolean
   isPinned: boolean
+  status: 'draft' | 'published'
   postedAt: string
   createdAt: Date
   eventStartAt?: Date
@@ -74,6 +75,7 @@ const buildPostView = (space: Space | undefined, p: Post, comments: CommentView[
   comments,
   showComments:  false,
   isPinned:      p.isPinned ?? false,
+  status:        p.status ?? 'published',
   postedAt:      toDate(p.createdAt).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
   createdAt:     toDate(p.createdAt),
   eventStartAt:  p.eventStartAt ? toDate(p.eventStartAt) : undefined,
@@ -111,7 +113,11 @@ export const usePortalStore = () => {
     if (loadedSpaceIds.value.includes(spaceId) && !force) return
     await fetchSpaces()
     const space = spaces.value.find(s => s.id === spaceId)
-    const rawPosts = await spacesApi.fetchPosts(spaceId)
+    const authStore = useAuthStore()
+    const myUid = authStore.user?.uid
+    // 下書きは投稿者本人にのみ見える（他のメンバーの一覧には出さない）
+    const rawPosts = (await spacesApi.fetchPosts(spaceId))
+      .filter(p => p.status !== 'draft' || p.authorUid === myUid)
 
     const views = await Promise.all(rawPosts.map(async (p) => {
       const comments = await spacesApi.fetchComments(spaceId, p.id).catch(() => [] as SpaceComment[])
@@ -142,7 +148,7 @@ export const usePortalStore = () => {
     await fetchSpaces(force)
     const perSpace = await Promise.all(spaces.value.map(async (s) => {
       const rawPosts = await spacesApi.fetchPosts(s.id).catch(() => [] as Post[])
-      return rawPosts.filter(p => !p.isPinned).map(p => buildPostView(s, p, []))
+      return rawPosts.filter(p => !p.isPinned && p.status !== 'draft').map(p => buildPostView(s, p, []))
     }))
     previewPosts.value = perSpace.flat().sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
     previewLoaded.value = true
@@ -158,18 +164,21 @@ export const usePortalStore = () => {
     spaceId: string,
     content: string,
     eventOptions?: { startAt: Date; endAt?: Date; syncToCalendar: boolean },
+    asDraft = false,
   ): Promise<string | null> => {
     const postId = await spacesApi.createPost(spaceId, {
       content,
       eventStartAt: eventOptions ? eventOptions.startAt.toISOString() : undefined,
       eventEndAt: eventOptions?.endAt ? eventOptions.endAt.toISOString() : undefined,
       syncToCalendar: eventOptions?.syncToCalendar,
+      status: asDraft ? 'draft' : 'published',
     })
 
+    // 下書き保存時はカレンダー連携・掲示板一覧への反映を行わない（公開時に初めて行う）
     // イベントスペースで「カレンダーに連携する」がONの場合、同じ日時・内容でカレンダーにも登録する
     // （イベント掲示板からの連携では入力項目を増やさないため、タイトルは投稿内容から自動生成する。
     //  投稿自体にタイトル項目がないため、どのスペースのイベントか分かるようスペース名を必ず含める）
-    if (eventOptions?.syncToCalendar && eventOptions.startAt) {
+    if (!asDraft && eventOptions?.syncToCalendar && eventOptions.startAt) {
       const space = spaces.value.find(s => s.id === spaceId)
       const { createEvent } = useEvents()
       const excerpt = stripHtml(content).slice(0, 40).trim()
@@ -233,6 +242,15 @@ export const usePortalStore = () => {
     post.content = newContent
   }
 
+  // 下書きを公開する（この時点で掲示板一覧・最終投稿日時に反映される）
+  const publishDraft = async (postId: string, newContent?: string): Promise<void> => {
+    const post = posts.value.find(p => p.id === postId)
+    if (!post) return
+    await spacesApi.publishPost(post.spaceId, postId, newContent)
+    post.status = 'published'
+    if (newContent !== undefined) post.content = newContent
+  }
+
   const deletePost = async (postId: string): Promise<void> => {
     const post = posts.value.find(p => p.id === postId)
     if (!post) return
@@ -240,11 +258,20 @@ export const usePortalStore = () => {
     posts.value = posts.value.filter(p => p.id !== postId)
   }
 
+  // 自分の下書き一覧（新しい順）
+  const myDrafts = computed(() => {
+    const authStore = useAuthStore()
+    const myUid = authStore.user?.uid
+    return posts.value
+      .filter(p => p.status === 'draft' && p.authorId === myUid)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+  })
+
   return {
     spaces, spacesLoaded, posts,
     previewPosts,
     fetchSpaces, fetchPostsForSpace, fetchAllPosts, fetchRecentPostsPreview,
-    getPostsBySpace, getPost,
-    addPost, toggleReaction, addComment, editPost, deletePost,
+    getPostsBySpace, getPost, myDrafts,
+    addPost, toggleReaction, addComment, editPost, publishDraft, deletePost,
   }
 }

@@ -187,14 +187,16 @@ export const useSpaces = () => {
 
   // ===== 投稿作成 =====
   const createPost = async (spaceId: string, form: PostForm): Promise<string> => {
-    const { eventStartAt, eventEndAt, ...rest } = form
+    const { eventStartAt, eventEndAt, status, ...rest } = form
     const payload: Record<string, any> = stripUndefined(rest)
     if (eventStartAt) payload.eventStartAt = Timestamp.fromDate(new Date(eventStartAt))
     if (eventEndAt)   payload.eventEndAt   = Timestamp.fromDate(new Date(eventEndAt))
+    const isDraft = status === 'draft'
 
     const ref = await addDoc(postsCol(spaceId), {
       spaceId,
       ...payload,
+      status:         isDraft ? 'draft' : 'published',
       authorUid:      authStore.user?.uid,
       authorName:     authStore.user?.displayName,
       reactionCounts: {},
@@ -204,14 +206,30 @@ export const useSpaces = () => {
       updatedAt:      serverTimestamp(),
     })
 
-    // スペースの最終投稿日時・投稿数を更新
+    // 下書きはスペースの投稿一覧・最終投稿日時に反映しない（公開時に初めて反映する）
+    if (!isDraft) {
+      await updateDoc(doc($db, 'spaces', spaceId), {
+        lastPostAt: serverTimestamp(),
+        postCount:  increment(1),
+        updatedAt:  serverTimestamp(),
+      })
+    }
+
+    return ref.id
+  }
+
+  // ===== 下書きを公開する（投稿一覧・最終投稿日時にこの時点で反映する） =====
+  const publishPost = async (spaceId: string, postId: string, content?: string): Promise<void> => {
+    await updateDoc(doc($db, 'spaces', spaceId, 'posts', postId), stripUndefined({
+      status: 'published',
+      content,
+      updatedAt: serverTimestamp(),
+    }))
     await updateDoc(doc($db, 'spaces', spaceId), {
       lastPostAt: serverTimestamp(),
       postCount:  increment(1),
       updatedAt:  serverTimestamp(),
     })
-
-    return ref.id
   }
 
   // ===== 投稿とカレンダーイベントの連携（イベントスペース専用） =====
@@ -232,8 +250,14 @@ export const useSpaces = () => {
 
   // ===== 投稿削除 =====
   const deletePost = async (spaceId: string, postId: string): Promise<void> => {
-    await deleteDoc(doc($db, 'spaces', spaceId, 'posts', postId))
-    await updateDoc(doc($db, 'spaces', spaceId), { postCount: increment(-1) })
+    const postRef = doc($db, 'spaces', spaceId, 'posts', postId)
+    const snap = await getDoc(postRef)
+    const wasDraft = snap.data()?.status === 'draft'
+    await deleteDoc(postRef)
+    // 下書きはpostCountに反映されていないため、公開済みの投稿の場合のみ減算する
+    if (!wasDraft) {
+      await updateDoc(doc($db, 'spaces', spaceId), { postCount: increment(-1) })
+    }
   }
 
   // ===== 投稿数の自己修復 =====
@@ -368,6 +392,7 @@ export const useSpaces = () => {
     fetchPosts,
     fetchPost,
     createPost,
+    publishPost,
     linkPostToEvent,
     updatePost,
     deletePost,

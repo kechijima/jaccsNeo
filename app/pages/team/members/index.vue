@@ -2,10 +2,14 @@
 import type { AppUser } from '~/types/user'
 import { useDirectorIndex } from '~/composables/useDirectorIndex'
 import { DIRECTOR_ROLE_LABELS } from '~/types/directorIndex'
+import { useGroups } from '~/composables/useGroups'
+import { useGroupLabels } from '~/composables/useGroupLabels'
 
 definePageMeta({ middleware: ['auth'] })
 
 const { fetchUsers } = useUsers()
+const { fetchGroups } = useGroups()
+const { getGroupColor, getGroupBadgeClass, ensureLoaded: ensureGroupLabelsLoaded } = useGroupLabels()
 const { user } = useCurrentUser()
 const viewMode = ref<'list' | 'lookup'>('list')
 
@@ -21,15 +25,6 @@ const {
 const lookupQuery = ref('')
 const lookupOptions = computed(() => directorNames.value.map(n => ({ id: n, label: n })))
 const lookupResults = computed(() => searchByDirector(lookupQuery.value))
-
-// Color palette cycled per unique groupId
-const GROUP_COLORS: { color: string; bgColor: string }[] = [
-  { color: 'bg-indigo-500', bgColor: 'bg-indigo-50' },
-  { color: 'bg-sky-500', bgColor: 'bg-sky-50' },
-  { color: 'bg-amber-500', bgColor: 'bg-amber-50' },
-  { color: 'bg-emerald-500', bgColor: 'bg-emerald-50' },
-  { color: 'bg-rose-500', bgColor: 'bg-rose-50' },
-]
 
 interface MemberRow {
   uid: string
@@ -68,6 +63,18 @@ const toggleGroup = (id: string) => {
   }
 }
 
+// 検索中はヒットしたメンバーが折りたたまれて見えなくならないよう、常に展開扱いにする
+const isGroupExpanded = (id: string) => searchQuery.value.trim() !== '' || expandedGroups.value.includes(id)
+
+const toMemberRow = (u: AppUser): MemberRow => ({
+  uid: u.uid,
+  name: u.displayName,
+  position: u.role,
+  // Phase 5 — aggregate contract/newClient stats from meetings
+  contracts: 0,
+  newClients: 0,
+})
+
 onMounted(async () => {
   fetchDirectorIndex()
 
@@ -75,41 +82,56 @@ onMounted(async () => {
   error.value = ''
   try {
     // 脱退済みの組合員はメンバー一覧に表示しない
-    const users: AppUser[] = (await fetchUsers()).filter(u => !u.isWithdrawn)
+    const [allUsers, groupDefs] = await Promise.all([
+      fetchUsers(),
+      fetchGroups(),
+      ensureGroupLabelsLoaded(),
+    ])
+    const users = allUsers.filter(u => !u.isWithdrawn)
 
-    // Group users by groupId; users without a groupId go into a fallback group
-    const groupMap = new Map<string, AppUser[]>()
-    for (const u of users) {
-      const key = u.groupId ?? '__ungrouped__'
-      if (!groupMap.has(key)) groupMap.set(key, [])
-      groupMap.get(key)!.push(u)
-    }
-
-    let colorIndex = 0
     const built: GroupRow[] = []
-    for (const [groupId, members] of groupMap.entries()) {
-      const palette = GROUP_COLORS[colorIndex % GROUP_COLORS.length]
-      colorIndex++
 
-      // Each groupId forms one kumiai; the kumiai name is the groupId itself
-      const kumiai: KumaiRow = {
-        name: groupId === '__ungrouped__' ? '未所属' : groupId,
-        members: members.map((u) => ({
-          uid: u.uid,
-          name: u.displayName,
-          position: u.role,
-          // Phase 5 — aggregate contract/newClient stats from meetings
-          contracts: 0,
-          newClients: 0,
-        })),
+    for (const g of groupDefs) {
+      const groupMembers = users.filter(u => u.groupId === g.id)
+      if (groupMembers.length === 0) continue
+
+      // グループ内を実際の組合（Firestoreのkumiaiサブコレクション）ごとに分ける。
+      // 解散済みの組合はメンバーがいても表示しない
+      const kumiaiRows: KumaiRow[] = g.kumiai
+        .filter(k => !k.isDissolved)
+        .map(k => ({
+          name: k.name,
+          members: groupMembers.filter(u => u.kumiaiId === k.id).map(toMemberRow),
+        }))
+
+      // 組合IDが未設定・廃止済み組合を指しているなど、どの組合にも属さないメンバーは「未分類」にまとめる
+      const classifiedUids = new Set(kumiaiRows.flatMap(k => k.members.map(m => m.uid)))
+      const unclassified = groupMembers.filter(u => !classifiedUids.has(u.uid))
+      if (unclassified.length > 0) {
+        kumiaiRows.push({ name: '未分類', members: unclassified.map(toMemberRow) })
       }
 
+      const nonEmptyKumiais = kumiaiRows.filter(k => k.members.length > 0)
+      if (nonEmptyKumiais.length === 0) continue
+
       built.push({
-        id: groupId,
-        label: groupId === '__ungrouped__' ? '未所属' : groupId,
-        color: palette.color,
-        bgColor: palette.bgColor,
-        kumiais: [kumiai],
+        id: g.id,
+        label: g.name,
+        color: getGroupColor(g.id),
+        bgColor: getGroupBadgeClass(g.id),
+        kumiais: nonEmptyKumiais,
+      })
+    }
+
+    // グループ未所属のユーザー
+    const ungrouped = users.filter(u => !u.groupId)
+    if (ungrouped.length > 0) {
+      built.push({
+        id: '__ungrouped__',
+        label: '未所属',
+        color: 'bg-gray-400',
+        bgColor: 'bg-gray-100 text-gray-600',
+        kumiais: [{ name: '未所属', members: ungrouped.map(toMemberRow) }],
       })
     }
 
@@ -126,6 +148,20 @@ onMounted(async () => {
   finally {
     loading.value = false
   }
+})
+
+// 名前で検索（グループ・組合の階層構造は保ったまま、一致するメンバーのみに絞り込む）
+const filteredGroups = computed<GroupRow[]>(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  if (!q) return groups.value
+  return groups.value
+    .map(g => ({
+      ...g,
+      kumiais: g.kumiais
+        .map(k => ({ ...k, members: k.members.filter(m => m.name.toLowerCase().includes(q)) }))
+        .filter(k => k.members.length > 0),
+    }))
+    .filter(g => g.kumiais.length > 0)
 })
 </script>
 
@@ -214,8 +250,26 @@ onMounted(async () => {
       <input v-model="searchQuery" type="search" placeholder="名前で検索..." class="input-field pl-9" />
     </div>
 
+    <!-- 読み込み中 -->
+    <div v-if="loading" class="card p-12 text-center">
+      <Icon name="heroicons:arrow-path" class="h-8 w-8 text-gray-300 mx-auto mb-2 animate-spin" />
+      <p class="text-sm text-gray-400">読み込み中...</p>
+    </div>
+
+    <!-- エラー -->
+    <div v-else-if="error" class="card p-12 text-center">
+      <Icon name="heroicons:exclamation-circle" class="h-10 w-10 text-red-200 mx-auto mb-2" />
+      <p class="text-sm text-red-500">{{ error }}</p>
+    </div>
+
+    <!-- 検索結果なし -->
+    <div v-else-if="filteredGroups.length === 0" class="card p-12 text-center">
+      <Icon name="heroicons:magnifying-glass" class="h-10 w-10 text-gray-200 mx-auto mb-2" />
+      <p class="text-sm text-gray-400">該当するメンバーが見つかりませんでした</p>
+    </div>
+
     <!-- グループ別メンバー -->
-    <div v-for="group in groups" :key="group.id" class="card overflow-hidden">
+    <div v-for="group in filteredGroups" :key="group.id" class="card overflow-hidden">
       <button
         class="w-full flex items-center justify-between px-5 py-4 text-left"
         :class="group.bgColor"
@@ -231,11 +285,11 @@ onMounted(async () => {
         <Icon
           name="heroicons:chevron-down"
           class="h-5 w-5 text-gray-400 transition-transform"
-          :class="expandedGroups.includes(group.id) ? 'rotate-180' : ''"
+          :class="isGroupExpanded(group.id) ? 'rotate-180' : ''"
         />
       </button>
 
-      <div v-if="expandedGroups.includes(group.id)">
+      <div v-if="isGroupExpanded(group.id)">
         <div v-for="kumiai in group.kumiais" :key="kumiai.name">
           <div class="px-5 py-2 bg-gray-50 border-y border-gray-100">
             <p class="text-xs font-semibold text-gray-500">{{ kumiai.name }}</p>

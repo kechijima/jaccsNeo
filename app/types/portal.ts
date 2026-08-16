@@ -45,6 +45,8 @@ export interface Post {
   reactionCounts: Record<string, number>  // emoji -> count
   commentCount: number
   isPinned: boolean
+  // 'draft'は投稿者本人にのみ表示される下書き。未設定の既存投稿は'published'扱いとする
+  status?: 'draft' | 'published'
   // イベントスペース専用項目（開催日時とカレンダー連携）
   eventStartAt?: Timestamp
   eventEndAt?: Timestamp
@@ -97,4 +99,5 @@ export interface PostForm {
   eventEndAt?: string
   syncToCalendar?: boolean
   linkedEventId?: string
+  status?: 'draft' | 'published'
 }

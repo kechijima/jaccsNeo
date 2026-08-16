@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { CustomerForm, FamilyMember } from '~/types/customer'
+import { getAnimalFortune } from '~/utils/animalFortune'
 
 const props = defineProps<{
   modelValue: Partial<CustomerForm>
@@ -39,6 +40,9 @@ const updateFamilyMember = (idx: number, key: keyof FamilyMember, value: string)
   const updated = familyMembers.value.map((m, i) => i === idx ? { ...m, [key]: value } : m)
   familyMembers.value = updated
 }
+
+// ===== 動物占い（生年月日入力時のプレビュー） =====
+const animalFortune = computed(() => getAnimalFortune(form.value.dob))
 </script>
 
 <template>
@@ -121,6 +125,10 @@ const updateFamilyMember = (idx: number, key: keyof FamilyMember, value: string)
             class="input-field"
             @input="update('dob', ($event.target as HTMLInputElement).value)"
           />
+          <p v-if="animalFortune" class="mt-1.5 text-xs text-gray-500 flex items-center gap-1">
+            <span>{{ animalFortune.emoji }}</span>
+            <span>動物占い: <span class="font-medium text-gray-700">{{ animalFortune.animal }}</span>（{{ animalFortune.trait }}）</span>
+          </p>
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">TEL</label>

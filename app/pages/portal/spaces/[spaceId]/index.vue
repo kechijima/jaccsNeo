@@ -82,7 +82,7 @@ const authorOptions = computed(() => {
 })
 
 const regularPosts = computed(() => {
-  let list = spacePosts.value.filter(p => !p.isPinned)
+  let list = spacePosts.value.filter(p => !p.isPinned && p.status !== 'draft')
 
   const q = searchQuery.value.trim().toLowerCase()
   if (q) {
@@ -111,9 +111,17 @@ const regularPosts = computed(() => {
   return list
 })
 
+// ── 下書き（このスペース、自分のもののみ） ────────────────────────────
+const myDraftsInSpace = computed(() =>
+  spacePosts.value
+    .filter(p => p.status === 'draft')
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
+)
+
 // ── 投稿フォーム ──────────────────────────────────────────────────────
 const newPostContent = ref('')
 const submitting = ref(false)
+const savingDraft = ref(false)
 
 // イベントスペース専用項目（開催日時・カレンダー連携）
 const isEventSpace = computed(() => space.value.type === 'event')
@@ -146,6 +154,36 @@ const handlePostSubmit = async () => {
   eventStartAt.value = ''
   eventEndAt.value = ''
   submitting.value = false
+}
+
+const handleSaveDraft = async () => {
+  if (!newPostContent.value.trim()) return
+  savingDraft.value = true
+  const eventOptions = isEventSpace.value && eventStartAt.value
+    ? {
+        startAt: new Date(eventStartAt.value),
+        endAt: eventEndAt.value ? new Date(eventEndAt.value) : undefined,
+        syncToCalendar: syncToCalendar.value,
+      }
+    : undefined
+  await store.addPost(spaceId.value, newPostContent.value, eventOptions, true)
+  newPostContent.value = ''
+  eventStartAt.value = ''
+  eventEndAt.value = ''
+  savingDraft.value = false
+}
+
+const publishingDraftId = ref<string | null>(null)
+
+const handlePublishDraft = async (postId: string) => {
+  publishingDraftId.value = postId
+  await store.publishDraft(postId)
+  publishingDraftId.value = null
+}
+
+const handleDeleteDraft = async (postId: string) => {
+  if (!confirm('この下書きを削除しますか？')) return
+  await store.deletePost(postId)
 }
 
 // ── リアクション ─────────────────────────────────────────────────────
@@ -304,16 +342,59 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
                 </label>
               </div>
 
-              <div class="flex items-center justify-end">
+              <div class="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  class="btn-secondary text-sm px-4 py-1.5"
+                  :disabled="!newPostContent.trim() || savingDraft || submitting"
+                  @click="handleSaveDraft"
+                >
+                  <Icon v-if="savingDraft" name="heroicons:arrow-path" class="h-3.5 w-3.5 animate-spin mr-1" />
+                  下書き保存
+                </button>
                 <button
                   class="btn-primary text-sm px-4 py-1.5"
-                  :disabled="!newPostContent.trim() || submitting || (isEventSpace && !eventStartAt)"
+                  :disabled="!newPostContent.trim() || submitting || savingDraft || (isEventSpace && !eventStartAt)"
                   @click="handlePostSubmit"
                 >
                   <Icon v-if="submitting" name="heroicons:arrow-path" class="h-3.5 w-3.5 animate-spin mr-1" />
                   投稿する
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 下書き（自分のみ表示） -->
+        <div v-if="myDraftsInSpace.length > 0" class="bg-white border border-dashed border-gray-300 rounded-lg overflow-hidden">
+          <div class="bg-gray-50 px-4 py-2 flex items-center gap-1.5 border-b border-gray-200">
+            <Icon name="heroicons:pencil-square" class="h-3.5 w-3.5 text-gray-400" />
+            <span class="text-xs font-medium text-gray-500">下書き（自分のみ表示・{{ myDraftsInSpace.length }}件）</span>
+          </div>
+          <div class="divide-y divide-gray-100">
+            <div v-for="draft in myDraftsInSpace" :key="draft.id" class="p-4">
+              <template v-if="editingPostId === draft.id">
+                <RichTextEditor v-model="editContent" class="min-h-[140px]" />
+                <div class="flex justify-end gap-2 mt-2">
+                  <button class="btn-secondary text-sm" @click="editingPostId = null">キャンセル</button>
+                  <button class="btn-primary text-sm" :disabled="!editContent.trim()" @click="saveEdit">保存する</button>
+                </div>
+              </template>
+              <template v-else>
+                <div class="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" v-html="draft.content" />
+                <div class="flex items-center justify-end gap-3 mt-2">
+                  <button type="button" class="text-xs text-gray-400 hover:text-red-500 transition" @click="handleDeleteDraft(draft.id)">削除</button>
+                  <button type="button" class="text-xs text-gray-500 hover:text-primary-600 transition" @click="openEdit(draft)">編集</button>
+                  <button
+                    type="button"
+                    class="text-xs font-medium text-primary-600 hover:text-primary-700 transition"
+                    :disabled="publishingDraftId === draft.id"
+                    @click="handlePublishDraft(draft.id)"
+                  >
+                    {{ publishingDraftId === draft.id ? '公開中...' : '公開する' }}
+                  </button>
+                </div>
+              </template>
             </div>
           </div>
         </div>

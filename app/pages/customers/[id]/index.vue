@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useDataScope } from '~/composables/useDataScope'
+import { getAnimalFortune } from '~/utils/animalFortune'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -36,6 +37,7 @@ const formatDate = (val: any) => {
 }
 
 const typeLabel = computed(() => customer.value?.type === 'corporate' ? '法人' : '個人')
+const animalFortune = computed(() => getAnimalFortune(customer.value?.dob))
 
 // サービスラベル
 const serviceLabels: Record<string, string> = {
@@ -131,7 +133,12 @@ const activeServices = computed(() => {
           </div>
           <div v-if="customer.dob">
             <dt class="text-gray-500">生年月日</dt>
-            <dd class="font-medium text-gray-900">{{ formatDate(customer.dob) }}</dd>
+            <dd class="font-medium text-gray-900">
+              {{ formatDate(customer.dob) }}
+              <span v-if="animalFortune" class="ml-1 text-xs text-gray-500">
+                {{ animalFortune.emoji }} 動物占い: {{ animalFortune.animal }}
+              </span>
+            </dd>
           </div>
           <div v-if="customer.tel">
             <dt class="text-gray-500">TEL</dt>
