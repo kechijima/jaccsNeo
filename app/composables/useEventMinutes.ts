@@ -3,7 +3,7 @@
  * events/{eventId}/minutes サブコレクションを利用する
  */
 import {
-  collection, addDoc, getDocs, query, orderBy,
+  collection, doc, addDoc, updateDoc, getDocs, query, orderBy,
   serverTimestamp, type DocumentData,
 } from 'firebase/firestore'
 import type { EventMinutes } from '~/types/event'
@@ -45,14 +45,23 @@ export const useEventMinutes = (eventId: string) => {
   const addMinutes = async (content: string): Promise<void> => {
     const authorUid = authStore.user?.uid ?? ''
     const authorName = authStore.user?.displayName ?? ''
-    await addDoc(minutesCol(), {
+    const ref = await addDoc(minutesCol(), {
       content,
       authorUid,
       authorName,
       createdAt: serverTimestamp(),
     })
-    minutes.value = [{ id: `local-${Date.now()}`, content, authorUid, authorName, createdAt: new Date() }, ...minutes.value]
+    minutes.value = [{ id: ref.id, content, authorUid, authorName, createdAt: new Date() }, ...minutes.value]
   }
 
-  return { minutes, loading, fetchMinutes, addMinutes }
+  const updateMinutes = async (minutesId: string, content: string): Promise<void> => {
+    await updateDoc(doc($db, 'events', eventId, 'minutes', minutesId), {
+      content,
+      updatedAt: serverTimestamp(),
+    })
+    const idx = minutes.value.findIndex(m => m.id === minutesId)
+    if (idx >= 0) minutes.value[idx] = { ...minutes.value[idx], content }
+  }
+
+  return { minutes, loading, fetchMinutes, addMinutes, updateMinutes }
 }

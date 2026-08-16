@@ -15,7 +15,8 @@ const { scopeLabel, scopeBadgeClass, categoryLabel, categoryBadgeClass, ensureLo
 const { fetchPost } = useSpaces()
 
 // ── 議事録（種別「会議」のみ） ────────────────────────────────────────
-const { minutes, loading: minutesLoading, fetchMinutes, addMinutes } = useEventMinutes(eventId.value)
+const { user: currentUser } = useCurrentUser()
+const { minutes, loading: minutesLoading, fetchMinutes, addMinutes, updateMinutes } = useEventMinutes(eventId.value)
 const minutesDraft = ref('')
 const minutesSubmitting = ref(false)
 
@@ -31,6 +32,32 @@ const submitMinutes = async () => {
 }
 
 const minutesFmt = (d: Date) => d.toLocaleString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+
+// 投稿者本人のみ編集可能
+const editingMinutesId = ref<string | null>(null)
+const editingMinutesContent = ref('')
+const editingMinutesSubmitting = ref(false)
+
+const startEditMinutes = (m: { id: string; content: string }) => {
+  editingMinutesId.value = m.id
+  editingMinutesContent.value = m.content
+}
+
+const cancelEditMinutes = () => {
+  editingMinutesId.value = null
+  editingMinutesContent.value = ''
+}
+
+const saveEditMinutes = async () => {
+  if (!editingMinutesId.value || !editingMinutesContent.value.trim() || editingMinutesSubmitting.value) return
+  editingMinutesSubmitting.value = true
+  try {
+    await updateMinutes(editingMinutesId.value, editingMinutesContent.value)
+    cancelEditMinutes()
+  } finally {
+    editingMinutesSubmitting.value = false
+  }
+}
 
 const loading = ref(true)
 const loadError = ref('')
@@ -284,9 +311,35 @@ const statusLabel = (status: string) => {
           <div v-for="m in minutes" :key="m.id" class="rounded-lg bg-gray-50 p-3">
             <div class="flex items-center justify-between mb-1.5">
               <p class="text-xs font-semibold text-gray-700">{{ m.authorName || '不明' }}</p>
-              <p class="text-[10px] text-gray-400">{{ minutesFmt(m.createdAt) }}</p>
+              <div class="flex items-center gap-2">
+                <p class="text-[10px] text-gray-400">{{ minutesFmt(m.createdAt) }}</p>
+                <button
+                  v-if="m.authorUid === currentUser?.uid && editingMinutesId !== m.id"
+                  type="button"
+                  class="text-[10px] text-primary-600 hover:underline"
+                  @click="startEditMinutes(m)"
+                >
+                  編集
+                </button>
+              </div>
             </div>
-            <div class="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" v-html="m.content" />
+
+            <template v-if="editingMinutesId === m.id">
+              <RichTextEditor v-model="editingMinutesContent" class="min-h-[100px]" />
+              <div class="flex justify-end gap-2 mt-2">
+                <button type="button" class="btn-secondary text-xs" @click="cancelEditMinutes">キャンセル</button>
+                <button
+                  type="button"
+                  class="btn-primary text-xs"
+                  :disabled="!editingMinutesContent.trim() || editingMinutesSubmitting"
+                  @click="saveEditMinutes"
+                >
+                  <Icon v-if="editingMinutesSubmitting" name="heroicons:arrow-path" class="h-3 w-3 animate-spin mr-1" />
+                  保存する
+                </button>
+              </div>
+            </template>
+            <div v-else class="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" v-html="m.content" />
           </div>
         </div>
       </div>
