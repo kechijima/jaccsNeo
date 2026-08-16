@@ -1,4 +1,5 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https')
+const { onDocumentCreated } = require('firebase-functions/v2/firestore')
 const { setGlobalOptions } = require('firebase-functions/v2')
 const admin = require('firebase-admin')
 
@@ -65,4 +66,48 @@ exports.createAuthUser = onCall(async (request) => {
   }
 
   return { uid: userRecord.uid, bootstrap: isBootstrap }
+})
+
+// notifications/{uid}/items/{itemId} にアプリ内通知が作成されるたびに、
+// 対象ユーザーが登録済みのFCMトークン（users/{uid}.fcmTokens、複数端末分）へ
+// push通知を送信する。アプリ内通知の作成自体はクライアントSDKから直接
+// useNotifications.tsのsendNotification()で行われており、そのタイミングに
+// 合わせてpush送信だけをサーバー側（Admin SDK）で行う設計にしている
+exports.sendPushOnNotificationCreate = onDocumentCreated('notifications/{uid}/items/{itemId}', async (event) => {
+  const uid = event.params.uid
+  const data = event.data?.data()
+  if (!data) return
+
+  const userSnap = await admin.firestore().doc(`users/${uid}`).get()
+  const tokens = userSnap.data()?.fcmTokens ?? []
+  if (tokens.length === 0) return
+
+  const link = data.linkUrl ?? '/notifications'
+
+  const response = await admin.messaging().sendEachForMulticast({
+    tokens,
+    notification: {
+      title: data.title ?? 'JACCS Neo',
+      body: data.body ?? '',
+    },
+    webpush: {
+      fcmOptions: { link },
+      notification: { icon: '/icons/icon-192.png' },
+    },
+  })
+
+  // 失効・無効になったトークンは以降送信対象から除外する
+  const invalidTokens = []
+  response.responses.forEach((res, idx) => {
+    if (res.success) return
+    const code = res.error?.code
+    if (code === 'messaging/invalid-registration-token' || code === 'messaging/registration-token-not-registered') {
+      invalidTokens.push(tokens[idx])
+    }
+  })
+  if (invalidTokens.length > 0) {
+    await admin.firestore().doc(`users/${uid}`).update({
+      fcmTokens: admin.firestore.FieldValue.arrayRemove(...invalidTokens),
+    })
+  }
 })

@@ -4,6 +4,7 @@ import { useAuthStore } from '~/stores/auth'
 import { NOTIFICATION_PREF_LABELS } from '~/types/notification'
 import type { NotificationPrefs } from '~/types/notification'
 import type { AppUser } from '~/types/user'
+import { usePushNotifications } from '~/composables/usePushNotifications'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -11,6 +12,10 @@ const { user } = useCurrentUser()
 const { updateMyProfile } = useUsers()
 const { sendPasswordReset } = useAuth()
 const authStore = useAuthStore()
+
+// ── push通知（端末への通知） ─────────────────────────────────────────────
+const { status: pushStatus, syncStatus: syncPushStatus, enablePush, disablePush } = usePushNotifications()
+onMounted(syncPushStatus)
 
 // ── 通知設定 ─────────────────────────────────────────────────────────────
 const PREF_KEYS = Object.keys(NOTIFICATION_PREF_LABELS) as (keyof NotificationPrefs)[]
@@ -86,6 +91,43 @@ const handlePasswordReset = async () => {
       <Icon name="heroicons:cog-6-tooth" class="h-6 w-6 text-primary-600" />
       設定
     </h1>
+
+    <!-- push通知 -->
+    <div class="card p-5">
+      <h2 class="font-semibold text-gray-900 flex items-center gap-2 mb-1">
+        <Icon name="heroicons:device-phone-mobile" class="h-5 w-5 text-primary-600" />
+        push通知
+      </h2>
+      <p class="text-xs text-gray-400 mb-4">この端末（ブラウザ）がアプリを開いていないときでも、新着メンションやコメントなどを通知として受け取れるようにします</p>
+
+      <div v-if="pushStatus === 'unsupported'" class="rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-500">
+        この端末・ブラウザはpush通知に対応していません
+      </div>
+      <div v-else-if="pushStatus === 'denied'" class="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700">
+        通知がブロックされています。ブラウザの設定からこのサイトの通知を許可してください
+      </div>
+      <div v-else class="flex items-center justify-between">
+        <span class="text-sm text-gray-700">{{ pushStatus === 'granted' ? 'この端末では有効です' : 'この端末では無効です' }}</span>
+        <button
+          v-if="pushStatus === 'granted'"
+          type="button"
+          class="btn-secondary text-sm"
+          @click="disablePush"
+        >
+          無効にする
+        </button>
+        <button
+          v-else
+          type="button"
+          class="btn-primary text-sm"
+          :disabled="pushStatus === 'requesting'"
+          @click="enablePush"
+        >
+          <Icon v-if="pushStatus === 'requesting'" name="heroicons:arrow-path" class="h-4 w-4 animate-spin mr-1" />
+          push通知を有効にする
+        </button>
+      </div>
+    </div>
 
     <!-- 通知設定 -->
     <div class="card p-5">

@@ -43,6 +43,19 @@ export default defineNuxtConfig({
       firebaseStorageBucket: process.env.FIREBASE_STORAGE_BUCKET,
       firebaseMessagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
       firebaseAppId: process.env.FIREBASE_APP_ID,
+      // push通知（FCM）用のVAPIDキー（Web Push証明書）。Firebaseコンソール →
+      // プロジェクトの設定 → Cloud Messaging → ウェブ プッシュ証明書 で発行する
+      firebaseVapidKey: process.env.FIREBASE_VAPID_KEY,
+    },
+  },
+
+  // /firebase-messaging-sw.js は server/routes/ で動的に生成している
+  // （実際のFirebase設定値をビルド時に埋め込む必要があるため）。クロールでは
+  // 発見されない（HTMLのどこからもリンクされていない）URLなので、生成対象に
+  // 明示的に加えておかないと `nuxi generate` の静的書き出しに含まれない
+  nitro: {
+    prerender: {
+      routes: ['/firebase-messaging-sw.js'],
     },
   },
 

@@ -85,6 +85,9 @@ export interface AppUser {
   // ── 通知設定（種別ごとにアプリ内通知を受け取るかどうか。未設定時は全てtrue扱い） ──
   notificationPrefs?: NotificationPrefs
 
+  // ── push通知（FCM）用のデバイストークン（同一ユーザーが複数端末を使う場合に備え配列） ──
+  fcmTokens?: string[]
+
   // ── 組合員プラン（申請承認で変更される） ──────────────────────────────
   membershipPlan?: string
 
