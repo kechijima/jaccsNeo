@@ -22,10 +22,11 @@ const filterSpaceId  = ref('')   // '' = すべて
 const filterAuthorId = ref('')   // '' = すべて
 const filterDateFrom = ref('')   // YYYY-MM-DD
 const filterDateTo   = ref('')   // YYYY-MM-DD
+const sortBy = ref<'new' | 'popular'>('new')   // 'popular' = いいね（リアクション）が多い順
 const showFilter   = ref(false)
 
 const activeFilterCount = computed(() =>
-  [filterSpaceId.value, filterAuthorId.value, filterDateFrom.value, filterDateTo.value].filter(Boolean).length
+  [filterSpaceId.value, filterAuthorId.value, filterDateFrom.value, filterDateTo.value, sortBy.value !== 'new' ? '1' : ''].filter(Boolean).length
 )
 
 const resetFilters = () => {
@@ -34,6 +35,7 @@ const resetFilters = () => {
   filterAuthorId.value = ''
   filterDateFrom.value = ''
   filterDateTo.value   = ''
+  sortBy.value         = 'new'
 }
 
 // 投稿者の選択肢（実際に投稿がある著者から動的に生成）
@@ -51,17 +53,9 @@ const isFiltering = computed(() =>
   searchQuery.value.trim() !== '' || activeFilterCount.value > 0
 )
 
-// ── 人気の投稿（リアクション数が多い投稿のピックアップ） ────────────────
+// リアクション（いいね等）の合計数。並び替え「いいねが多い順」で使用する
 const totalReactions = (p: { reactions: Record<string, number> }) =>
   Object.values(p.reactions).reduce((sum, n) => sum + n, 0)
-
-const popularPosts = computed(() =>
-  store.posts.value
-    .filter(p => p.status !== 'draft' && totalReactions(p) > 0)
-    .slice()
-    .sort((a, b) => totalReactions(b) - totalReactions(a))
-    .slice(0, 5),
-)
 
 const filteredPosts = computed(() => {
   // ピン留め投稿は各スペースのサムネイルとして表示されるため、全体フィードには流さない
@@ -100,6 +94,11 @@ const filteredPosts = computed(() => {
     const to = new Date(filterDateTo.value)
     to.setHours(23, 59, 59, 999)
     list = list.filter(p => p.createdAt <= to)
+  }
+
+  // 並び替え（いいねが多い順）。新着順の場合はstore側で既に新しい順に並んでいるためそのまま
+  if (sortBy.value === 'popular') {
+    list = list.slice().sort((a, b) => totalReactions(b) - totalReactions(a))
   }
 
   return list
@@ -265,6 +264,14 @@ const upcomingEvents = computed(() =>
             <label class="text-xs font-medium text-gray-500">期間（終了）</label>
             <input v-model="filterDateTo" type="date" class="input-field text-sm py-1.5" />
           </div>
+          <!-- 並び替え -->
+          <div class="space-y-1">
+            <label class="text-xs font-medium text-gray-500">並び替え</label>
+            <select v-model="sortBy" class="input-field text-sm py-1.5">
+              <option value="new">新着順</option>
+              <option value="popular">いいねが多い順</option>
+            </select>
+          </div>
         </div>
       </Transition>
 
@@ -287,6 +294,11 @@ const upcomingEvents = computed(() =>
           <Icon name="heroicons:calendar" class="h-3 w-3" />
           {{ filterDateFrom || '…' }} 〜 {{ filterDateTo || '…' }}
           <button @click="filterDateFrom = ''; filterDateTo = ''"><Icon name="heroicons:x-mark" class="h-3 w-3" /></button>
+        </span>
+        <span v-if="sortBy === 'popular'" class="inline-flex items-center gap-1 rounded-full bg-primary-100 px-3 py-1 text-xs text-primary-700 font-medium">
+          <Icon name="heroicons:fire" class="h-3 w-3" />
+          いいねが多い順
+          <button @click="sortBy = 'new'"><Icon name="heroicons:x-mark" class="h-3 w-3" /></button>
         </span>
       </div>
     </div>
@@ -462,30 +474,6 @@ const upcomingEvents = computed(() =>
           <NuxtLink to="/portal/spaces" class="mt-3 block text-center text-xs text-primary-600 hover:underline">
             すべてのスペースを表示
           </NuxtLink>
-        </div>
-
-        <!-- 人気の投稿 -->
-        <div v-if="popularPosts.length > 0" class="card p-4">
-          <h2 class="font-semibold text-gray-900 mb-3 text-sm flex items-center gap-2">
-            <Icon name="heroicons:fire" class="h-4 w-4 text-rose-500" />
-            人気の投稿
-          </h2>
-          <div class="space-y-1">
-            <NuxtLink
-              v-for="post in popularPosts"
-              :key="post.id"
-              :to="`/portal/spaces/${post.spaceId}/posts/${post.id}`"
-              class="block rounded-lg px-3 py-2.5 hover:bg-gray-50 transition"
-            >
-              <div class="flex items-center justify-between gap-2">
-                <span class="truncate text-xs font-medium text-gray-500">{{ post.authorName }} ・ {{ post.spaceName }}</span>
-                <span class="shrink-0 flex items-center gap-0.5 text-xs font-semibold text-rose-500">
-                  <Icon name="heroicons:fire-solid" class="h-3.5 w-3.5" />{{ totalReactions(post) }}
-                </span>
-              </div>
-              <p class="text-sm text-gray-800 mt-0.5 line-clamp-2">{{ post.content.replace(/<[^>]*>/g, '') }}</p>
-            </NuxtLink>
-          </div>
         </div>
 
         <!-- 近日のイベント -->

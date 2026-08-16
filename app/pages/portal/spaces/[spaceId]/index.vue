@@ -57,10 +57,11 @@ const searchQuery    = ref('')
 const filterAuthorId = ref('')   // '' = すべて
 const filterDateFrom = ref('')   // YYYY-MM-DD
 const filterDateTo   = ref('')   // YYYY-MM-DD
+const sortBy = ref<'new' | 'popular'>('new')   // 'popular' = いいね（リアクション）が多い順
 const showFilter     = ref(false)
 
 const activeFilterCount = computed(() =>
-  [filterAuthorId.value, filterDateFrom.value, filterDateTo.value].filter(Boolean).length,
+  [filterAuthorId.value, filterDateFrom.value, filterDateTo.value, sortBy.value !== 'new' ? '1' : ''].filter(Boolean).length,
 )
 
 const resetFilters = () => {
@@ -68,7 +69,12 @@ const resetFilters = () => {
   filterAuthorId.value = ''
   filterDateFrom.value = ''
   filterDateTo.value   = ''
+  sortBy.value         = 'new'
 }
+
+// リアクション（いいね等）の合計数。並び替え「いいねが多い順」で使用する
+const totalReactions = (p: { reactions: Record<string, number> }) =>
+  Object.values(p.reactions).reduce((sum, n) => sum + n, 0)
 
 // 投稿者の選択肢（このスペースに実際に投稿がある著者から動的に生成）
 const authorOptions = computed(() => {
@@ -106,6 +112,10 @@ const regularPosts = computed(() => {
     const to = new Date(filterDateTo.value)
     to.setHours(23, 59, 59, 999)
     list = list.filter(p => p.createdAt <= to)
+  }
+
+  if (sortBy.value === 'popular') {
+    list = list.slice().sort((a, b) => totalReactions(b) - totalReactions(a))
   }
 
   return list
@@ -428,7 +438,7 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
         </div>
 
         <div v-if="showFilter" class="bg-white border border-gray-200 rounded-lg p-3 space-y-2.5">
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          <div class="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
             <div>
               <label class="block text-xs font-medium text-gray-500 mb-1">投稿者</label>
               <select v-model="filterAuthorId" class="input-field text-sm py-1.5">
@@ -443,6 +453,13 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
             <div>
               <label class="block text-xs font-medium text-gray-500 mb-1">期間（終了）</label>
               <input v-model="filterDateTo" type="date" class="input-field text-sm py-1.5" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">並び替え</label>
+              <select v-model="sortBy" class="input-field text-sm py-1.5">
+                <option value="new">新着順</option>
+                <option value="popular">いいねが多い順</option>
+              </select>
             </div>
           </div>
           <div class="flex items-center justify-between pt-1">
