@@ -106,6 +106,23 @@ const matchCondition = (c: Customer, cond: ConditionRow): boolean => {
 // ── 検索・区分フィルタ ──────────────────────────────────────────────────
 const searchQuery = ref('')
 const filterType  = ref<'all' | 'individual' | 'corporate'>('all')
+const sortBy = ref<'updatedAt' | 'reminder'>('updatedAt')
+
+// リマインダー日時（"YYYY-MM-DDTHH:mm"形式やCSV由来の自由記述文字列）をDateへ変換
+const parseReminderDate = (s?: string) => {
+  if (!s) return null
+  const d = new Date(s.includes('T') ? s : s.replace(' ', 'T'))
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+// 顧客が持つリマインダーのうち、最も近い日時を返す（複数登録されている場合）
+const nextReminder = (c: Customer): { label: string; date: Date } | null => {
+  const withDates = (c.reminders ?? [])
+    .map(r => ({ label: r.label, date: parseReminderDate(r.scheduledAt) }))
+    .filter((r): r is { label: string; date: Date } => r.date !== null)
+  if (withDates.length === 0) return null
+  return withDates.reduce((soonest, r) => r.date < soonest.date ? r : soonest)
+}
 
 const activeConditionCount = computed(() =>
   conditions.value.filter(c => c.operator === 'notEmpty' || c.operator === 'empty' || c.value.trim() !== '').length
@@ -136,6 +153,18 @@ const filtered = computed(() => {
     list = list.filter(c => {
       const results = activeConditions.map(cond => matchCondition(c, cond))
       return matchMode.value === 'and' ? results.every(Boolean) : results.some(Boolean)
+    })
+  }
+
+  // 並び替え（リマインダー順を選んだ場合のみ。設定なし顧客は末尾へ）
+  if (sortBy.value === 'reminder') {
+    list = list.slice().sort((a, b) => {
+      const ra = nextReminder(a)
+      const rb = nextReminder(b)
+      if (ra && rb) return ra.date.getTime() - rb.date.getTime()
+      if (ra) return -1
+      if (rb) return 1
+      return 0
     })
   }
 
@@ -200,7 +229,7 @@ const pageRangeLabel = computed(() => {
 })
 
 // 絞り込み条件が変わったら1ページ目に戻す
-watch([searchQuery, filterType, conditions, matchMode, pageSize, fpFilter], () => {
+watch([searchQuery, filterType, conditions, matchMode, pageSize, fpFilter, sortBy], () => {
   currentPage.value = 1
 }, { deep: true })
 
@@ -346,6 +375,11 @@ const statusColor = (s: string) => {
             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
           @click="filterType = btn.key as any"
         >{{ btn.label }}</button>
+        <!-- 並び替え -->
+        <select v-model="sortBy" class="input-field text-sm py-1.5 w-auto">
+          <option value="updatedAt">更新日順</option>
+          <option value="reminder">リマインダー順</option>
+        </select>
         <!-- 詳細条件トグル -->
         <button
           class="relative flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition shrink-0"
@@ -489,6 +523,7 @@ const statusColor = (s: string) => {
               <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">電話</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">住所</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">ステータス</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">リマインダー</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">区分</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">詳細</th>
             </tr>
@@ -513,6 +548,13 @@ const statusColor = (s: string) => {
               <td class="px-4 py-3 whitespace-nowrap">
                 <span v-if="c.status1" class="badge text-xs" :class="statusColor(c.status1)">
                   {{ c.status1.length > 20 ? c.status1.slice(0, 20) + '...' : c.status1 }}
+                </span>
+                <span v-else class="text-xs text-gray-300">—</span>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <span v-if="nextReminder(c)" class="badge text-xs bg-rose-50 text-rose-600 flex items-center gap-1 w-fit">
+                  <Icon name="heroicons:bell-alert" class="h-3 w-3" />
+                  {{ nextReminder(c)!.date.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' }) }}
                 </span>
                 <span v-else class="text-xs text-gray-300">—</span>
               </td>
@@ -568,6 +610,10 @@ const statusColor = (s: string) => {
           <div v-if="c.tel"><Icon name="heroicons:phone" class="h-3 w-3 inline mr-1" />{{ c.tel }}</div>
           <div v-if="c.dob"><Icon name="heroicons:calendar" class="h-3 w-3 inline mr-1" />{{ c.dob?.replace(/-/g, '/') }}</div>
           <div v-if="c.address" class="col-span-2 truncate"><Icon name="heroicons:map-pin" class="h-3 w-3 inline mr-1" />{{ c.address }}</div>
+          <div v-if="nextReminder(c)" class="col-span-2 text-rose-600">
+            <Icon name="heroicons:bell-alert" class="h-3 w-3 inline mr-1" />
+            {{ nextReminder(c)!.label || 'リマインダー' }}（{{ nextReminder(c)!.date.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' }) }}）
+          </div>
         </div>
         <NuxtLink
           :to="`/customers/${c.id}`"

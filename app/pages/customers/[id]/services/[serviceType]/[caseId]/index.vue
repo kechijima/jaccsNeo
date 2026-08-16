@@ -272,6 +272,13 @@ const handleDelete = () => {
             <dt class="text-gray-500">備考・メモ</dt>
             <dd class="font-medium text-gray-900 whitespace-pre-line">{{ caseData.notes }}</dd>
           </div>
+          <div v-if="caseData.reminderDate || caseData.reminderNote" class="sm:col-span-2">
+            <dt class="text-gray-500">リマインダー</dt>
+            <dd class="font-medium text-gray-900">
+              {{ caseData.reminderNote }}
+              <span v-if="caseData.reminderDate" class="text-rose-600">（{{ caseData.reminderDate.replace(/-/g, '/') }}）</span>
+            </dd>
+          </div>
         </dl>
       </div>
 

@@ -27,6 +27,14 @@ const handleDelete = async () => {
   navigateTo('/personal-data')
 }
 
+// リマインダー日時（"YYYY-MM-DDTHH:mm"形式やCSV由来の自由記述文字列）の表示用整形
+const formatReminderDate = (val?: string) => {
+  if (!val) return ''
+  const d = new Date(val.includes('T') ? val : val.replace(' ', 'T'))
+  if (Number.isNaN(d.getTime())) return val
+  return d.toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+}
+
 // ===== フォーマット =====
 const formatDate = (val: any) => {
   if (!val) return '—'
@@ -179,6 +187,24 @@ const activeServices = computed(() => {
             <dd class="font-medium text-gray-900 break-all">{{ customer.snsUrl }}</dd>
           </div>
         </dl>
+      </div>
+
+      <!-- ===== リマインダー ===== -->
+      <div v-if="customer.reminders?.length" class="card p-5">
+        <h2 class="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <Icon name="heroicons:bell-alert" class="h-5 w-5 text-primary-600" />
+          リマインダー
+        </h2>
+        <ul class="space-y-2">
+          <li
+            v-for="(r, i) in customer.reminders"
+            :key="i"
+            class="flex items-center justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2 text-sm"
+          >
+            <span class="text-gray-900">{{ r.label || '（内容未設定）' }}</span>
+            <span v-if="r.scheduledAt" class="text-xs text-gray-500 shrink-0">{{ formatReminderDate(r.scheduledAt) }}</span>
+          </li>
+        </ul>
       </div>
 
       <!-- ===== 法人情報 ===== -->

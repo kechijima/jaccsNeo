@@ -172,7 +172,7 @@ const progressRestrictedEntries = computed(() => buildEntries(['contractContent'
 
       <!-- 進行状況 -->
       <div
-        v-if="liCase.meetingDate || liCase.reminder || progressRestrictedEntries.length > 0"
+        v-if="liCase.meetingDate || liCase.reminder || liCase.reminderDate || progressRestrictedEntries.length > 0"
         class="card p-5 space-y-4"
       >
         <h2 class="font-semibold text-gray-900 flex items-center gap-2">
@@ -184,9 +184,12 @@ const progressRestrictedEntries = computed(() => buildEntries(['contractContent'
             <dt class="text-gray-500 text-xs">面前日</dt>
             <dd class="font-medium text-gray-900 mt-0.5">{{ liCase.meetingDate }}{{ liCase.scheduledTime ? ` ${liCase.scheduledTime}` : '' }}</dd>
           </div>
-          <div v-if="liCase.reminder">
+          <div v-if="liCase.reminder || liCase.reminderDate">
             <dt class="text-gray-500 text-xs">リマインダー</dt>
-            <dd class="font-medium text-gray-900 mt-0.5">{{ liCase.reminder }}</dd>
+            <dd class="font-medium text-gray-900 mt-0.5">
+              {{ liCase.reminder }}
+              <span v-if="liCase.reminderDate" class="text-rose-600">（{{ liCase.reminderDate.replace(/-/g, '/') }}）</span>
+            </dd>
           </div>
         </dl>
 

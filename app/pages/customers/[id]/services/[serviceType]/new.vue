@@ -35,6 +35,8 @@ const form = ref<ServiceCaseForm>({
   amount: '',
   company: '',
   notes: '',
+  reminderDate: '',
+  reminderNote: '',
 })
 
 const submitting = ref(false)
@@ -99,6 +101,7 @@ const liForm = reactive<LifeInsuranceCaseInput>({
   meetingDate: '',
   scheduledTime: '',
   reminder: '',
+  reminderDate: '',
   progressStatus: '未成約',
   contractContent: '',
   planningContent: '',
@@ -386,9 +389,15 @@ const handleLiSubmit = async () => {
             <input v-model="liForm.scheduledTime" type="time" class="input-field" />
           </div>
         </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">リマインダー</label>
-          <input v-model="liForm.reminder" type="text" placeholder="リマインダー内容を入力..." class="input-field" />
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">リマインダー</label>
+            <input v-model="liForm.reminder" type="text" placeholder="リマインダー内容を入力..." class="input-field" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">リマインダー日</label>
+            <input v-model="liForm.reminderDate" type="date" class="input-field" />
+          </div>
         </div>
 
         <p class="text-sm font-bold text-red-600 pt-2 border-t border-gray-100">担当者以外編集禁止</p>
@@ -473,6 +482,18 @@ const handleLiSubmit = async () => {
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">備考・メモ</label>
         <textarea v-model="form.notes" rows="4" placeholder="案件の詳細・経緯・メモを入力..." class="input-field" />
+      </div>
+
+      <!-- リマインダー -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">リマインダー日</label>
+          <input v-model="form.reminderDate" type="date" class="input-field" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">リマインダー内容</label>
+          <input v-model="form.reminderNote" type="text" placeholder="リマインダー内容を入力..." class="input-field" />
+        </div>
       </div>
 
       <!-- ファイル添付（Phase3で実装） -->

@@ -74,6 +74,8 @@ export interface ServiceCase {
   amount?: string        // 金額・保険料
   company?: string       // 会社名・保険会社
   notes?: string         // 備考
+  reminderDate?: string  // リマインダー日
+  reminderNote?: string  // リマインダー内容
   attachments?: ServiceAttachment[]
   reports?: ServiceProgressReport[] // 進捗報告
   createdBy: string
@@ -96,6 +98,8 @@ export interface ServiceCaseForm {
   amount?: string
   company?: string
   notes?: string
+  reminderDate?: string
+  reminderNote?: string
 }
 
 export interface ServiceSummary {

@@ -83,6 +83,7 @@ const liForm = reactive<LifeInsuranceCaseInput>({
   meetingDate: liCase.value?.meetingDate ?? '',
   scheduledTime: liCase.value?.scheduledTime ?? '',
   reminder: liCase.value?.reminder ?? '',
+  reminderDate: liCase.value?.reminderDate ?? '',
   progressStatus: liCase.value?.progressStatus ?? '未成約',
   contractContent: liCase.value?.contractContent ?? '',
   planningContent: liCase.value?.planningContent ?? '',
@@ -367,9 +368,15 @@ const handleLiSubmit = async () => {
             <input v-model="liForm.scheduledTime" type="time" class="input-field" />
           </div>
         </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">リマインダー</label>
-          <input v-model="liForm.reminder" type="text" placeholder="リマインダー内容を入力..." class="input-field" />
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">リマインダー</label>
+            <input v-model="liForm.reminder" type="text" placeholder="リマインダー内容を入力..." class="input-field" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">リマインダー日</label>
+            <input v-model="liForm.reminderDate" type="date" class="input-field" />
+          </div>
         </div>
 
         <p class="text-sm font-bold text-red-600 pt-2 border-t border-gray-100">担当者以外編集禁止</p>

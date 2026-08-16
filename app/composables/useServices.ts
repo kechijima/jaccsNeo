@@ -1,5 +1,6 @@
 import {
   collection,
+  collectionGroup,
   doc,
   getDoc,
   getDocs,
@@ -7,6 +8,7 @@ import {
   updateDoc,
   deleteDoc,
   query,
+  where,
   orderBy,
   limit,
   serverTimestamp,
@@ -21,6 +23,15 @@ const toCase = (id: string, data: DocumentData): ServiceCase => ({
   ...data,
 }) as ServiceCase
 
+// Firestoreはフィールド値にundefinedを許可せずエラーになるため、送信前に取り除く
+const stripUndefined = <T extends Record<string, any>>(obj: T): T => {
+  const result = {} as T
+  for (const key of Object.keys(obj) as (keyof T)[]) {
+    if (obj[key] !== undefined) result[key] = obj[key]
+  }
+  return result
+}
+
 export const useServices = () => {
   const { $db } = useNuxtApp()
   const authStore = useAuthStore()
@@ -31,6 +42,17 @@ export const useServices = () => {
   // ===== 案件一覧取得 =====
   const fetchCases = async (customerId: string, serviceType: ServiceType): Promise<ServiceCase[]> => {
     const q = query(casesRef(customerId, serviceType), orderBy('updatedAt', 'desc'))
+    const snap = await getDocs(q)
+    return snap.docs.map(d => toCase(d.id, d.data()))
+  }
+
+  // ===== 指定サービスタイプの案件を全顧客横断で取得 =====
+  // customers/{customerId}/services/{serviceType}/cases のサブコレクションは顧客ごとに
+  // 分かれているため、collectionGroupクエリで「cases」という名前の全サブコレクションを
+  // 横断検索し、serviceTypeフィールドで絞り込む（並び替えは複合インデックスを避けるため
+  // クライアント側で行う）
+  const fetchAllCasesForType = async (serviceType: ServiceType): Promise<ServiceCase[]> => {
+    const q = query(collectionGroup($db, 'cases'), where('serviceType', '==', serviceType))
     const snap = await getDocs(q)
     return snap.docs.map(d => toCase(d.id, d.data()))
   }
@@ -73,7 +95,7 @@ export const useServices = () => {
   // ===== 新規作成 =====
   const createCase = async (customerId: string, serviceType: ServiceType, form: ServiceCaseForm): Promise<string> => {
     const ref = await addDoc(casesRef(customerId, serviceType), {
-      ...form,
+      ...stripUndefined(form),
       customerId,
       serviceType,
       createdBy: authStore.user?.uid,
@@ -88,7 +110,7 @@ export const useServices = () => {
   const updateCase = async (customerId: string, serviceType: ServiceType, caseId: string, form: Partial<ServiceCaseForm>): Promise<void> => {
     const ref = doc($db, 'customers', customerId, 'services', serviceType, 'cases', caseId)
     await updateDoc(ref, {
-      ...form,
+      ...stripUndefined(form),
       updatedBy: authStore.user?.uid,
       updatedAt: serverTimestamp(),
     })
@@ -147,6 +169,7 @@ export const useServices = () => {
 
   return {
     fetchCases,
+    fetchAllCasesForType,
     fetchAllServiceSummaries,
     fetchCase,
     createCase,

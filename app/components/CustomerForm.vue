@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { CustomerForm, FamilyMember } from '~/types/customer'
+import type { CustomerForm, FamilyMember, Reminder } from '~/types/customer'
 import { getAnimalFortune } from '~/utils/animalFortune'
 
 const props = defineProps<{
@@ -43,6 +43,26 @@ const updateFamilyMember = (idx: number, key: keyof FamilyMember, value: string)
 
 // ===== 動物占い（生年月日入力時のプレビュー） =====
 const animalFortune = computed(() => getAnimalFortune(form.value.dob))
+
+// ===== リマインダー操作 =====
+const reminders = computed<Reminder[]>({
+  get: () => props.modelValue.reminders ?? [],
+  set: (v) => update('reminders', v),
+})
+
+const addReminder = () => {
+  if (reminders.value.length >= 3) return
+  reminders.value = [...reminders.value, { label: '', scheduledAt: '' }]
+}
+
+const removeReminder = (idx: number) => {
+  reminders.value = reminders.value.filter((_, i) => i !== idx)
+}
+
+const updateReminder = (idx: number, key: keyof Reminder, value: string) => {
+  const updated = reminders.value.map((r, i) => i === idx ? { ...r, [key]: value } : r)
+  reminders.value = updated
+}
 </script>
 
 <template>
@@ -341,6 +361,55 @@ const animalFortune = computed(() => getAnimalFortune(form.value.dob))
         <label class="block text-sm font-medium text-gray-700 mb-1">その他家族</label>
         <input :value="form.otherFamily" type="text" class="input-field"
           @input="update('otherFamily', ($event.target as HTMLInputElement).value)" />
+      </div>
+    </div>
+
+    <!-- ===== リマインダー ===== -->
+    <div class="card p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-semibold text-gray-900 flex items-center gap-2">
+          <Icon name="heroicons:bell-alert" class="h-5 w-5 text-primary-600" />
+          リマインダー
+        </h3>
+        <button
+          v-if="reminders.length < 3"
+          type="button"
+          class="text-sm text-primary-600 hover:text-primary-700 flex items-center gap-1"
+          @click="addReminder"
+        >
+          <Icon name="heroicons:plus" class="h-4 w-4" />
+          追加
+        </button>
+      </div>
+
+      <div v-if="reminders.length === 0" class="text-sm text-gray-400 text-center py-4">
+        リマインダーはまだありません
+      </div>
+
+      <div class="space-y-3">
+        <div
+          v-for="(reminder, idx) in reminders"
+          :key="idx"
+          class="relative grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-gray-50 rounded-lg"
+        >
+          <button
+            type="button"
+            class="absolute top-2 right-2 text-gray-400 hover:text-red-500"
+            @click="removeReminder(idx)"
+          >
+            <Icon name="heroicons:x-mark" class="h-4 w-4" />
+          </button>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">内容</label>
+            <input :value="reminder.label" type="text" placeholder="例: 保険更新の確認" class="input-field text-sm py-1.5"
+              @input="updateReminder(idx, 'label', ($event.target as HTMLInputElement).value)" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">日時</label>
+            <input :value="reminder.scheduledAt" type="datetime-local" class="input-field text-sm py-1.5"
+              @input="updateReminder(idx, 'scheduledAt', ($event.target as HTMLInputElement).value)" />
+          </div>
+        </div>
       </div>
     </div>
 

@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { SERVICE_LABELS } from '~/types/service'
+import { SERVICE_LABELS, STATUS_LABELS } from '~/types/service'
+import type { ServiceCase, ServiceType } from '~/types/service'
 import { LIFE_INSURANCE_FIELD_LABELS } from '~/types/lifeInsurance'
 import { useCustomerStore } from '~/composables/useCustomerStore'
-import { useAppServices } from '~/composables/useAppServices'
+import { useServices } from '~/composables/useServices'
 import { useLifeInsuranceCases } from '~/composables/useLifeInsuranceCases'
 
 definePageMeta({ middleware: ['auth'] })
@@ -16,7 +17,6 @@ const serviceLabel = computed(() => SERVICE_LABELS[serviceType.value] ?? service
 const isLifeInsurance = computed(() => serviceType.value === 'lifeInsurance')
 
 const { getById, ensureLoaded } = useCustomerStore()
-const { getServiceValue } = useAppServices()
 await ensureLoaded()
 const customer = getById(customerId)
 const customerName = computed(() => customer.value?.name ?? '')
@@ -27,21 +27,34 @@ const { getByCustomerId, fetchAll: fetchLiCases, loading: liLoading } = useLifeI
 if (isLifeInsurance.value) await fetchLiCases()
 const liCases = getByCustomerId(customerId)
 
-// パーソナルデータのservices値から対応状況を1件の案件として表示（生命保険以外、または生命保険で案件未連携の場合のフォールバック）
+// ── その他アプリ：customers/{id}/services/{type}/cases の実データ ──────
+const { fetchCases } = useServices()
+const genericLoading = ref(false)
+const rawCases = ref<ServiceCase[]>([])
+if (!isLifeInsurance.value) {
+  genericLoading.value = true
+  rawCases.value = await fetchCases(customerId.value, serviceType.value as ServiceType)
+  genericLoading.value = false
+}
+
+const sortBy = ref<'updated' | 'reminder'>('updated')
+
+const toDate = (val: any): Date | null => {
+  if (!val) return null
+  const d = val?.toDate?.() ?? (val instanceof Date ? val : new Date(val))
+  return Number.isNaN(d.getTime?.() ?? NaN) ? null : d
+}
+
 const cases = computed(() => {
-  const value = getServiceValue(customer.value, serviceType.value)
-  if (!value) return []
-  return [{
-    id: `${customerId.value}-${serviceType.value}`,
-    status: value,
-    statusLabel: value,
-    assignedFp: customer.value?.assignedFpName ?? '',
-    contractDate: '',
-    amount: '',
-    company: '',
-    notes: '',
-    updatedAt: '',
-  }]
+  if (sortBy.value !== 'reminder') return rawCases.value
+  return rawCases.value.slice().sort((a, b) => {
+    const da = toDate(a.reminderDate)
+    const db = toDate(b.reminderDate)
+    if (da && db) return da.getTime() - db.getTime()
+    if (da) return -1
+    if (db) return 1
+    return 0
+  })
 })
 
 const statusClass = (status: string) => {
@@ -86,14 +99,20 @@ const PROGRESS_RESTRICTED_KEYS: (keyof typeof LIFE_INSURANCE_FIELD_LABELS)[] = [
           {{ customerName }} さん — {{ isLifeInsurance ? liCases.length : cases.length }}件の案件
         </p>
       </div>
-      <NuxtLink
-        v-if="canEdit"
-        :to="`/customers/${customerId}/services/${serviceType}/new`"
-        class="btn-primary text-sm flex items-center gap-1.5 shrink-0"
-      >
-        <Icon name="heroicons:plus" class="h-4 w-4" />
-        案件を追加
-      </NuxtLink>
+      <div class="flex items-center gap-2 shrink-0">
+        <select v-if="!isLifeInsurance && cases.length > 1" v-model="sortBy" class="input-field text-sm py-1.5 w-auto">
+          <option value="updated">更新日順</option>
+          <option value="reminder">リマインダー順</option>
+        </select>
+        <NuxtLink
+          v-if="canEdit"
+          :to="`/customers/${customerId}/services/${serviceType}/new`"
+          class="btn-primary text-sm flex items-center gap-1.5"
+        >
+          <Icon name="heroicons:plus" class="h-4 w-4" />
+          案件を追加
+        </NuxtLink>
+      </div>
     </div>
 
     <!-- ===== 生命保険：Firestore連動の詳細案件表示 ===== -->
@@ -201,9 +220,12 @@ const PROGRESS_RESTRICTED_KEYS: (keyof typeof LIFE_INSURANCE_FIELD_LABELS)[] = [
                 <dt class="text-gray-500 text-xs">面前日</dt>
                 <dd class="font-medium text-gray-900 mt-0.5 text-xs">{{ c.meetingDate }}{{ c.scheduledTime ? ` ${c.scheduledTime}` : '' }}</dd>
               </div>
-              <div v-if="c.reminder">
+              <div v-if="c.reminder || c.reminderDate">
                 <dt class="text-gray-500 text-xs">リマインダー</dt>
-                <dd class="font-medium text-gray-900 mt-0.5 text-xs">{{ c.reminder }}</dd>
+                <dd class="font-medium text-gray-900 mt-0.5 text-xs">
+                  {{ c.reminder }}
+                  <span v-if="c.reminderDate" class="text-rose-600">（{{ c.reminderDate.replace(/-/g, '/') }}）</span>
+                </dd>
               </div>
             </dl>
 
@@ -237,9 +259,14 @@ const PROGRESS_RESTRICTED_KEYS: (keyof typeof LIFE_INSURANCE_FIELD_LABELS)[] = [
       </div>
     </template>
 
-    <!-- ===== その他アプリ：パーソナルデータ対応状況の簡易表示 ===== -->
+    <!-- ===== その他アプリ：Firestore連動の案件一覧 ===== -->
     <template v-else>
-      <div v-if="cases.length === 0" class="card p-10 text-center">
+      <div v-if="genericLoading" class="card p-10 text-center">
+        <Icon name="heroicons:arrow-path" class="h-8 w-8 text-gray-300 mx-auto mb-2 animate-spin" />
+        <p class="text-sm text-gray-400">読み込み中...</p>
+      </div>
+
+      <div v-else-if="cases.length === 0" class="card p-10 text-center">
         <Icon name="heroicons:document-text" class="h-10 w-10 text-gray-300 mx-auto mb-2" />
         <p class="text-sm text-gray-400">案件がまだありません</p>
         <NuxtLink
@@ -252,15 +279,16 @@ const PROGRESS_RESTRICTED_KEYS: (keyof typeof LIFE_INSURANCE_FIELD_LABELS)[] = [
       </div>
 
       <div v-else class="space-y-3">
-        <div
+        <NuxtLink
           v-for="c in cases"
           :key="c.id"
-          class="card p-5 block"
+          :to="`/customers/${customerId}/services/${serviceType}/${c.id}`"
+          class="card p-5 block hover:shadow-md transition"
         >
           <div class="flex items-start justify-between gap-3">
             <div class="space-y-2 min-w-0">
               <div class="flex items-center gap-2">
-                <span class="badge text-xs" :class="statusClass(c.status)">{{ c.statusLabel }}</span>
+                <span class="badge text-xs" :class="statusClass(STATUS_LABELS[c.status] ?? c.status)">{{ STATUS_LABELS[c.status] ?? c.status }}</span>
                 <span v-if="c.company" class="text-sm font-medium text-gray-900">{{ c.company }}</span>
               </div>
               <div class="text-sm text-gray-600 space-y-0.5">
@@ -269,11 +297,14 @@ const PROGRESS_RESTRICTED_KEYS: (keyof typeof LIFE_INSURANCE_FIELD_LABELS)[] = [
                 <p v-if="c.notes" class="text-gray-400 text-xs line-clamp-1">{{ c.notes }}</p>
               </div>
             </div>
-            <div class="text-right shrink-0">
-              <p class="text-xs text-gray-400">担当: {{ c.assignedFp || '—' }}</p>
+            <div class="text-right shrink-0 space-y-1">
+              <span v-if="c.reminderDate" class="badge text-xs bg-rose-50 text-rose-600 flex items-center gap-1 w-fit ml-auto">
+                <Icon name="heroicons:bell-alert" class="h-3 w-3" />
+                {{ c.reminderDate.replace(/-/g, '/') }}
+              </span>
             </div>
           </div>
-        </div>
+        </NuxtLink>
       </div>
     </template>
 

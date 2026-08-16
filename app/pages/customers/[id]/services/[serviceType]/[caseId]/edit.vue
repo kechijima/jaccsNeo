@@ -24,6 +24,8 @@ const form = ref<ServiceCaseForm>({
   amount: '',
   company: '',
   notes: '',
+  reminderDate: '',
+  reminderNote: '',
 })
 
 const submitting = ref(false)
@@ -47,6 +49,8 @@ onMounted(async () => {
         amount: raw.amount ?? '',
         company: raw.company ?? '',
         notes: raw.notes ?? '',
+        reminderDate: raw.reminderDate ?? '',
+        reminderNote: raw.reminderNote ?? '',
       }
     }
   }
@@ -144,6 +148,17 @@ const handleDelete = async () => {
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">備考・メモ</label>
         <textarea v-model="form.notes" rows="4" class="input-field" />
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">リマインダー日</label>
+          <input v-model="form.reminderDate" type="date" class="input-field" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">リマインダー内容</label>
+          <input v-model="form.reminderNote" type="text" placeholder="リマインダー内容を入力..." class="input-field" />
+        </div>
       </div>
 
       <div class="flex justify-between pt-2">

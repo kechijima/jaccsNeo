@@ -36,7 +36,8 @@ export interface LifeInsuranceCase {
 
   meetingDate?: string          // 面前日
   scheduledTime?: string        // 設定時刻
-  reminder?: string             // リマインダー
+  reminder?: string             // リマインダー（内容）
+  reminderDate?: string         // リマインダー日
 
   progressStatus?: string       // 進行状況
   managerNotification?: string  // 責任者通知

@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { SERVICE_LABELS } from '~/types/service'
-import { useAppServices } from '~/composables/useAppServices'
+import { SERVICE_LABELS, STATUS_LABELS } from '~/types/service'
+import type { ServiceCase } from '~/types/service'
+import { useServices } from '~/composables/useServices'
+import { useCustomerStore } from '~/composables/useCustomerStore'
 import { useLifeInsuranceCases } from '~/composables/useLifeInsuranceCases'
 import { useFavorites } from '~/composables/useFavorites'
 
@@ -18,38 +20,86 @@ ensureFavoritesLoaded()
 const { cases: liCases, loading: liLoading, fetchAll: fetchLiCases } = useLifeInsuranceCases()
 if (isLifeInsurance.value) await fetchLiCases()
 
-// ── その他サービス：パーソナルデータの対応状況から導出 ──────────────
-const { getCasesForType, ensureLoaded: ensureCustomersLoaded } = useAppServices()
-if (!isLifeInsurance.value) await ensureCustomersLoaded()
-const genericCases = computed(() => getCasesForType(serviceType.value))
+// ── その他サービス：customers/{id}/services/{type}/cases を全顧客横断で取得 ──
+interface JoinedCase extends ServiceCase {
+  customerName: string
+  customerNameKana: string
+}
+
+const { fetchAllCasesForType } = useServices()
+const { customers, ensureLoaded: ensureCustomersLoaded } = useCustomerStore()
+const genericCasesLoading = ref(false)
+const rawGenericCases = ref<ServiceCase[]>([])
+
+if (!isLifeInsurance.value) {
+  genericCasesLoading.value = true
+  await ensureCustomersLoaded()
+  rawGenericCases.value = await fetchAllCasesForType(serviceType.value as any)
+  genericCasesLoading.value = false
+}
+
+const genericCases = computed<JoinedCase[]>(() => rawGenericCases.value.map((c) => {
+  const customer = customers.value.find(cu => cu.id === c.customerId)
+  return {
+    ...c,
+    customerName: customer?.name ?? '（顧客不明）',
+    customerNameKana: customer?.nameKana ?? '',
+  }
+}))
 
 const totalCount = computed(() => isLifeInsurance.value ? liCases.value.length : genericCases.value.length)
 
-// ── 検索 ──────────────────────────────────────────────────────────────
+// ── 検索・並び替え ────────────────────────────────────────────────────
 const searchQuery = ref('')
+const sortBy = ref<'updated' | 'reminder'>('updated')
+
+const toDate = (val: any): Date | null => {
+  if (!val) return null
+  const d = val?.toDate?.() ?? (val instanceof Date ? val : new Date(val))
+  return Number.isNaN(d.getTime?.() ?? NaN) ? null : d
+}
+
+const applySortByReminder = <T extends { reminderDate?: string; updatedAt: any }>(list: T[]): T[] => {
+  if (sortBy.value !== 'reminder') return list
+  return list.slice().sort((a, b) => {
+    const da = toDate(a.reminderDate)
+    const db = toDate(b.reminderDate)
+    if (da && db) return da.getTime() - db.getTime()
+    if (da) return -1
+    if (db) return 1
+    return 0
+  })
+}
 
 const filteredGenericCases = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
-  if (!q) return genericCases.value
-  return genericCases.value.filter(c =>
-    c.customerName.toLowerCase().includes(q) ||
-    c.customerNameKana.toLowerCase().includes(q) ||
-    c.status.toLowerCase().includes(q),
-  )
+  let list = genericCases.value
+  if (q) {
+    list = list.filter(c =>
+      c.customerName.toLowerCase().includes(q) ||
+      c.customerNameKana.toLowerCase().includes(q) ||
+      (c.company ?? '').toLowerCase().includes(q) ||
+      (c.notes ?? '').toLowerCase().includes(q),
+    )
+  }
+  return applySortByReminder(list)
 })
 
 const filteredLiCases = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
-  if (!q) return liCases.value
-  return liCases.value.filter(c =>
-    c.name.toLowerCase().includes(q) ||
-    (c.nameKana ?? '').toLowerCase().includes(q) ||
-    (c.progressStatus ?? '').toLowerCase().includes(q) ||
-    (c.assignedFpName ?? '').toLowerCase().includes(q),
-  )
+  let list = liCases.value
+  if (q) {
+    list = list.filter(c =>
+      c.name.toLowerCase().includes(q) ||
+      (c.nameKana ?? '').toLowerCase().includes(q) ||
+      (c.progressStatus ?? '').toLowerCase().includes(q) ||
+      (c.assignedFpName ?? '').toLowerCase().includes(q),
+    )
+  }
+  return applySortByReminder(list)
 })
 
-// ── ステータスの色（値のパターンで判定） ──────────────────────────────
+// ── ステータスの色 ──────────────────────────────────────────────────
 const statusClass = (status: string) => {
   if (/成約|○|済/.test(status) && !/未成約/.test(status)) return 'bg-green-100 text-green-700'
   if (/未成約|不成立|見送/.test(status)) return 'bg-red-100 text-red-600'
@@ -88,9 +138,7 @@ const statusClass = (status: string) => {
             <Icon :name="isFavoriteApp(serviceType) ? 'heroicons:star-solid' : 'heroicons:star'" class="h-4 w-4" />
           </button>
         </h1>
-        <p class="mt-1 text-sm text-gray-500">
-          {{ isLifeInsurance ? 'kintone連動' : 'パーソナルデータ連動' }} — {{ totalCount }} 件の案件
-        </p>
+        <p class="mt-1 text-sm text-gray-500">{{ totalCount }} 件の案件</p>
       </div>
       <NuxtLink to="/personal-data" class="btn-secondary text-sm flex items-center gap-1.5">
         <Icon name="heroicons:identification" class="h-4 w-4" />
@@ -98,15 +146,21 @@ const statusClass = (status: string) => {
       </NuxtLink>
     </div>
 
-    <!-- ===== 検索 ===== -->
-    <div class="relative max-w-md">
-      <Icon name="heroicons:magnifying-glass" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-      <input
-        v-model="searchQuery"
-        type="text"
-        :placeholder="isLifeInsurance ? '氏名・フリガナ・担当者・進行状況で検索...' : '顧客名・フリガナ・対応状況で検索...'"
-        class="input-field pl-9 text-sm"
-      />
+    <!-- ===== 検索・並び替え ===== -->
+    <div class="flex flex-wrap items-center gap-2">
+      <div class="relative flex-1 min-w-[220px] max-w-md">
+        <Icon name="heroicons:magnifying-glass" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <input
+          v-model="searchQuery"
+          type="text"
+          :placeholder="isLifeInsurance ? '氏名・フリガナ・担当者・進行状況で検索...' : '顧客名・フリガナ・会社名・備考で検索...'"
+          class="input-field pl-9 text-sm"
+        />
+      </div>
+      <select v-model="sortBy" class="input-field text-sm py-1.5 w-auto shrink-0">
+        <option value="updated">更新日順</option>
+        <option value="reminder">リマインダー順</option>
+      </select>
     </div>
 
     <!-- ========================================================= -->
@@ -218,25 +272,30 @@ const statusClass = (status: string) => {
     </template>
 
     <!-- ========================================================= -->
-    <!-- その他アプリ：パーソナルデータ対応状況の簡易一覧              -->
+    <!-- その他アプリ：Firestore連動の案件一覧                        -->
     <!-- ========================================================= -->
     <template v-else>
 
-      <div v-if="filteredGenericCases.length === 0" class="card p-12 text-center">
+      <div v-if="genericCasesLoading" class="card p-12 text-center">
+        <Icon name="heroicons:arrow-path" class="h-8 w-8 text-gray-300 mx-auto mb-2 animate-spin" />
+        <p class="text-gray-400 text-sm">読み込み中...</p>
+      </div>
+
+      <div v-else-if="filteredGenericCases.length === 0" class="card p-12 text-center">
         <Icon name="heroicons:document-magnifying-glass" class="h-12 w-12 text-gray-200 mx-auto mb-3" />
-        <p class="text-gray-400 font-medium">該当する顧客がありません</p>
-        <p class="text-sm text-gray-300 mt-1">パーソナルデータでこのサービスに値が入力されている顧客が表示されます</p>
+        <p class="text-gray-400 font-medium">該当する案件がありません</p>
       </div>
 
       <!-- テーブル（PC） -->
-      <div v-if="filteredGenericCases.length > 0" class="hidden md:block card overflow-hidden">
+      <div v-if="!genericCasesLoading && filteredGenericCases.length > 0" class="hidden md:block card overflow-hidden">
         <div class="overflow-x-auto">
           <table class="w-full text-sm">
             <thead>
               <tr class="border-b border-gray-100 bg-gray-50">
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">顧客名</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[200px]">対応状況</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">担当</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">ステータス</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider min-w-[160px]">会社名・備考</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">リマインダー</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap sticky right-0 bg-gray-50 shadow-[-4px_0_4px_-2px_rgba(0,0,0,0.06)]">詳細</th>
               </tr>
             </thead>
@@ -255,18 +314,29 @@ const statusClass = (status: string) => {
                   </NuxtLink>
                   <p class="text-xs text-gray-400 mt-0.5">{{ c.customerNameKana }}</p>
                 </td>
-                <td class="px-4 py-3">
-                  <span class="badge text-xs whitespace-pre-line" :class="statusClass(c.status)">
-                    {{ c.status.length > 60 ? c.status.slice(0, 60) + '...' : c.status }}
+                <td class="px-4 py-3 whitespace-nowrap">
+                  <span class="badge text-xs" :class="statusClass(STATUS_LABELS[c.status] ?? c.status)">
+                    {{ STATUS_LABELS[c.status] ?? c.status }}
                   </span>
                 </td>
-                <td class="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{{ c.assignedFpName || '—' }}</td>
+                <td class="px-4 py-3 text-gray-600 text-xs max-w-[200px]">
+                  <p v-if="c.company" class="font-medium text-gray-800">{{ c.company }}</p>
+                  <span v-if="c.notes" class="line-clamp-2 whitespace-pre-line">{{ c.notes }}</span>
+                  <span v-if="!c.company && !c.notes" class="text-gray-300">—</span>
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                  <span v-if="c.reminderDate" class="badge text-xs bg-rose-50 text-rose-600 flex items-center gap-1 w-fit">
+                    <Icon name="heroicons:bell-alert" class="h-3 w-3" />
+                    {{ c.reminderDate.replace(/-/g, '/') }}
+                  </span>
+                  <span v-else class="text-xs text-gray-300">—</span>
+                </td>
                 <td class="px-4 py-3 whitespace-nowrap sticky right-0 bg-white group-hover:bg-gray-50 shadow-[-4px_0_4px_-2px_rgba(0,0,0,0.06)]">
                   <NuxtLink
-                    :to="`/customers/${c.customerId}`"
+                    :to="`/customers/${c.customerId}/services/${serviceType}/${c.id}`"
                     class="inline-flex items-center gap-0.5 text-xs text-primary-600 hover:underline"
                   >
-                    顧客詳細
+                    詳細
                     <Icon name="heroicons:arrow-top-right-on-square" class="h-3 w-3" />
                   </NuxtLink>
                 </td>
@@ -277,7 +347,7 @@ const statusClass = (status: string) => {
       </div>
 
       <!-- カード一覧（SP） -->
-      <div v-if="filteredGenericCases.length > 0" class="md:hidden space-y-3">
+      <div v-if="!genericCasesLoading && filteredGenericCases.length > 0" class="md:hidden space-y-3">
         <div
           v-for="c in filteredGenericCases"
           :key="c.id"
@@ -293,26 +363,34 @@ const statusClass = (status: string) => {
               </NuxtLink>
               <p class="text-xs text-gray-400 mt-0.5">{{ c.customerNameKana }}</p>
             </div>
+            <span class="badge text-xs shrink-0" :class="statusClass(STATUS_LABELS[c.status] ?? c.status)">
+              {{ STATUS_LABELS[c.status] ?? c.status }}
+            </span>
           </div>
 
-          <p class="text-xs rounded-lg p-2" :class="statusClass(c.status)">
-            {{ c.status.length > 120 ? c.status.slice(0, 120) + '...' : c.status }}
+          <p v-if="c.company || c.notes" class="text-xs text-gray-500 line-clamp-2 whitespace-pre-line border-t border-gray-50 pt-2">
+            <span v-if="c.company" class="font-medium text-gray-800">{{ c.company }}</span>
+            <span v-if="c.notes">{{ c.notes }}</span>
           </p>
 
           <div class="flex items-center justify-between pt-1 border-t border-gray-50">
-            <span class="text-xs text-gray-400">{{ c.assignedFpName || '—' }}</span>
+            <span v-if="c.reminderDate" class="badge text-xs bg-rose-50 text-rose-600 flex items-center gap-1">
+              <Icon name="heroicons:bell-alert" class="h-3 w-3" />
+              {{ c.reminderDate.replace(/-/g, '/') }}
+            </span>
+            <span v-else class="text-xs text-gray-400">—</span>
             <NuxtLink
-              :to="`/customers/${c.customerId}`"
+              :to="`/customers/${c.customerId}/services/${serviceType}/${c.id}`"
               class="inline-flex items-center gap-1 text-xs text-primary-600 font-medium hover:underline"
             >
-              顧客詳細を見る
+              案件詳細を見る
               <Icon name="heroicons:arrow-right" class="h-3.5 w-3.5" />
             </NuxtLink>
           </div>
         </div>
       </div>
 
-      <p class="text-xs text-gray-400 text-right">
+      <p v-if="!genericCasesLoading" class="text-xs text-gray-400 text-right">
         {{ filteredGenericCases.length }} / {{ genericCases.length }} 件表示中
       </p>
 
