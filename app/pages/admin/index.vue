@@ -86,6 +86,13 @@ const adminMenus = [
     description: 'ディレクター×組合×役割ごとの担当メンバー検索インデックスをFirestoreへ一括投入',
     color: 'text-cyan-600 bg-cyan-50',
   },
+  {
+    to: '/admin/seed-customers',
+    icon: 'heroicons:exclamation-triangle',
+    label: '【一時】パーソナルデータ移行',
+    description: 'kintone由来の顧客データ（実データ）をFirestoreへ一括投入。移行完了後は削除予定',
+    color: 'text-red-600 bg-red-50',
+  },
 ]
 
 const { fetchUsers } = useUsers()
