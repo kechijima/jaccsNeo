@@ -23,6 +23,7 @@ const navItems = computed(() => [
   { label: 'アプリ',           icon: 'heroicons:squares-2x2',            to: '/services' },
   { label: '掲示板',           icon: 'heroicons:chat-bubble-left-right', to: '/portal' },
   { label: 'カレンダー',       icon: 'heroicons:calendar-days',          to: '/events' },
+  { label: 'リマインダー',     icon: 'heroicons:bell-alert',             to: '/reminders' },
   ...(authStore.user?.role === 'general'
     ? [{ label: 'メンバー一覧', icon: 'heroicons:users', to: '/team/members' }]
     : [{ label: 'チーム', icon: 'heroicons:chart-bar', to: '/team' }]),

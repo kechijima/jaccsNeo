@@ -8,7 +8,6 @@ import {
   updateDoc,
   deleteDoc,
   query,
-  where,
   orderBy,
   limit,
   serverTimestamp,
@@ -46,15 +45,22 @@ export const useServices = () => {
     return snap.docs.map(d => toCase(d.id, d.data()))
   }
 
-  // ===== 指定サービスタイプの案件を全顧客横断で取得 =====
+  // ===== 全顧客・全サービスタイプの案件を横断取得 =====
   // customers/{customerId}/services/{serviceType}/cases のサブコレクションは顧客ごとに
   // 分かれているため、collectionGroupクエリで「cases」という名前の全サブコレクションを
-  // 横断検索し、serviceTypeフィールドで絞り込む（並び替えは複合インデックスを避けるため
-  // クライアント側で行う）
-  const fetchAllCasesForType = async (serviceType: ServiceType): Promise<ServiceCase[]> => {
-    const q = query(collectionGroup($db, 'cases'), where('serviceType', '==', serviceType))
-    const snap = await getDocs(q)
+  // 横断取得する。where/orderByを付けるとコレクショングループ用の複合インデックスを
+  // 別途Firestore側に作成する必要があり（このリポジトリのCIはFirestoreのインデックス・
+  // ルールを自動デプロイしない）、絞り込み・並び替えなしの単純な取得にとどめ、
+  // フィルタ・ソートは呼び出し側でクライアント処理する
+  const fetchAllCases = async (): Promise<ServiceCase[]> => {
+    const snap = await getDocs(collectionGroup($db, 'cases'))
     return snap.docs.map(d => toCase(d.id, d.data()))
+  }
+
+  // ===== 指定サービスタイプの案件を全顧客横断で取得 =====
+  const fetchAllCasesForType = async (serviceType: ServiceType): Promise<ServiceCase[]> => {
+    const all = await fetchAllCases()
+    return all.filter(c => c.serviceType === serviceType)
   }
 
   // ===== 全サービスタイプのサマリー =====
@@ -169,6 +175,7 @@ export const useServices = () => {
 
   return {
     fetchCases,
+    fetchAllCases,
     fetchAllCasesForType,
     fetchAllServiceSummaries,
     fetchCase,
