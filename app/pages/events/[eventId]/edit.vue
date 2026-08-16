@@ -162,6 +162,11 @@ const handleDelete = async () => {
 
     <form class="card p-6 space-y-5" @submit.prevent="handleSubmit">
 
+      <div v-if="error" class="flex items-start gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+        <Icon name="heroicons:exclamation-circle" class="mt-0.5 h-4 w-4 shrink-0" />
+        {{ error }}
+      </div>
+
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">タイトル <span class="text-red-500">*</span></label>
         <input v-model="form.title" type="text" class="input-field" required />

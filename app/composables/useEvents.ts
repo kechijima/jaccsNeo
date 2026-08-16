@@ -22,10 +22,15 @@ import { useAuthStore } from '~/stores/auth'
 const toEvent = (id: string, data: DocumentData): Event => ({ id, category: 'event', ...data }) as Event
 
 // Firestoreはフィールド値にundefinedを許可せずエラーになるため、送信前に取り除く
+// （recurrenceのようなネストしたオブジェクトの内部にundefinedが残らないよう再帰的に処理する）
 const stripUndefined = <T extends Record<string, any>>(obj: T): T => {
   const result = {} as T
   for (const key of Object.keys(obj) as (keyof T)[]) {
-    if (obj[key] !== undefined) result[key] = obj[key]
+    const value = obj[key]
+    if (value === undefined) continue
+    result[key] = (value !== null && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Timestamp))
+      ? stripUndefined(value)
+      : value
   }
   return result
 }
