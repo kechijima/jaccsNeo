@@ -1,8 +1,10 @@
 import { initializeApp, getApps, getApp } from 'firebase/app'
 import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
-import { getStorage } from 'firebase/storage'
-import { getFunctions } from 'firebase/functions'
+// firebase/storage・firebase/functionsはそれぞれ useStorage.ts / useUsers.ts の
+// 該当処理内で動的import()する（利用ページがごく一部のため）。ここで静的importすると
+// プラグイン＝アプリ起動時に常に読み込まれる経路に含まれてしまい、ほぼ全員が使わない
+// 機能のためだけに初回読み込みのJS実行コストが増える
 
 // 環境変数・CIシークレットに誤って引用符が含まれていた場合に備えて除去する
 // （例: FIREBASE_STORAGE_BUCKET="jaccsneo.appspot.com" のように値ごと引用符が入ると
@@ -42,18 +44,13 @@ export default defineNuxtPlugin(() => {
   setPersistence(auth, browserLocalPersistence).catch((e) => {
     console.error('ログイン状態の永続化設定に失敗しました', e)
   })
-  const db        = getFirestore(app)
-  const storage   = getStorage(app)
-  // Cloud Functionsのデプロイリージョン（functions/index.jsのsetGlobalOptionsと揃える）
-  const functions = getFunctions(app, 'asia-northeast1')
+  const db = getFirestore(app)
 
   return {
     provide: {
       firebase: app,
       auth,
       db,
-      storage,
-      functions,
     },
   }
 })

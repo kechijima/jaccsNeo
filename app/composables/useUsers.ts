@@ -9,13 +9,20 @@ import {
   where,
   serverTimestamp,
 } from 'firebase/firestore'
-import { httpsCallable } from 'firebase/functions'
 import type { AppUser, UserRole, SpecialTeam, GroupId } from '~/types/user'
 import { useAuthStore } from '~/stores/auth'
 import { toAppUser } from '~/utils/userMapper'
 
+// ユーザー作成（管理者操作）を使うページはごく一部のため、firebase/functionsは
+// 実際に必要になった時点で初めて動的import()する（アプリ起動時のJS実行コストに含めない）
+let functionsPromise: Promise<typeof import('firebase/functions')> | null = null
+const loadFunctions = () => {
+  if (!functionsPromise) functionsPromise = import('firebase/functions')
+  return functionsPromise
+}
+
 export const useUsers = () => {
-  const { $db, $functions } = useNuxtApp()
+  const { $db, $firebase } = useNuxtApp()
   const authStore = useAuthStore()
 
   const usersCol = () => collection($db, 'users')
@@ -108,7 +115,10 @@ export const useUsers = () => {
     kumiaiId?: string
     position?: string
   }): Promise<string> => {
-    const fn = httpsCallable<typeof data, { uid: string }>($functions, 'createAuthUser')
+    const { getFunctions, httpsCallable } = await loadFunctions()
+    // Cloud Functionsのデプロイリージョン（functions/index.jsのsetGlobalOptionsと揃える）
+    const functions = getFunctions($firebase, 'asia-northeast1')
+    const fn = httpsCallable<typeof data, { uid: string }>(functions, 'createAuthUser')
     const result = await fn(data)
     return result.data.uid
   }
