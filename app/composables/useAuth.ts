@@ -39,6 +39,19 @@ export const useAuth = () => {
     const { $auth } = useNuxtApp()
 
     return new Promise<void>((resolve) => {
+      // firebase.client.tsのプラグインが何らかの理由で$authを提供できなかった場合
+      // （Firebase Authの初期化失敗など）、onAuthStateChanged呼び出し自体が例外を
+      // 投げてしまう。未ログインとして扱い、以降の画面（ログイン画面等）は
+      // 通常どおり表示できるようにする
+      if (!$auth) {
+        console.error('Firebase Authが利用できないため、未ログイン状態として扱います')
+        authStore.setUser(null)
+        authStore.setConfirmed(true)
+        authStore.setInitialized(true)
+        resolve()
+        return
+      }
+
       // Firebaseからの応答が遅い/届かない場合でもスプラッシュ画面で固まらないよう
       // タイムアウトを設ける
       const timeout = setTimeout(() => {

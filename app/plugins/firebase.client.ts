@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app'
-import { getAuth, setPersistence, inMemoryPersistence } from 'firebase/auth'
+import { initializeAuth, inMemoryPersistence, type Auth } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 // firebase/storage・firebase/functionsはそれぞれ useStorage.ts / useUsers.ts の
 // 該当処理内で動的import()する（利用ページがごく一部のため）。ここで静的importすると
@@ -36,15 +36,25 @@ export default defineNuxtPlugin(() => {
 
   const app = getApps().length ? getApp() : initializeApp(firebaseConfig)
 
-  const auth      = getAuth(app)
+  // getAuth(app)は永続化方式が未指定の場合、既定でindexedDBLocalPersistence→
+  // browserLocalPersistence→browserSessionPersistenceの順にブラウザストレージの
+  // 利用可否を内部的に同期チェックする。この処理がSafariのプライベートブラウズ・
+  // LINE等のアプリ内ブラウザ・厳格なプライバシー設定など、IndexedDB/localStorageが
+  // 制限された環境で同期的に例外を投げることがあり、アプリ起動全体がクラッシュして
+  // 「読み込み中」のまま止まって見える不具合の原因になっていた（モバイルでのみ
+  // 発生していたのはこのため）。
+  // ログイン状態を永続化しない方針（inMemoryPersistence固定）である以上、そもそも
+  // ブラウザストレージへ一切アクセスする必要がないため、initializeAuthで永続化方式を
+  // 最初からinMemoryPersistenceのみに限定して初期化し、上記の同期チェック自体を回避する
+  let auth: Auth
+  try {
+    auth = initializeAuth(app, { persistence: inMemoryPersistence })
+  } catch (e) {
+    console.error('Firebase Authの初期化に失敗しました', e)
+    return {}
+  }
   // パスワードリセット等のFirebase Auth既定メールテンプレートを日本語で送信する
   auth.languageCode = 'ja'
-  // ログイン状態はブラウザに永続化しない（画面更新・アプリ再起動のたびに必ず
-  // ログイン画面から入り直す仕様のため）。メモリ上にのみ保持し、ページを離れる
-  // （リロード・タブを閉じる等）と自動的に失われる
-  setPersistence(auth, inMemoryPersistence).catch((e) => {
-    console.error('ログイン状態の永続化設定に失敗しました', e)
-  })
   const db = getFirestore(app)
 
   return {

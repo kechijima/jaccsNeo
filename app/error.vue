@@ -3,15 +3,15 @@ const props = defineProps<{
   error: { statusCode?: number; statusMessage?: string; message?: string }
 }>()
 
-// 存在しないURL・想定外のエラーはいずれもダッシュボードへ誘導する。
-// ここではまだ認証確認(initAuth)が終わっているとは限らないため、ログイン状態の
-// 判定は行わない（誤って未確定の状態を「未ログイン」とみなし、実際にはログイン中
-// なのにログイン画面へ飛ばしてしまう不具合の原因になっていた）。
-// 未ログインだった場合は、遷移先のauthミドルウェアが確認完了後に正しく
-// /loginへ振り分ける
+// 存在しないURL・想定外のエラーはいずれもルート(/)へ誘導する。
+// pages/index.vueが現在のログイン状態を待たずに即座に/login・/dashboardへ
+// 振り分けるため、ここから直接/dashboardへ飛ばすより高速に復帰できる。
+// 以前は/dashboardへ直接遷移させていたが、authミドルウェアの認証確認待ち
+// （最大6秒）を経由してしまい、特にアプリ起動時のエラー（Firebase Authの
+// 初期化失敗等）から復帰する際に画面が長時間固まって見える原因になっていた
 const redirect = async () => {
   await clearError()
-  await navigateTo('/dashboard', { replace: true })
+  await navigateTo('/', { replace: true })
 }
 
 onMounted(() => {
