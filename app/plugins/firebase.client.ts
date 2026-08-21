@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app'
-import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth'
+import { getAuth, setPersistence, inMemoryPersistence } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 // firebase/storage・firebase/functionsはそれぞれ useStorage.ts / useUsers.ts の
 // 該当処理内で動的import()する（利用ページがごく一部のため）。ここで静的importすると
@@ -39,9 +39,10 @@ export default defineNuxtPlugin(() => {
   const auth      = getAuth(app)
   // パスワードリセット等のFirebase Auth既定メールテンプレートを日本語で送信する
   auth.languageCode = 'ja'
-  // ログイン状態をブラウザに永続化する（明示的にログアウトするまでタブを閉じても
-  // 再訪問時に自動的にログイン状態が復元されるようにする）
-  setPersistence(auth, browserLocalPersistence).catch((e) => {
+  // ログイン状態はブラウザに永続化しない（画面更新・アプリ再起動のたびに必ず
+  // ログイン画面から入り直す仕様のため）。メモリ上にのみ保持し、ページを離れる
+  // （リロード・タブを閉じる等）と自動的に失われる
+  setPersistence(auth, inMemoryPersistence).catch((e) => {
     console.error('ログイン状態の永続化設定に失敗しました', e)
   })
   const db = getFirestore(app)

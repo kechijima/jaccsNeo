@@ -10,33 +10,6 @@ import { useAuthStore } from '~/stores/auth'
 import type { AppUser } from '~/types/user'
 import { toAppUser } from '~/utils/userMapper'
 
-// 前回ログイン時のプロフィールをlocalStorageにキャッシュし、次回起動時は
-// Firebaseからの応答を待たずに即座に画面を描画できるようにする
-// （体感速度の改善。バックグラウンドで実際の認証状態を確認し、ずれがあれば補正する）
-const CACHED_USER_KEY = 'jaccsneo:cached-user'
-
-const cacheUser = (user: AppUser | null) => {
-  try {
-    if (user) localStorage.setItem(CACHED_USER_KEY, JSON.stringify(user))
-    else localStorage.removeItem(CACHED_USER_KEY)
-  } catch {
-    // プライベートブラウズ等でlocalStorageが使えない場合は無視する
-  }
-}
-
-const getCachedUser = (): AppUser | null => {
-  try {
-    const raw = localStorage.getItem(CACHED_USER_KEY)
-    if (!raw) return null
-    const parsed = JSON.parse(raw)
-    parsed.createdAt = parsed.createdAt ? new Date(parsed.createdAt) : new Date()
-    parsed.updatedAt = parsed.updatedAt ? new Date(parsed.updatedAt) : new Date()
-    return parsed as AppUser
-  } catch {
-    return null
-  }
-}
-
 export const useAuth = () => {
   const authStore = useAuthStore()
   const router = useRouter()
@@ -57,25 +30,19 @@ export const useAuth = () => {
 
   // 認証状態の監視（アプリ起動時に一度だけ呼ぶ）。ログイン・ログアウトの
   // たびにも自動で再発火し続けるため、ユーザー情報の反映はここに一本化している。
+  //
+  // セッションはinMemoryPersistence（firebase.client.ts）のため、画面更新・
+  // アプリの再起動のたびにログイン状態は必ず失われ、毎回ログイン画面から
+  // 入り直す想定。そのため以前あった「前回ログイン時のプロフィールを
+  // localStorageにキャッシュして即座に復元する」処理は行わない
   const initAuth = () => {
     const { $auth } = useNuxtApp()
 
-    // キャッシュがあれば即座に反映してスプラッシュを解除する（体感速度改善）。
-    // 実際の認証状態はこの後バックグラウンドで確認し、ずれがあれば補正する
-    const cached = getCachedUser()
-    if (cached) {
-      authStore.setUser(cached)
-      authStore.setInitialized(true)
-    }
-
     return new Promise<void>((resolve) => {
       // Firebaseからの応答が遅い/届かない場合でもスプラッシュ画面で固まらないよう
-      // タイムアウトを設ける。ただしこれはあくまで「応答待ちを諦めてスプラッシュを
-      // 解除する」ためのものであり、「ログアウトと確定する」ものではない
-      // （confirmedをtrueにしない）。ここでログアウト扱いにしてしまうと、応答が
-      // 少し遅いだけの正常なセッションが、画面更新のたびにログイン画面へ
-      // 飛ばされてしまう不具合になるため
+      // タイムアウトを設ける
       const timeout = setTimeout(() => {
+        authStore.setConfirmed(true)
         authStore.setInitialized(true)
         resolve()
       }, 4000)
@@ -93,23 +60,17 @@ export const useAuth = () => {
               // ログアウトさせる（組合員の脱退申請が承認された場合など）
               await signOut($auth)
               authStore.setUser(null)
-              cacheUser(null)
             } else {
               authStore.setUser(user)
-              cacheUser(user)
             }
           } else {
             authStore.setUser(null)
-            cacheUser(null)
           }
-          // Firebaseから実際に応答を受け取れた場合のみ「確定」とする
-          authStore.setConfirmed(true)
         } catch (e) {
           console.error('ユーザー情報の取得に失敗しました', e)
-          // キャッシュから復元できていた場合、単なる通信エラーでログアウト扱いにしない
-          if (!cached) authStore.setUser(null)
-          authStore.setConfirmed(true)
+          authStore.setUser(null)
         } finally {
+          authStore.setConfirmed(true)
           authStore.setInitialized(true)
           resolve()
         }
@@ -134,7 +95,6 @@ export const useAuth = () => {
       }
       authStore.setUser(user)
       authStore.setConfirmed(true)
-      cacheUser(user)
       const redirect = route.query.redirect
       const target = typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//')
         ? redirect
@@ -150,7 +110,6 @@ export const useAuth = () => {
     const { $auth } = useNuxtApp()
     await signOut($auth)
     authStore.setUser(null)
-    cacheUser(null)
     await router.push('/login')
   }
 
