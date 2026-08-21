@@ -1,11 +1,18 @@
 <script setup lang="ts">
 const { initAuth } = useAuth()
 const { initialized } = useCurrentUser()
+const route = useRoute()
 
 // SPA mode: Firebase plugin is always available on client
 // ここでawaitすると解決するまでスプラッシュ含め何も描画されなくなり、初回表示が
 // 実際より重く感じられるため、あえて待たずに呼び出す（完了はinitializedの変化で検知する）
 initAuth()
+
+// ログインは毎回必須（セッションを永続化していない）ため、ログインページ自体は
+// 認証確認を待たずに即座に表示できる（pages/index.vueも待たずに/loginへ振り分けている）。
+// このスプラッシュは、保護ページへ直接アクセスした場合など、認証確認の完了を
+// 待つ必要があるケースの保険としてのみ表示する
+const showSplash = computed(() => !initialized.value && route.path !== '/login')
 </script>
 
 <template>
@@ -20,9 +27,9 @@ initAuth()
     <PwaInstallBanner v-if="initialized" />
     <UpdateAvailableBanner v-if="initialized" />
     <HelpDrawer v-if="initialized" />
-    <!-- 認証初期化中はスプラッシュ表示 -->
+    <!-- 認証初期化中はスプラッシュ表示（ログインページを除く） -->
     <Transition name="fade">
-      <div v-if="!initialized" class="fixed inset-0 z-50 flex flex-col items-center overflow-y-auto bg-white py-10">
+      <div v-if="showSplash" class="fixed inset-0 z-50 flex flex-col items-center overflow-y-auto bg-white py-10">
         <div class="flex flex-1 flex-col items-center justify-center gap-4 min-h-[40vh]">
           <img src="/logo.png" alt="" class="w-16 h-16 object-contain" />
           <div class="flex items-center gap-2 text-sm text-gray-500">
