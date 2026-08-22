@@ -1,21 +1,51 @@
-<div id="jaccsneo-boot-splash" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#ffffff;z-index:9999;">
-  <div style="display:flex;flex-direction:column;align-items:center;gap:16px;max-width:20rem;padding:0 1.5rem;text-align:center;">
-    <img src="/logo.png" alt="" style="width:64px;height:64px;object-fit:contain;" />
-    <div style="display:flex;align-items:center;gap:8px;font-size:14px;color:#6b7280;font-family:-apple-system,BlinkMacSystemFont,'Noto Sans JP',sans-serif;">
-      <span style="width:16px;height:16px;border:2px solid #00afcc;border-top-color:transparent;border-radius:50%;display:inline-block;animation:jaccsneo-spin 0.8s linear infinite;"></span>
-      読み込み中...
+<!-- ログインは毎回必須（セッションを永続化していない）ため、Vue起動前の
+     この静的画面が実際に表示される状況では、遷移先はほぼ必ずログイン画面になる。
+     従来は汎用的な「読み込み中...」スピナーを表示していたが、待たされている
+     印象・不安感を与えていたため、ログイン画面そのものの見た目（静的な複製）を
+     ここに直接描画する。Vue起動後、実際のログイン画面（app/pages/login.vue）に
+     瞬時に置き換わるため、利用者には「開いたら最初からログイン画面だった」ように見える。
+     ここで使っているクラス（input-field/btn-primary/card等）はlogin.vue・
+     layouts/auth.vueで実際に使われているものと同じで、Tailwindの content scan
+     （tailwind.config.tsのcontent、*.vueのみ対象）はそちらを経由して拾われるため、
+     このファイル自体がscan対象でなくてもスタイルは問題なく含まれる -->
+<div id="jaccsneo-boot-splash" class="min-h-screen bg-gradient-to-br from-primary-50 via-white to-primary-100 flex items-center justify-center p-4">
+  <div class="w-full max-w-md">
+    <div class="text-center mb-8">
+      <img src="/logo.png" alt="" class="w-16 h-16 object-contain mx-auto mb-4" />
+      <h1 class="text-2xl font-bold text-gray-900">JACCS Neo</h1>
+      <p class="mt-1 text-sm text-gray-500">FP業務管理システム</p>
     </div>
+
+    <div class="card p-8">
+      <h2 class="text-lg font-semibold text-gray-900 mb-6">ログイン</h2>
+
+      <!-- Vue起動前は送信しても何も起きないよう、ネイティブのフォーム送信は止めておく -->
+      <form onsubmit="return false" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">メールアドレス</label>
+          <input type="email" autocomplete="email" placeholder="example@email.com" class="input-field" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">パスワード</label>
+          <input type="password" autocomplete="current-password" placeholder="••••••••" class="input-field" />
+        </div>
+        <button type="submit" class="btn-primary w-full">ログイン</button>
+      </form>
+
+      <div class="mt-4 text-center">
+        <button type="button" class="text-sm text-primary-600 hover:text-primary-700 hover:underline">パスワードをお忘れの方</button>
+      </div>
+    </div>
+
+    <p class="mt-6 text-center text-xs text-gray-400">© JACCS Neo. All rights reserved.</p>
+
     <!-- 回線状況によっては起動に時間がかかることがあるため、待たせるだけにならないよう
          簡単な使い方のヒントを表示する（この画面自体はVue起動前の静的な画面のため、
          ここでは実際のマニュアル画面へのリンク・アコーディオン等の対話的な機能は使えず、
          プレーンなテキストのみで案内する） -->
-    <div id="jaccsneo-boot-tip" style="display:none;font-size:12px;color:#9ca3af;line-height:1.6;font-family:-apple-system,BlinkMacSystemFont,'Noto Sans JP',sans-serif;">
-    </div>
+    <div id="jaccsneo-boot-tip" style="display:none;" class="mt-4 text-center text-xs text-gray-400"></div>
   </div>
 </div>
-<style>
-@keyframes jaccsneo-spin { to { transform: rotate(360deg); } }
-</style>
 <script>
 (function () {
   try {
