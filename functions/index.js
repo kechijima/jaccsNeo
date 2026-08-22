@@ -68,6 +68,67 @@ exports.createAuthUser = onCall(async (request) => {
   return { uid: userRecord.uid, bootstrap: isBootstrap }
 })
 
+// パスワードリセットメールが迷惑メールフォルダ等に振り分けられて届かず、
+// ログインできなくなるケースへの対応。メールアドレスと生年月日（users/{uid}.birthday、
+// 本人がマイページ等で登録した値）が一致した場合に限り、リセットメールを使わず
+// その場でパスワードを変更できるようにする。
+// パスワード再設定前で未ログインの状態から呼び出すため認証チェックは行わない
+// （本人確認はメールアドレス＋生年月日の一致で代替する）。総当たり対策として、
+// メールアドレスごとに直近15分間の失敗回数を記録し、5回を超えたら一時的に拒否する
+exports.resetPasswordWithDob = onCall(async (request) => {
+  const { email, birthday, newPassword } = request.data ?? {}
+
+  if (!email || !birthday || !newPassword) {
+    throw new HttpsError('invalid-argument', '入力内容を確認してください')
+  }
+  if (newPassword.length < 6) {
+    throw new HttpsError('invalid-argument', 'パスワードは6文字以上で指定してください')
+  }
+
+  const normalizedEmail = String(email).trim().toLowerCase()
+  const attemptsRef = admin.firestore().collection('passwordResetAttempts').doc(normalizedEmail)
+  const attemptsSnap = await attemptsRef.get()
+  const now = Date.now()
+  const WINDOW_MS = 15 * 60 * 1000
+  const MAX_ATTEMPTS = 5
+
+  const recentFailures = attemptsSnap.exists
+    ? (attemptsSnap.data().failures ?? []).filter((t) => now - t < WINDOW_MS)
+    : []
+  if (recentFailures.length >= MAX_ATTEMPTS) {
+    throw new HttpsError('resource-exhausted', '試行回数が多すぎます。しばらく時間をおいてから再度お試しください')
+  }
+
+  const recordFailure = async () => {
+    await attemptsRef.set({ failures: [...recentFailures, now] }, { merge: true })
+  }
+
+  let userRecord
+  try {
+    userRecord = await admin.auth().getUserByEmail(normalizedEmail)
+  } catch (err) {
+    await recordFailure()
+    throw new HttpsError('not-found', 'メールアドレスまたは生年月日が正しくありません')
+  }
+
+  const userDoc = await admin.firestore().doc(`users/${userRecord.uid}`).get()
+  const userData = userDoc.data()
+
+  if (!userDoc.exists || !userData.birthday || userData.birthday !== birthday) {
+    await recordFailure()
+    throw new HttpsError('not-found', 'メールアドレスまたは生年月日が正しくありません')
+  }
+
+  if (userData.isWithdrawn) {
+    throw new HttpsError('permission-denied', 'このアカウントはご利用いただけません')
+  }
+
+  await admin.auth().updateUser(userRecord.uid, { password: newPassword })
+  await attemptsRef.delete().catch(() => {})
+
+  return { success: true }
+})
+
 // notifications/{uid}/items/{itemId} にアプリ内通知が作成されるたびに、
 // 対象ユーザーが登録済みのFCMトークン（users/{uid}.fcmTokens、複数端末分）へ
 // push通知を送信する。アプリ内通知の作成自体はクライアントSDKから直接

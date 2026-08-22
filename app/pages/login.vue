@@ -4,7 +4,7 @@ definePageMeta({
   middleware: [],  // 認証不要ページ
 })
 
-const { login, sendPasswordReset } = useAuth()
+const { login, sendPasswordReset, resetPasswordWithDob } = useAuth()
 
 const email    = ref('')
 const password = ref('')
@@ -16,6 +16,16 @@ const isResetMode   = ref(false)
 const resetSent     = ref(false)
 const resetLoading  = ref(false)
 const resetError    = ref('')
+
+// メールが届かない場合の代替手段（メールアドレス＋生年月日でその場変更）
+const showDobReset        = ref(false)
+const dobEmail             = ref('')
+const dobBirthday          = ref('')
+const dobNewPassword       = ref('')
+const dobNewPasswordConfirm = ref('')
+const dobResetLoading      = ref(false)
+const dobResetError        = ref('')
+const dobResetDone         = ref(false)
 
 const errorMessages: Record<string, string> = {
   'auth/user-not-found':       'メールアドレスが見つかりません',
@@ -58,6 +68,31 @@ const handlePasswordReset = async () => {
     resetError.value = errorMessages[e.code] ?? 'パスワードリセットメールの送信に失敗しました'
   } finally {
     resetLoading.value = false
+  }
+}
+
+const handleDobReset = async () => {
+  if (!dobEmail.value || !dobBirthday.value || !dobNewPassword.value || !dobNewPasswordConfirm.value) {
+    dobResetError.value = 'すべての項目を入力してください'
+    return
+  }
+  if (dobNewPassword.value !== dobNewPasswordConfirm.value) {
+    dobResetError.value = '新しいパスワードが一致しません'
+    return
+  }
+  if (dobNewPassword.value.length < 6) {
+    dobResetError.value = 'パスワードは6文字以上で入力してください'
+    return
+  }
+  dobResetLoading.value = true
+  dobResetError.value = ''
+  try {
+    await resetPasswordWithDob(dobEmail.value, dobBirthday.value, dobNewPassword.value)
+    dobResetDone.value = true
+  } catch (e: any) {
+    dobResetError.value = e?.message || 'パスワードの変更に失敗しました。入力内容をご確認ください'
+  } finally {
+    dobResetLoading.value = false
   }
 }
 </script>
@@ -142,51 +177,160 @@ const handlePasswordReset = async () => {
 
       <!-- パスワードリセットフォーム -->
       <template v-else>
-        <h2 class="text-lg font-semibold text-gray-900 mb-2">パスワードのリセット</h2>
-        <p class="text-sm text-gray-500 mb-6">
-          登録済みのメールアドレスにリセット用リンクを送信します。
-        </p>
+        <!-- 通常のリセットメール送信 -->
+        <template v-if="!showDobReset">
+          <h2 class="text-lg font-semibold text-gray-900 mb-2">パスワードのリセット</h2>
+          <p class="text-sm text-gray-500 mb-6">
+            登録済みのメールアドレスにリセット用リンクを送信します。
+          </p>
 
-        <!-- 送信完了メッセージ -->
-        <div v-if="resetSent" class="flex items-start gap-2 rounded-lg bg-green-50 p-4 text-sm text-green-700 mb-4">
-          <Icon name="heroicons:check-circle" class="mt-0.5 h-4 w-4 shrink-0" />
-          <span>リセット用メールを送信しました。メールをご確認ください。</span>
-        </div>
+          <!-- 送信完了メッセージ -->
+          <div v-if="resetSent" class="flex items-start gap-2 rounded-lg bg-green-50 p-4 text-sm text-green-700 mb-4">
+            <Icon name="heroicons:check-circle" class="mt-0.5 h-4 w-4 shrink-0" />
+            <span>リセット用メールを送信しました。メールをご確認ください。</span>
+          </div>
 
+          <template v-else>
+            <form @submit.prevent="handlePasswordReset" class="space-y-4">
+              <div>
+                <label for="reset-email" class="block text-sm font-medium text-gray-700 mb-1">
+                  メールアドレス
+                </label>
+                <input
+                  id="reset-email"
+                  v-model="email"
+                  type="email"
+                  autocomplete="email"
+                  placeholder="example@email.com"
+                  class="input-field"
+                  :disabled="resetLoading"
+                />
+              </div>
+
+              <div v-if="resetError" class="flex items-start gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                <Icon name="heroicons:exclamation-circle" class="mt-0.5 h-4 w-4 shrink-0" />
+                {{ resetError }}
+              </div>
+
+              <button type="submit" class="btn-primary w-full" :disabled="resetLoading">
+                <Icon v-if="resetLoading" name="heroicons:arrow-path" class="h-4 w-4 animate-spin" />
+                {{ resetLoading ? '送信中...' : 'リセットメールを送信' }}
+              </button>
+            </form>
+
+            <div class="mt-4 text-center">
+              <button
+                type="button"
+                class="text-xs text-gray-400 hover:text-gray-600 hover:underline"
+                @click="showDobReset = true"
+              >
+                メールが届かない場合はこちら
+              </button>
+            </div>
+          </template>
+        </template>
+
+        <!-- メールアドレス＋生年月日による変更（リセットメールが届かない場合の代替手段） -->
         <template v-else>
-          <form @submit.prevent="handlePasswordReset" class="space-y-4">
-            <div>
-              <label for="reset-email" class="block text-sm font-medium text-gray-700 mb-1">
-                メールアドレス
-              </label>
-              <input
-                id="reset-email"
-                v-model="email"
-                type="email"
-                autocomplete="email"
-                placeholder="example@email.com"
-                class="input-field"
-                :disabled="resetLoading"
-              />
-            </div>
+          <h2 class="text-lg font-semibold text-gray-900 mb-2">メールアドレスと生年月日で変更</h2>
+          <p class="text-sm text-gray-500 mb-6">
+            登録済みのメールアドレスと生年月日が一致すれば、メールを使わずその場でパスワードを変更できます。
+            マイページ等で生年月日を登録していない場合はこの方法はご利用いただけません。
+          </p>
 
-            <div v-if="resetError" class="flex items-start gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700">
-              <Icon name="heroicons:exclamation-circle" class="mt-0.5 h-4 w-4 shrink-0" />
-              {{ resetError }}
-            </div>
+          <!-- 変更完了メッセージ -->
+          <div v-if="dobResetDone" class="flex items-start gap-2 rounded-lg bg-green-50 p-4 text-sm text-green-700 mb-4">
+            <Icon name="heroicons:check-circle" class="mt-0.5 h-4 w-4 shrink-0" />
+            <span>パスワードを変更しました。新しいパスワードでログインしてください。</span>
+          </div>
 
-            <button type="submit" class="btn-primary w-full" :disabled="resetLoading">
-              <Icon v-if="resetLoading" name="heroicons:arrow-path" class="h-4 w-4 animate-spin" />
-              {{ resetLoading ? '送信中...' : 'リセットメールを送信' }}
+          <template v-else>
+            <form @submit.prevent="handleDobReset" class="space-y-4">
+              <div>
+                <label for="dob-reset-email" class="block text-sm font-medium text-gray-700 mb-1">
+                  メールアドレス
+                </label>
+                <input
+                  id="dob-reset-email"
+                  v-model="dobEmail"
+                  type="email"
+                  autocomplete="email"
+                  placeholder="example@email.com"
+                  class="input-field"
+                  :disabled="dobResetLoading"
+                />
+              </div>
+
+              <div>
+                <label for="dob-reset-birthday" class="block text-sm font-medium text-gray-700 mb-1">
+                  生年月日
+                </label>
+                <input
+                  id="dob-reset-birthday"
+                  v-model="dobBirthday"
+                  type="date"
+                  class="input-field"
+                  :disabled="dobResetLoading"
+                />
+              </div>
+
+              <div>
+                <label for="dob-reset-password" class="block text-sm font-medium text-gray-700 mb-1">
+                  新しいパスワード
+                </label>
+                <input
+                  id="dob-reset-password"
+                  v-model="dobNewPassword"
+                  type="password"
+                  autocomplete="new-password"
+                  placeholder="6文字以上"
+                  class="input-field"
+                  :disabled="dobResetLoading"
+                />
+              </div>
+
+              <div>
+                <label for="dob-reset-password-confirm" class="block text-sm font-medium text-gray-700 mb-1">
+                  新しいパスワード（確認）
+                </label>
+                <input
+                  id="dob-reset-password-confirm"
+                  v-model="dobNewPasswordConfirm"
+                  type="password"
+                  autocomplete="new-password"
+                  class="input-field"
+                  :disabled="dobResetLoading"
+                />
+              </div>
+
+              <div v-if="dobResetError" class="flex items-start gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                <Icon name="heroicons:exclamation-circle" class="mt-0.5 h-4 w-4 shrink-0" />
+                {{ dobResetError }}
+              </div>
+
+              <button type="submit" class="btn-primary w-full" :disabled="dobResetLoading">
+                <Icon v-if="dobResetLoading" name="heroicons:arrow-path" class="h-4 w-4 animate-spin" />
+                {{ dobResetLoading ? '変更中...' : 'パスワードを変更' }}
+              </button>
+            </form>
+          </template>
+
+          <div class="mt-4 text-center">
+            <button
+              type="button"
+              class="text-sm text-primary-600 hover:text-primary-700 hover:underline"
+              @click="showDobReset = false; dobResetDone = false; dobResetError = ''"
+            >
+              ← メールでリセットする方法に戻る
             </button>
-          </form>
+          </div>
         </template>
 
         <div class="mt-4 text-center">
           <button
             type="button"
             class="text-sm text-primary-600 hover:text-primary-700 hover:underline"
-            @click="isResetMode = false; resetSent = false; resetError = ''"
+            @click="isResetMode = false; resetSent = false; resetError = ''; showDobReset = false; dobResetDone = false; dobResetError = ''"
           >
             ← ログインに戻る
           </button>

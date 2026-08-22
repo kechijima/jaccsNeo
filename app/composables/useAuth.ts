@@ -137,10 +137,31 @@ export const useAuth = () => {
     })
   }
 
+  // メール到達性に依存しないパスワード再設定。迷惑メールフォルダ等に振り分けられて
+  // リセットメールが届かず、ログインできなくなるケースへの代替手段として、
+  // 登録済みのメールアドレスと生年月日（マイページ等で本人が登録した値）が
+  // 一致すれば、メールを使わずその場でパスワードを変更できるようにする。
+  // 本人確認と実際のパスワード変更は、未ログインの状態からでも呼び出せる
+  // Cloud Functions側（functions/index.js の resetPasswordWithDob、Admin SDK使用）
+  // で行う。firebase/functionsはこの機能を使うページ（ログイン画面）でのみ
+  // 必要になるため動的import()する
+  const resetPasswordWithDob = async (email: string, birthday: string, newPassword: string) => {
+    const { $firebase } = useNuxtApp()
+    const { getFunctions, httpsCallable } = await import('firebase/functions')
+    // Cloud Functionsのデプロイリージョン（functions/index.jsのsetGlobalOptionsと揃える）
+    const functions = getFunctions($firebase, 'asia-northeast1')
+    const fn = httpsCallable<{ email: string; birthday: string; newPassword: string }, { success: boolean }>(
+      functions,
+      'resetPasswordWithDob',
+    )
+    await fn({ email, birthday, newPassword })
+  }
+
   return {
     login,
     logout,
     initAuth,
     sendPasswordReset,
+    resetPasswordWithDob,
   }
 }
