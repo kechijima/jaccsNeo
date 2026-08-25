@@ -4,6 +4,7 @@ import { useNotifications } from '~/composables/useNotifications'
 import { useGroupLabels } from '~/composables/useGroupLabels'
 import { useThemeColor } from '~/composables/useThemeColor'
 import { useHelpDrawer } from '~/composables/useHelpDrawer'
+import { useDisplayName } from '~/composables/useDisplayName'
 
 const { logout } = useAuth()
 const { open: openHelp } = useHelpDrawer()
@@ -11,7 +12,8 @@ const { displayName, user } = useCurrentUser()
 const authStore = useAuthStore()
 const route = useRoute()
 const { subscribeUnreadCount } = useNotifications()
-const { getGroupLabel, getGroupColor, ensureLoaded: ensureGroupLabelsLoaded } = useGroupLabels()
+const { ensureLoaded: ensureGroupLabelsLoaded } = useGroupLabels()
+const { format: formatDisplayName } = useDisplayName()
 const { ensureLoaded: ensureThemeColorLoaded } = useThemeColor()
 onMounted(() => { ensureGroupLabelsLoaded(); ensureThemeColorLoaded() })
 
@@ -52,8 +54,6 @@ onMounted(() => {
 })
 onBeforeUnmount(() => unsubscribeNotifCount?.())
 
-const groupColorClass = computed(() => user.value?.groupId ? getGroupColor(user.value.groupId) : 'bg-primary-600')
-const groupLabel = computed(() => getGroupLabel(user.value?.groupId))
 </script>
 
 <template>
@@ -149,15 +149,15 @@ const groupLabel = computed(() => getGroupLabel(user.value?.groupId))
       <div class="border-t border-gray-200 p-4">
         <div class="flex items-center gap-3">
           <NuxtLink to="/settings" class="flex items-center gap-3 min-w-0 flex-1 group" title="設定">
-            <div
-              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white transition group-hover:ring-2 group-hover:ring-offset-1 group-hover:ring-primary-300"
-              :class="groupColorClass"
-            >
-              {{ displayName.charAt(0) }}
-            </div>
+            <UserAvatar
+              :avatar-url="user?.avatarUrl"
+              :display-name="displayName"
+              :group-id="user?.groupId"
+              size="md"
+              class="transition group-hover:ring-2 group-hover:ring-offset-1 group-hover:ring-primary-300"
+            />
             <div class="min-w-0 flex-1">
-              <p class="truncate text-sm font-medium text-gray-900 group-hover:text-primary-700 transition">{{ displayName }}</p>
-              <p class="truncate text-xs text-gray-500">{{ groupLabel }}</p>
+              <p class="truncate text-sm font-medium text-gray-900 group-hover:text-primary-700 transition">{{ user ? formatDisplayName(user) : displayName }}</p>
             </div>
           </NuxtLink>
           <button
@@ -282,15 +282,14 @@ const groupLabel = computed(() => getGroupLabel(user.value?.groupId))
               <!-- ユーザー情報 -->
               <div class="flex items-center gap-3 border-b border-gray-200 p-4">
                 <NuxtLink to="/settings" class="flex items-center gap-3 min-w-0 flex-1" title="設定" @click="isMobileMenuOpen = false">
-                  <div
-                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
-                    :class="groupColorClass"
-                  >
-                    {{ displayName.charAt(0) }}
-                  </div>
+                  <UserAvatar
+                    :avatar-url="user?.avatarUrl"
+                    :display-name="displayName"
+                    :group-id="user?.groupId"
+                    size="md"
+                  />
                   <div class="min-w-0 flex-1">
-                    <p class="truncate text-sm font-medium text-gray-900">{{ displayName }}</p>
-                    <p class="truncate text-xs text-gray-500">{{ groupLabel }}</p>
+                    <p class="truncate text-sm font-medium text-gray-900">{{ user ? formatDisplayName(user) : displayName }}</p>
                   </div>
                 </NuxtLink>
                 <button type="button" class="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 shrink-0" @click="isMobileMenuOpen = false">

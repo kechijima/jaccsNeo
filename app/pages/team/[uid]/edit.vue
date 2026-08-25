@@ -3,6 +3,7 @@ import { useUsers } from '~/composables/useUsers'
 import { useStorage } from '~/composables/useStorage'
 import { useAuthStore } from '~/stores/auth'
 import { useGroups } from '~/composables/useGroups'
+import { useDisplayName } from '~/composables/useDisplayName'
 import type { AppUser } from '~/types/user'
 import type { Group } from '~/types/group'
 
@@ -17,6 +18,7 @@ const authStore = useAuthStore()
 const { fetchUser, updateUserProfile } = useUsers()
 const { uploadFile } = useStorage()
 const { fetchGroups } = useGroups()
+const { format: formatDisplayName } = useDisplayName()
 
 const groups = ref<Group[]>([])
 const target = ref<AppUser | null>(null)
@@ -228,21 +230,18 @@ const groupLabel = computed(() => groups.value.find(g => g.id === form.groupId)?
       <!-- プロフィールカード -->
       <div class="card p-5 flex items-center gap-4">
         <div class="relative shrink-0">
-          <img
-            v-if="target.avatarUrl"
-            :src="target.avatarUrl"
-            alt=""
-            class="h-16 w-16 rounded-full object-cover"
+          <UserAvatar
+            :avatar-url="target.avatarUrl"
+            :display-name="target.displayName"
+            :group-id="target.groupId"
+            size="lg"
           />
-          <div v-else class="flex h-16 w-16 items-center justify-center rounded-full bg-primary-100 text-primary-700 text-2xl font-bold">
-            {{ target.displayName.charAt(0) }}
-          </div>
           <div v-if="uploadingPhoto" class="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
             <Icon name="heroicons:arrow-path" class="h-5 w-5 text-white animate-spin" />
           </div>
         </div>
         <div class="flex-1 min-w-0">
-          <p class="text-lg font-bold text-gray-900">{{ target.displayName }}</p>
+          <p class="text-lg font-bold text-gray-900">{{ formatDisplayName(target) }}</p>
           <div class="flex items-center gap-2 flex-wrap mt-1">
             <span class="badge bg-primary-50 text-primary-700 text-xs">{{ target.position || 'なし' }}</span>
             <span class="badge bg-gray-100 text-gray-600 text-xs">{{ groupLabel || 'なし' }}</span>

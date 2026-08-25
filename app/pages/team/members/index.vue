@@ -4,12 +4,14 @@ import { useDirectorIndex } from '~/composables/useDirectorIndex'
 import { DIRECTOR_ROLE_LABELS } from '~/types/directorIndex'
 import { useGroups } from '~/composables/useGroups'
 import { useGroupLabels } from '~/composables/useGroupLabels'
+import { useDisplayName } from '~/composables/useDisplayName'
 
 definePageMeta({ middleware: ['auth'] })
 
 const { fetchUsers } = useUsers()
 const { fetchGroups } = useGroups()
 const { getGroupColor, getGroupBadgeClass, ensureLoaded: ensureGroupLabelsLoaded } = useGroupLabels()
+const { format: formatDisplayName } = useDisplayName()
 const { user } = useCurrentUser()
 const viewMode = ref<'list' | 'lookup'>('list')
 
@@ -32,6 +34,12 @@ interface MemberRow {
   position: string
   contracts: number
   newClients: number
+  avatarUrl?: string
+  lastName?: string
+  firstName?: string
+  kumiaiName?: string
+  planLabel?: string
+  groupId?: string
 }
 
 interface KumaiRow {
@@ -66,13 +74,19 @@ const toggleGroup = (id: string) => {
 // 検索中はヒットしたメンバーが折りたたまれて見えなくならないよう、常に展開扱いにする
 const isGroupExpanded = (id: string) => searchQuery.value.trim() !== '' || expandedGroups.value.includes(id)
 
-const toMemberRow = (u: AppUser): MemberRow => ({
+const toMemberRow = (u: AppUser, groupId?: string): MemberRow => ({
   uid: u.uid,
   name: u.displayName,
   position: u.role,
   // Phase 5 — aggregate contract/newClient stats from meetings
   contracts: 0,
   newClients: 0,
+  avatarUrl: u.avatarUrl,
+  lastName: u.lastName,
+  firstName: u.firstName,
+  kumiaiName: u.kumiaiName,
+  planLabel: u.position,
+  groupId,
 })
 
 onMounted(async () => {
@@ -101,14 +115,14 @@ onMounted(async () => {
         .filter(k => !k.isDissolved)
         .map(k => ({
           name: k.name,
-          members: groupMembers.filter(u => u.kumiaiId === k.id).map(toMemberRow),
+          members: groupMembers.filter(u => u.kumiaiId === k.id).map(u => toMemberRow(u, g.id)),
         }))
 
       // 組合IDが未設定・廃止済み組合を指しているなど、どの組合にも属さないメンバーは「未分類」にまとめる
       const classifiedUids = new Set(kumiaiRows.flatMap(k => k.members.map(m => m.uid)))
       const unclassified = groupMembers.filter(u => !classifiedUids.has(u.uid))
       if (unclassified.length > 0) {
-        kumiaiRows.push({ name: '未分類', members: unclassified.map(toMemberRow) })
+        kumiaiRows.push({ name: '未分類', members: unclassified.map(u => toMemberRow(u, g.id)) })
       }
 
       const nonEmptyKumiais = kumiaiRows.filter(k => k.members.length > 0)
@@ -302,12 +316,14 @@ const filteredGroups = computed<GroupRow[]>(() => {
               class="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors"
             >
               <div class="flex items-center gap-3">
-                <div class="flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold" :class="group.bgColor" style="color: inherit">
-                  {{ m.name.charAt(0) }}
-                </div>
+                <UserAvatar
+                  :avatar-url="m.avatarUrl"
+                  :display-name="m.name"
+                  :group-id="m.groupId"
+                  size="md"
+                />
                 <div>
-                  <p class="text-sm font-medium text-gray-900">{{ m.name }}</p>
-                  <p class="text-xs text-gray-400">{{ m.position }}</p>
+                  <p class="text-sm font-medium text-gray-900">{{ formatDisplayName({ displayName: m.name, lastName: m.lastName, firstName: m.firstName, kumiaiName: m.kumiaiName, position: m.planLabel, groupId: m.groupId }) }}</p>
                 </div>
               </div>
               <div class="flex gap-4 text-center text-sm">

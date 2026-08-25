@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { AppUser } from '~/types/user'
 import { useGroupLabels } from '~/composables/useGroupLabels'
+import { useDisplayName } from '~/composables/useDisplayName'
 import { useAuthStore } from '~/stores/auth'
 
 definePageMeta({ middleware: ['auth'] })
@@ -12,6 +13,7 @@ const { fetchUser } = useUsers()
 const { user: currentUser } = useCurrentUser()
 const authStore = useAuthStore()
 const { getGroupLabel, ensureLoaded: ensureGroupLabelsLoaded } = useGroupLabels()
+const { format: formatDisplayName } = useDisplayName()
 onMounted(() => { ensureGroupLabelsLoaded() })
 
 const profile = ref<AppUser | null>(null)
@@ -82,17 +84,14 @@ const activeTab = ref<typeof tabs[number]['key']>('basic')
     <template v-else>
       <!-- プロフィールカード -->
       <div class="card p-5 flex items-center gap-4 flex-wrap">
-        <img
-          v-if="profile.avatarUrl"
-          :src="profile.avatarUrl"
-          alt=""
-          class="h-16 w-16 shrink-0 rounded-full object-cover"
+        <UserAvatar
+          :avatar-url="profile.avatarUrl"
+          :display-name="profile.displayName"
+          :group-id="profile.groupId"
+          size="lg"
         />
-        <div v-else class="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary-100 text-primary-700 text-2xl font-bold">
-          {{ profile.displayName.charAt(0) }}
-        </div>
         <div class="flex-1 min-w-0">
-          <p class="text-lg font-bold text-gray-900">{{ profile.displayName }}</p>
+          <p class="text-lg font-bold text-gray-900">{{ formatDisplayName(profile) }}</p>
           <div class="flex items-center gap-2 flex-wrap mt-1">
             <span class="badge bg-primary-50 text-primary-700 text-xs">{{ v(profile.position) }}</span>
             <span class="badge bg-gray-100 text-gray-600 text-xs">{{ groupLabel }}</span>
