@@ -4,7 +4,7 @@ import { useNotifications } from '~/composables/useNotifications'
 import { useUsers } from '~/composables/useUsers'
 import { useAuthorProfileModal } from '~/composables/useAuthorProfileModal'
 import { useMentionClick } from '~/composables/useMentionClick'
-import { resolveSpaceMembers } from '~/composables/useSpaces'
+import { useSpaces, resolveSpaceMembers } from '~/composables/useSpaces'
 import { useGroupLabels } from '~/composables/useGroupLabels'
 import { useFavorites } from '~/composables/useFavorites'
 import type { AppUser } from '~/types/user'
@@ -198,13 +198,31 @@ const handleDeleteDraft = async (postId: string) => {
   await store.deletePost(postId)
 }
 
-// ── リアクション ─────────────────────────────────────────────────────
-const EMOJIS = ['👍', '❤️', '🎉', '😊', '👏', '🔥']
-const showEmojiPicker = ref<string | null>(null)
+// ── リアクション（👍のみ。誰が押したか確認できる） ──────────────────────────
+const { fetchReactorUids } = useSpaces()
+const REACTION_EMOJI = '👍'
+const reactorListFor  = ref<string | null>(null)
+const reactorNames    = ref<string[]>([])
+const reactorsLoading = ref(false)
 
-const onReaction = (postId: string, emoji: string) => {
-  store.toggleReaction(postId, emoji)
-  showEmojiPicker.value = null
+const onReaction = (postId: string) => {
+  store.toggleReaction(postId, REACTION_EMOJI)
+}
+
+const toggleReactorList = async (postId: string) => {
+  if (reactorListFor.value === postId) {
+    reactorListFor.value = null
+    return
+  }
+  reactorListFor.value = postId
+  reactorsLoading.value = true
+  try {
+    const uids = await fetchReactorUids(spaceId.value, postId, REACTION_EMOJI)
+    const nameByUid = new Map(members.value.map(u => [u.uid, u.displayName]))
+    reactorNames.value = uids.map(uid => nameByUid.get(uid) ?? '不明なユーザー')
+  } finally {
+    reactorsLoading.value = false
+  }
 }
 
 // ── コメント ──────────────────────────────────────────────────────────
@@ -533,45 +551,42 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
             </div>
           </div>
 
-          <!-- リアクション -->
-          <div class="px-4 py-2 border-t border-gray-100 flex items-center gap-1.5 flex-wrap">
-            <span
-              v-for="(count, emoji) in post.reactions"
-              :key="String(emoji)"
-              class="inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-medium cursor-pointer transition select-none"
-              :class="post.myReactions.includes(String(emoji))
-                ? 'bg-primary-100 text-primary-700 ring-1 ring-primary-300'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
-              @click="onReaction(post.id, String(emoji))"
-            >{{ String(emoji) }} {{ count }}</span>
-
-            <!-- 絵文字追加ボタン -->
-            <div class="relative">
+          <!-- リアクション（Good/👍のみ） -->
+          <div class="px-4 py-2 border-t border-gray-100">
+            <div class="flex items-center gap-1.5 flex-wrap">
               <button
-                class="inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs text-gray-400 hover:bg-gray-100 transition"
-                @click.stop="showEmojiPicker = showEmojiPicker === post.id ? null : post.id"
+                class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition select-none"
+                :class="post.myReactions.includes('👍')
+                  ? 'bg-primary-100 text-primary-700 ring-1 ring-primary-300'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+                @click="onReaction(post.id)"
               >
-                <Icon name="heroicons:face-smile" class="h-3.5 w-3.5" /> +
+                👍 Good<span v-if="(post.reactions?.['👍'] ?? 0) > 0"> {{ post.reactions['👍'] }}</span>
               </button>
-              <div
-                v-if="showEmojiPicker === post.id"
-                class="absolute z-20 left-0 top-full mt-1 flex gap-1 bg-white border border-gray-200 rounded-xl shadow-lg p-2"
+
+              <button
+                v-if="(post.reactions?.['👍'] ?? 0) > 0"
+                type="button"
+                class="text-xs text-gray-400 hover:text-primary-600 hover:underline"
+                @click.stop="toggleReactorList(post.id)"
               >
-                <button
-                  v-for="em in EMOJIS"
-                  :key="em"
-                  class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-base transition"
-                  @click="onReaction(post.id, em)"
-                >{{ em }}</button>
-              </div>
+                誰がGoodしたか見る
+              </button>
+
+              <NuxtLink
+                :to="`/portal/spaces/${spaceId}/posts/${post.id}`"
+                class="ml-auto text-xs text-gray-400 hover:text-primary-600 transition flex items-center gap-0.5"
+              >
+                詳細<Icon name="heroicons:arrow-top-right-on-square" class="h-3 w-3" />
+              </NuxtLink>
             </div>
 
-            <NuxtLink
-              :to="`/portal/spaces/${spaceId}/posts/${post.id}`"
-              class="ml-auto text-xs text-gray-400 hover:text-primary-600 transition flex items-center gap-0.5"
-            >
-              詳細<Icon name="heroicons:arrow-top-right-on-square" class="h-3 w-3" />
-            </NuxtLink>
+            <!-- Goodした人の一覧 -->
+            <div v-if="reactorListFor === post.id" class="mt-2 text-xs text-gray-500">
+              <span v-if="reactorsLoading">読み込み中...</span>
+              <span v-else-if="reactorNames.length === 0">まだ誰もGoodしていません</span>
+              <span v-else>{{ reactorNames.join('、') }}</span>
+            </div>
           </div>
 
           <!-- コメント -->
@@ -639,9 +654,6 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
         </div>
       </div>
     </aside>
-
-    <!-- 絵文字ピッカー外クリックで閉じる -->
-    <div v-if="showEmojiPicker" class="fixed inset-0 z-10" @click="showEmojiPicker = null" />
 
   </div>
 </template>

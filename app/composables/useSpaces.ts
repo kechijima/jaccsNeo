@@ -307,6 +307,16 @@ export const useSpaces = () => {
     }
   }
 
+  // ===== リアクションした人のuid一覧（誰がいいねしたか表示用） =====
+  const fetchReactorUids = async (spaceId: string, postId: string, emoji: string): Promise<string[]> => {
+    const q = query(
+      collection($db, 'spaces', spaceId, 'posts', postId, 'reactions'),
+      where('emoji', '==', emoji),
+    )
+    const snap = await getDocs(q)
+    return snap.docs.map(d => d.data().uid as string).filter(Boolean)
+  }
+
   // ===== コメント取得 =====
   const fetchComments = async (spaceId: string, postId: string): Promise<Comment[]> => {
     const q = query(commentsCol(spaceId, postId), orderBy('createdAt', 'asc'))
@@ -399,6 +409,7 @@ export const useSpaces = () => {
     syncPostCount,
     pinPost,
     toggleReaction,
+    fetchReactorUids,
     fetchComments,
     createComment,
     seedFromMock,

@@ -274,6 +274,7 @@ const activeServices = computed(() => {
               </p>
               <p class="text-gray-500">
                 <span v-if="m.dob">{{ formatDate(m.dob) }}</span>
+                <span v-if="m.dob && getAnimalFortune(m.dob)"> {{ getAnimalFortune(m.dob)!.emoji }} {{ getAnimalFortune(m.dob)!.animal }}</span>
                 <span v-if="m.dob && m.occupation"> ／ </span>
                 <span v-if="m.occupation">{{ m.occupation }}</span>
               </p>

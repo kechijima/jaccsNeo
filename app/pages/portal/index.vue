@@ -6,7 +6,10 @@ import { useMentionClick } from '~/composables/useMentionClick'
 import { useEvents } from '~/composables/useEvents'
 import { useEventScope } from '~/composables/useEventScope'
 import { useFavorites } from '~/composables/useFavorites'
+import { useSpaces } from '~/composables/useSpaces'
+import { useUsers } from '~/composables/useUsers'
 import type { EventSummary } from '~/types/event'
+import type { AppUser } from '~/types/user'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -14,9 +17,15 @@ const store = usePortalStore()
 const { openAuthorProfile } = useAuthorProfileModal()
 const { handleMentionClick } = useMentionClick()
 const { isFavoriteSpace, toggleFavoriteSpace, ensureLoaded: ensureFavoritesLoaded } = useFavorites()
+const { fetchReactorUids } = useSpaces()
+const { fetchUsers } = useUsers()
 ensureFavoritesLoaded()
 
 await store.fetchAllPosts()
+const members = ref<AppUser[]>([])
+onMounted(async () => {
+  members.value = await fetchUsers().catch(() => [])
+})
 
 // ── 検索・フィルター ──────────────────────────────────────────────────
 const searchQuery    = ref('')
@@ -106,13 +115,30 @@ const filteredPosts = computed(() => {
   return list
 })
 
-// ── リアクション ─────────────────────────────────────────────────────
-const EMOJIS = ['👍', '❤️', '🎉', '😊', '👏', '🔥']
-const showEmojiPicker = ref<string | null>(null)
+// ── リアクション（👍のみ。誰が押したか確認できる） ──────────────────────────
+const REACTION_EMOJI = '👍'
+const reactorListFor  = ref<string | null>(null)
+const reactorNames    = ref<string[]>([])
+const reactorsLoading = ref(false)
 
-const onReaction = (postId: string, emoji: string) => {
-  store.toggleReaction(postId, emoji)
-  showEmojiPicker.value = null
+const onReaction = (postId: string) => {
+  store.toggleReaction(postId, REACTION_EMOJI)
+}
+
+const toggleReactorList = async (post: { id: string; spaceId: string }) => {
+  if (reactorListFor.value === post.id) {
+    reactorListFor.value = null
+    return
+  }
+  reactorListFor.value = post.id
+  reactorsLoading.value = true
+  try {
+    const uids = await fetchReactorUids(post.spaceId, post.id, REACTION_EMOJI)
+    const nameByUid = new Map(members.value.map(u => [u.uid, u.displayName]))
+    reactorNames.value = uids.map(uid => nameByUid.get(uid) ?? '不明なユーザー')
+  } finally {
+    reactorsLoading.value = false
+  }
 }
 
 // ── コメント ──────────────────────────────────────────────────────────
@@ -353,37 +379,25 @@ const upcomingEvents = computed(() =>
 
               <!-- アクションバー -->
               <div class="mt-3 flex items-center gap-2 flex-wrap">
-                <!-- 既存リアクション -->
-                <span
-                  v-for="(count, emoji) in post.reactions"
-                  :key="String(emoji)"
-                  class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium cursor-pointer transition"
-                  :class="post.myReactions.includes(String(emoji))
+                <!-- Good（👍のみ） -->
+                <button
+                  class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition select-none"
+                  :class="post.myReactions.includes('👍')
                     ? 'bg-primary-100 text-primary-700 ring-1 ring-primary-300'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
-                  @click="onReaction(post.id, String(emoji))"
-                >{{ String(emoji) }} {{ count }}</span>
+                  @click="onReaction(post.id)"
+                >
+                  👍 Good<span v-if="(post.reactions?.['👍'] ?? 0) > 0"> {{ post.reactions['👍'] }}</span>
+                </button>
 
-                <!-- 絵文字追加ボタン -->
-                <div class="relative">
-                  <button
-                    class="inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs text-gray-400 hover:bg-gray-100 transition"
-                    @click.stop="showEmojiPicker = showEmojiPicker === post.id ? null : post.id"
-                  >
-                    <Icon name="heroicons:face-smile" class="h-3.5 w-3.5" /> +
-                  </button>
-                  <div
-                    v-if="showEmojiPicker === post.id"
-                    class="absolute z-20 left-0 top-full mt-1 flex gap-1 bg-white border border-gray-200 rounded-xl shadow-lg p-2"
-                  >
-                    <button
-                      v-for="em in EMOJIS"
-                      :key="em"
-                      class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-base transition"
-                      @click="onReaction(post.id, em)"
-                    >{{ em }}</button>
-                  </div>
-                </div>
+                <button
+                  v-if="(post.reactions?.['👍'] ?? 0) > 0"
+                  type="button"
+                  class="text-xs text-gray-400 hover:text-primary-600 hover:underline"
+                  @click.stop="toggleReactorList(post)"
+                >
+                  誰がGoodしたか見る
+                </button>
 
                 <!-- コメント -->
                 <button
@@ -402,6 +416,13 @@ const upcomingEvents = computed(() =>
                   詳細
                   <Icon name="heroicons:arrow-top-right-on-square" class="h-3 w-3" />
                 </NuxtLink>
+              </div>
+
+              <!-- Goodした人の一覧 -->
+              <div v-if="reactorListFor === post.id" class="mt-1.5 text-xs text-gray-500">
+                <span v-if="reactorsLoading">読み込み中...</span>
+                <span v-else-if="reactorNames.length === 0">まだ誰もGoodしていません</span>
+                <span v-else>{{ reactorNames.join('、') }}</span>
               </div>
 
               <!-- コメント展開 -->
@@ -504,9 +525,6 @@ const upcomingEvents = computed(() =>
 
       </div>
     </div>
-
-    <!-- 絵文字ピッカー外クリックで閉じる -->
-    <div v-if="showEmojiPicker" class="fixed inset-0 z-10" @click="showEmojiPicker = null" />
 
   </div>
 </template>

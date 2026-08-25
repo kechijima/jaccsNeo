@@ -349,6 +349,10 @@ const updateReminder = (idx: number, key: keyof Reminder, value: string) => {
             <label class="block text-xs font-medium text-gray-600 mb-1">生年月日</label>
             <input :value="member.dob" type="date" class="input-field text-sm py-1.5"
               @input="updateFamilyMember(idx, 'dob', ($event.target as HTMLInputElement).value)" />
+            <p v-if="getAnimalFortune(member.dob)" class="mt-1 text-xs text-gray-500 flex items-center gap-1">
+              <span>{{ getAnimalFortune(member.dob)!.emoji }}</span>
+              <span>{{ getAnimalFortune(member.dob)!.animal }}</span>
+            </p>
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">職業</label>

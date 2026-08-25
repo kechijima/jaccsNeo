@@ -131,13 +131,13 @@ const calendarDays = computed(() => {
   const firstDay = new Date(year, month, 1)
   const lastDay = new Date(year, month + 1, 0)
 
-  // 月の最初の週の日曜日から開始
+  // 月の最初の週の月曜日から開始（日曜日を右端にするため、週の始まりを月曜日にする）
   const startDate = new Date(firstDay)
-  startDate.setDate(startDate.getDate() - startDate.getDay())
+  startDate.setDate(startDate.getDate() - ((startDate.getDay() + 6) % 7))
 
-  // 月の最終週の土曜日まで
+  // 月の最終週の日曜日まで
   const endDate = new Date(lastDay)
-  endDate.setDate(endDate.getDate() + (6 - endDate.getDay()))
+  endDate.setDate(endDate.getDate() + ((7 - endDate.getDay()) % 7))
 
   const todayStr = new Date().toDateString()
   const days: Array<{
@@ -397,10 +397,10 @@ const createEventOnSelectedDay = () => {
       <!-- 曜日ヘッダー -->
       <div class="grid grid-cols-7 bg-gray-50 border-b border-gray-100">
         <div
-          v-for="(d, i) in ['日','月','火','水','木','金','土']"
+          v-for="(d, i) in ['月','火','水','木','金','土','日']"
           :key="d"
           class="py-2 text-center text-xs font-semibold"
-          :class="i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-gray-500'"
+          :class="i === 6 ? 'text-red-400' : i === 5 ? 'text-blue-400' : 'text-gray-500'"
         >{{ d }}</div>
       </div>
 
