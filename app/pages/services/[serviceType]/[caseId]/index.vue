@@ -26,6 +26,14 @@ const { getById: getCustomerById, ensureLoaded: ensureCustomersLoaded } = useCus
 await ensureCustomersLoaded()
 const customer = computed(() => liCase.value?.customerId ? getCustomerById(liCase.value.customerId).value : null)
 
+// 作成日・更新日を時刻込みで表示する（例: 2026/09/21 14:35）
+const formatDateTime = (val: any): string => {
+  if (!val) return ''
+  const d = val.toDate ? val.toDate() : new Date(val)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+}
+
 const statusClass = (status: string) => {
   if (/未成約|不成立|見送/.test(status)) return 'bg-red-100 text-red-600'
   if (/成約|○|済/.test(status))          return 'bg-green-100 text-green-700'
@@ -111,6 +119,8 @@ const progressRestrictedEntries = computed(() => buildEntries(['contractContent'
           <div v-if="liCase.tel"><dt class="text-gray-500">TEL</dt><dd class="font-medium text-gray-900 mt-0.5">{{ liCase.tel }}</dd></div>
           <div v-if="liCase.assignedFpName"><dt class="text-gray-500">担当 未来設計士</dt><dd class="font-medium text-gray-900 mt-0.5">{{ liCase.assignedFpName }}</dd></div>
           <div v-if="liCase.faceToFaceStaffName"><dt class="text-gray-500">面前担当者</dt><dd class="font-medium text-gray-900 mt-0.5">{{ liCase.faceToFaceStaffName }}</dd></div>
+          <div v-if="liCase.createdAt"><dt class="text-gray-500">作成日</dt><dd class="font-medium text-gray-900 mt-0.5">{{ formatDateTime(liCase.createdAt) }}</dd></div>
+          <div v-if="liCase.updatedAt"><dt class="text-gray-500">更新日</dt><dd class="font-medium text-gray-900 mt-0.5">{{ formatDateTime(liCase.updatedAt) }}</dd></div>
         </div>
       </div>
 

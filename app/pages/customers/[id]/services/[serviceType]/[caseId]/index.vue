@@ -108,14 +108,22 @@ const attachedFiles = ref<File[]>([])
 const serviceLabel = computed(() => SERVICE_LABELS[serviceType.value] ?? appDef.value?.name ?? serviceType.value)
 
 const dbCase = ref<any>(null)
+// 作成日・更新日を時刻込みで表示する（例: 2026/09/21 14:35）
+const formatDateTime = (val: any): string => {
+  if (!val) return ''
+  const d = val.toDate ? val.toDate() : new Date(val)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+}
+
 const caseData = computed(() => {
   const raw = dbCase.value
   if (!raw) return null
   return {
     ...raw,
     statusLabel: STATUS_LABELS[raw.status as keyof typeof STATUS_LABELS] ?? raw.status ?? '',
-    createdAtFmt: raw.createdAt ? (raw.createdAt.toDate ? raw.createdAt.toDate().toLocaleDateString('ja-JP') : new Date(raw.createdAt).toLocaleDateString('ja-JP')) : '',
-    updatedAtFmt: raw.updatedAt ? (raw.updatedAt.toDate ? raw.updatedAt.toDate().toLocaleDateString('ja-JP') : new Date(raw.updatedAt).toLocaleDateString('ja-JP')) : '',
+    createdAtFmt: formatDateTime(raw.createdAt),
+    updatedAtFmt: formatDateTime(raw.updatedAt),
   }
 })
 

@@ -5,11 +5,26 @@ import type { AppUser } from '~/types/user'
 
 definePageMeta({ middleware: ['auth', 'admin'] })
 
-const { appDefs, loading, fetchAll, create, duplicateFrom } = useAppDefs()
+const { appDefs, loading, fetchAll, create, duplicateFrom, remove } = useAppDefs()
 const { fetchUsers } = useUsers()
 
 const loadError = ref('')
 const users = ref<AppUser[]>([])
+const deletingId = ref('')
+const deleteError = ref('')
+
+const handleDelete = async (app: { id: string; name: string }) => {
+  if (!confirm(`「${app.name}」を削除します。フィールド設定・アプリの各種設定はすべて失われます（登録済みの案件データ自体は削除されません）。よろしいですか？`)) return
+  deletingId.value = app.id
+  deleteError.value = ''
+  try {
+    await remove(app.id)
+  } catch (e: any) {
+    deleteError.value = e.message ?? '削除に失敗しました'
+  } finally {
+    deletingId.value = ''
+  }
+}
 
 onMounted(async () => {
   try {
@@ -104,6 +119,8 @@ const submitCreate = async () => {
       <p class="text-sm text-red-500">{{ loadError }}</p>
     </div>
 
+    <p v-if="deleteError" class="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{{ deleteError }}</p>
+
     <!-- 空の状態 -->
     <div v-else-if="appDefs.length === 0" class="card p-16 text-center">
       <Icon name="heroicons:squares-plus" class="h-12 w-12 text-gray-200 mx-auto mb-3" />
@@ -130,7 +147,19 @@ const submitCreate = async () => {
             </div>
             <p class="text-xs text-gray-400 mt-0.5">{{ app.fields.length }}項目</p>
           </div>
-          <Icon name="heroicons:chevron-right" class="h-5 w-5 text-gray-300 shrink-0" />
+          <div class="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              class="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition"
+              :disabled="deletingId === app.id"
+              title="アプリを削除"
+              @click.prevent.stop="handleDelete(app)"
+            >
+              <Icon v-if="deletingId === app.id" name="heroicons:arrow-path" class="h-4 w-4 animate-spin" />
+              <Icon v-else name="heroicons:trash" class="h-4 w-4" />
+            </button>
+            <Icon name="heroicons:chevron-right" class="h-5 w-5 text-gray-300 shrink-0" />
+          </div>
         </div>
         <p v-if="app.description" class="text-xs text-gray-500 mt-2 line-clamp-2">{{ app.description }}</p>
         <div class="flex items-center gap-3 mt-3 pt-3 border-t border-gray-100 text-xs text-gray-500">

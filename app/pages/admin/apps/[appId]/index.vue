@@ -14,7 +14,7 @@ const OTHER_SERVICE_TYPE_OPTIONS = Object.entries(SERVICE_LABELS)
   .filter(([value]) => value !== 'lifeInsurance')
   .map(([value, label]) => ({ value, label }))
 
-const { fetchOne, update, appDefs: allAppDefs, fetchAll: fetchAllAppDefs } = useAppDefs()
+const { fetchOne, update, remove, appDefs: allAppDefs, fetchAll: fetchAllAppDefs } = useAppDefs()
 const { fetchUsers } = useUsers()
 
 const loading = ref(true)
@@ -432,6 +432,21 @@ const submitSettings = async () => {
     settingsError.value = e.message ?? '保存に失敗しました'
   } finally {
     settingsSaving.value = false
+  }
+}
+
+// ── アプリの削除 ──────────────────────────────────────────────
+const deletingApp = ref(false)
+const handleDeleteApp = async () => {
+  if (!confirm(`「${appName.value}」を削除します。フィールド設定・アプリの各種設定はすべて失われます（登録済みの案件データ自体は削除されません）。よろしいですか？`)) return
+  deletingApp.value = true
+  settingsError.value = ''
+  try {
+    await remove(appId.value)
+    await navigateTo('/admin/apps')
+  } catch (e: any) {
+    settingsError.value = e.message ?? '削除に失敗しました'
+    deletingApp.value = false
   }
 }
 </script>
@@ -1084,6 +1099,19 @@ const submitSettings = async () => {
                 </label>
               </div>
             </template>
+          </div>
+
+          <div class="rounded-lg border border-red-100 p-3">
+            <button
+              type="button"
+              class="w-full text-sm text-red-500 hover:bg-red-50 rounded-lg py-2 transition flex items-center justify-center gap-1.5"
+              :disabled="deletingApp"
+              @click="handleDeleteApp"
+            >
+              <Icon v-if="deletingApp" name="heroicons:arrow-path" class="h-4 w-4 animate-spin" />
+              <Icon v-else name="heroicons:trash" class="h-4 w-4" />
+              このアプリを削除する
+            </button>
           </div>
 
           <div class="flex gap-3 pt-2">

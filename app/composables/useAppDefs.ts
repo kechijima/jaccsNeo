@@ -1,5 +1,5 @@
 import {
-  collection, doc, getDocs, getDoc, addDoc, updateDoc,
+  collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc,
   serverTimestamp, type DocumentData,
 } from 'firebase/firestore'
 import type { AppDef, AppDefInput, AppFieldDef } from '~/types/appDef'
@@ -112,5 +112,12 @@ export const useAppDefs = () => {
     })
   }
 
-  return { appDefs, loading, loaded, fetchAll, getById, fetchOne, getPublishedByServiceType, create, update, duplicateFrom }
+  // アプリ定義（フィールド構成・設定）を削除する。既に登録済みの案件データ
+  // （customers/{cid}/services/{type}/cases）自体は削除されない
+  const remove = async (id: string): Promise<void> => {
+    await deleteDoc(doc($db, COLLECTION, id))
+    appDefs.value = appDefs.value.filter(a => a.id !== id)
+  }
+
+  return { appDefs, loading, loaded, fetchAll, getById, fetchOne, getPublishedByServiceType, create, update, duplicateFrom, remove }
 }
