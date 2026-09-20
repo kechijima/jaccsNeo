@@ -18,7 +18,7 @@ const route = useRoute()
 const customerId = computed(() => route.params.id as string)
 const serviceType = computed(() => route.params.serviceType as string)
 const caseId = computed(() => route.params.caseId as string)
-const { fetchCase, updateCaseStatus, addProgressReport } = useServices()
+const { fetchCase, fetchCases, updateCaseStatus, addProgressReport } = useServices()
 const { sendNotification } = useNotifications()
 const { uploadFile } = useStorage()
 const { canEditCustomer: checkEditPermission } = usePermission()
@@ -26,22 +26,60 @@ const authStore = useAuthStore()
 
 // アプリ管理（フォームビルダー）でこのserviceTypeに連携された項目定義。
 // 設定されていれば、案件のcustomFieldsをラベル付きで表示する
-const { getPublishedByServiceType } = useAppDefs()
+const { getPublishedByServiceType, appDefs: allAppDefs, fetchAll: fetchAllAppDefs } = useAppDefs()
 const appDef = ref<AppDef | null>(null)
+
+// 関連レコード一覧タイプの項目は、値を保存せず常に最新の関連案件をライブ表示する
+interface RelatedRecordsState { loading: boolean; cases: any[]; appName: string; serviceType: string }
+const relatedRecordsData = ref<Record<string, RelatedRecordsState>>({})
+
+const loadRelatedRecords = async () => {
+  const relatedFields = (appDef.value?.fields ?? []).filter(f => f.type === 'related_records' && f.relatedAppId)
+  if (relatedFields.length === 0) return
+  await fetchAllAppDefs()
+  for (const f of relatedFields) {
+    const targetApp = allAppDefs.value.find(a => a.id === f.relatedAppId)
+    if (!targetApp?.sourceServiceType) continue
+    relatedRecordsData.value = {
+      ...relatedRecordsData.value,
+      [f.id]: { loading: true, cases: [], appName: targetApp.name, serviceType: targetApp.sourceServiceType },
+    }
+    const cases = await fetchCases(customerId.value, targetApp.sourceServiceType).catch(() => [])
+    relatedRecordsData.value = {
+      ...relatedRecordsData.value,
+      [f.id]: { loading: false, cases, appName: targetApp.name, serviceType: targetApp.sourceServiceType },
+    }
+  }
+}
+
 onMounted(async () => {
   appDef.value = await getPublishedByServiceType(serviceType.value).catch(() => null)
+  await loadRelatedRecords()
 })
 
 const customFieldEntries = computed(() => {
   if (!appDef.value || !caseData.value?.customFields) return []
   return appDef.value.fields
-    .filter(f => caseData.value!.customFields[f.id] !== undefined)
+    .filter(f => f.type !== 'related_records' && caseData.value!.customFields[f.id] !== undefined)
     .map(f => {
       const raw = caseData.value!.customFields[f.id]
       return { label: f.label, value: Array.isArray(raw) ? raw.join('、') : raw }
     })
     .filter(e => e.value)
 })
+
+const relatedRecordEntries = computed(() =>
+  (appDef.value?.fields ?? [])
+    .filter(f => f.type === 'related_records' && f.relatedAppId)
+    .map(f => ({ field: f, data: relatedRecordsData.value[f.id] })),
+)
+
+const relatedStatusClass = (status: string) => {
+  if (/成約/.test(status)) return 'bg-green-100 text-green-700'
+  if (/不成立/.test(status)) return 'bg-red-100 text-red-600'
+  if (/検討/.test(status)) return 'bg-amber-100 text-amber-700'
+  return 'bg-gray-100 text-gray-600'
+}
 
 const { getById, ensureLoaded } = useCustomerStore()
 await ensureLoaded()
@@ -318,6 +356,32 @@ const handleDelete = () => {
             <dd class="font-medium text-gray-900 whitespace-pre-line">{{ entry.value }}</dd>
           </div>
         </dl>
+      </div>
+
+      <!-- アプリ管理で設定した関連レコード一覧（同じ顧客の他アプリ案件、ライブ表示） -->
+      <div v-for="entry in relatedRecordEntries" :key="entry.field.id" class="card p-5">
+        <h2 class="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <Icon name="heroicons:table-cells" class="h-5 w-5 text-primary-600" />
+          {{ entry.field.label }}
+        </h2>
+        <div v-if="entry.data?.loading" class="text-center py-6 text-sm text-gray-400 flex items-center justify-center gap-1.5">
+          <Icon name="heroicons:arrow-path" class="h-4 w-4 animate-spin" />読み込み中...
+        </div>
+        <div v-else-if="!entry.data?.cases.length" class="text-center py-6 text-sm text-gray-400">
+          {{ entry.data?.appName ?? entry.field.label }}の案件はありません
+        </div>
+        <div v-else class="divide-y divide-gray-50">
+          <NuxtLink
+            v-for="c in entry.data.cases"
+            :key="c.id"
+            :to="`/customers/${customerId}/services/${entry.data.serviceType}/${c.id}`"
+            class="flex items-center justify-between gap-2 py-2.5 text-sm hover:bg-gray-50 transition"
+          >
+            <span class="badge text-xs" :class="relatedStatusClass(STATUS_LABELS[c.status] ?? c.status)">{{ STATUS_LABELS[c.status] ?? c.status }}</span>
+            <span class="flex-1 min-w-0 truncate text-gray-600 text-xs">{{ c.company || c.notes || '—' }}</span>
+            <Icon name="heroicons:chevron-right" class="h-3.5 w-3.5 text-gray-300 shrink-0" />
+          </NuxtLink>
+        </div>
       </div>
 
       <!-- 案件資料一覧 -->

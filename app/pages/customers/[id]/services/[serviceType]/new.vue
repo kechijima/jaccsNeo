@@ -525,7 +525,7 @@ const handleLiSubmit = async () => {
           <Icon name="heroicons:squares-2x2" class="h-5 w-5 text-primary-600" />
           {{ appDef.name }}の項目
         </h3>
-        <AppDynamicFields v-model="customFieldValues" :fields="appDef.fields" />
+        <AppDynamicFields v-model="customFieldValues" :fields="appDef.fields" :customer-id="customerId" />
       </div>
 
       <!-- ファイル添付（Phase3で実装） -->

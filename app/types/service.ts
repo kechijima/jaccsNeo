@@ -115,6 +115,10 @@ export interface ServiceCase {
   notes?: string         // 備考
   reminderDate?: string  // リマインダー日
   reminderNote?: string  // リマインダー内容
+  reminderAudienceUids?: string[]  // リマインダーの通知対象者（未設定時はassigneeUid・plannerUidのみに表示）
+  assigneeUid?: string    // 担当者（アプリの責任者・担当者から選択）
+  plannerUid?: string     // 担当未来設計士（全ユーザー、またはアプリで許可されたユーザーから選択）
+  staleAlertSentFor?: string  // 放置アラートを送信済みのupdatedAt（ISO文字列）。再更新されると自動的に対象外になる
   // アプリ管理（フォームビルダー）でこのserviceTypeに紐づけたAppDefのフィールドID
   // をキーとする入力値。AppDefが設定されていないserviceTypeでは常に空
   customFields?: Record<string, string | string[]>
@@ -142,6 +146,9 @@ export interface ServiceCaseForm {
   notes?: string
   reminderDate?: string
   reminderNote?: string
+  reminderAudienceUids?: string[]
+  assigneeUid?: string
+  plannerUid?: string
   customFields?: Record<string, string | string[]>
 }
 

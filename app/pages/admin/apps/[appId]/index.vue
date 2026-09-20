@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useAppDefs } from '~/composables/useAppDefs'
 import { useUsers } from '~/composables/useUsers'
-import { SERVICE_LABELS, APP_CATEGORY_LIST } from '~/types/service'
+import { SERVICE_LABELS, STATUS_LABELS, APP_CATEGORY_LIST } from '~/types/service'
 import { readCsvFile, parseCsv, guessFieldType } from '~/utils/csv'
 import type { AppUser } from '~/types/user'
 
@@ -14,7 +14,7 @@ const OTHER_SERVICE_TYPE_OPTIONS = Object.entries(SERVICE_LABELS)
   .filter(([value]) => value !== 'lifeInsurance')
   .map(([value, label]) => ({ value, label }))
 
-const { fetchOne, update } = useAppDefs()
+const { fetchOne, update, appDefs: allAppDefs, fetchAll: fetchAllAppDefs } = useAppDefs()
 const { fetchUsers } = useUsers()
 
 const loading = ref(true)
@@ -25,12 +25,22 @@ const ownerUid = ref('')
 const staffUids = ref<string[]>([])
 const sourceServiceType = ref('')
 const category = ref('その他')
+const plannerUids = ref<string[]>([])
+const staleAlertDaysInput = ref('')
+const staleAlertStatuses = ref<string[]>([])
 const isPublished = ref(true)
 const users = ref<AppUser[]>([])
 
+// 他のアプリ（ルックアップ・関連レコード一覧の参照先候補）
+const otherAppDefs = computed(() => allAppDefs.value.filter(a => a.id !== appId.value && a.isPublished))
+
 onMounted(async () => {
   try {
-    const [app, fetchedUsers] = await Promise.all([fetchOne(appId.value), fetchUsers().catch(() => [])])
+    const [app, fetchedUsers] = await Promise.all([
+      fetchOne(appId.value),
+      fetchUsers().catch(() => []),
+      fetchAllAppDefs(),
+    ])
     users.value = fetchedUsers
     if (!app) {
       loadError.value = 'アプリが見つかりませんでした'
@@ -41,6 +51,9 @@ onMounted(async () => {
       staffUids.value = [...app.staffUids]
       sourceServiceType.value = app.sourceServiceType ?? ''
       category.value = app.category && APP_CATEGORY_LIST.includes(app.category) ? app.category : 'その他'
+      plannerUids.value = [...(app.plannerUids ?? [])]
+      staleAlertDaysInput.value = app.staleAlertDays ? String(app.staleAlertDays) : ''
+      staleAlertStatuses.value = [...(app.staleAlertStatuses ?? ['consulting', 'considering'])]
       isPublished.value = app.isPublished
       fields.value = app.fields.map(f => ({ ...f, options: [...f.options] }))
     }
@@ -134,6 +147,11 @@ interface CanvasField {
   label: string
   required: boolean
   options: string[]
+  lookupSource?: 'customer' | 'app'
+  lookupCustomerField?: string
+  lookupAppId?: string
+  lookupFieldKey?: string
+  relatedAppId?: string
 }
 
 // ── 状態 ──────────────────────────────────────────────────────
@@ -154,6 +172,39 @@ const selectedField = computed(() => fields.value.find(f => f.id === selectedId.
 const hasOptions   = (t: string) => ['radio', 'dropdown', 'checkbox', 'multi_select'].includes(t)
 const isAutoField  = (t: string) => ['record_number', 'space'].includes(t)
 const isRelation   = (t: string) => ['lookup', 'related_records'].includes(t)
+
+// ── ルックアップ・関連レコード一覧の参照先候補 ──────────────────────
+const CUSTOMER_LOOKUP_FIELDS = [
+  { key: 'name',           label: '氏名' },
+  { key: 'nameKana',       label: 'フリガナ' },
+  { key: 'tel',            label: 'TEL' },
+  { key: 'email',          label: 'メールアドレス' },
+  { key: 'address',        label: '住所' },
+  { key: 'dob',            label: '生年月日' },
+  { key: 'employer',       label: '勤務先' },
+  { key: 'assignedFpName', label: '担当FP（担当未来設計士）' },
+]
+
+const GENERIC_CASE_FIELD_OPTIONS = [
+  { key: 'builtin:status',       label: 'ステータス' },
+  { key: 'builtin:company',      label: '会社名・保険会社' },
+  { key: 'builtin:amount',       label: '金額・保険料' },
+  { key: 'builtin:notes',        label: '備考' },
+  { key: 'builtin:date',         label: '対応開始日' },
+  { key: 'builtin:contractDate', label: '成約日' },
+]
+
+// ルックアップの参照先フィールドとして選べない項目タイプ（値を持たない・循環参照になるもの）
+const NOT_LOOKUPABLE_TYPES = ['label', 'space', 'file', 'record_number', 'lookup', 'related_records', 'group', 'table']
+
+const lookupFieldOptionsFor = (targetAppId: string | undefined) => {
+  const app = otherAppDefs.value.find(a => a.id === targetAppId)
+  if (!app) return GENERIC_CASE_FIELD_OPTIONS
+  const customOptions = app.fields
+    .filter(f => !NOT_LOOKUPABLE_TYPES.includes(f.type))
+    .map(f => ({ key: `custom:${f.id}`, label: f.label }))
+  return [...GENERIC_CASE_FIELD_OPTIONS, ...customOptions]
+}
 
 // ラベル項目はHTML（リッチエディター由来）なので、キャンバス一覧ではタグを除いて表示する
 const canvasLabel = (f: CanvasField): string =>
@@ -344,10 +395,30 @@ const removeStaff = (uid: string) => {
 }
 const userName = (uid: string) => users.value.find(u => u.uid === uid)?.displayName ?? uid
 
+// ── 担当未来設計士として選択可能なユーザー ──────────────────────
+const plannerPickUid = ref('')
+const plannerCandidates = computed(() => users.value.filter(u => !plannerUids.value.includes(u.uid)))
+const addPlanner = () => {
+  if (!plannerPickUid.value) return
+  plannerUids.value.push(plannerPickUid.value)
+  plannerPickUid.value = ''
+}
+const removePlanner = (uid: string) => {
+  plannerUids.value = plannerUids.value.filter(u => u !== uid)
+}
+
+// ── 放置アラート ──────────────────────────────────────────────
+const toggleStaleAlertStatus = (status: string) => {
+  staleAlertStatuses.value = staleAlertStatuses.value.includes(status)
+    ? staleAlertStatuses.value.filter(s => s !== status)
+    : [...staleAlertStatuses.value, status]
+}
+
 const submitSettings = async () => {
   settingsSaving.value = true
   settingsError.value = ''
   try {
+    const staleAlertDays = staleAlertDaysInput.value ? Number(staleAlertDaysInput.value) : undefined
     await update(appId.value, {
       name: appName.value,
       description: appDescription.value || undefined,
@@ -355,6 +426,9 @@ const submitSettings = async () => {
       staffUids: staffUids.value,
       sourceServiceType: sourceServiceType.value || undefined,
       category: category.value || undefined,
+      plannerUids: plannerUids.value,
+      staleAlertDays,
+      staleAlertStatuses: staleAlertDays ? staleAlertStatuses.value : undefined,
       isPublished: isPublished.value,
     })
     showSettings.value = false
@@ -777,34 +851,48 @@ const submitSettings = async () => {
 
           <!-- ルックアップ設定 -->
           <div v-if="selectedField.type === 'lookup'" class="space-y-2">
-            <label class="block text-xs font-medium text-gray-600">参照アプリ</label>
-            <select class="input-field text-sm">
+            <label class="block text-xs font-medium text-gray-600">参照元</label>
+            <select v-model="selectedField.lookupSource" class="input-field text-sm">
               <option value="">選択してください</option>
-              <option>顧客アプリ</option>
-              <option>サービスアプリ</option>
+              <option value="customer">顧客情報（パーソナルデータ）</option>
+              <option value="app">他のアプリ（同じ顧客の案件）</option>
             </select>
-            <label class="block text-xs font-medium text-gray-600 mt-2">参照フィールド</label>
-            <select class="input-field text-sm">
-              <option value="">選択してください</option>
-              <option>顧客名</option>
-              <option>顧客ID</option>
-            </select>
+
+            <template v-if="selectedField.lookupSource === 'customer'">
+              <label class="block text-xs font-medium text-gray-600 mt-2">参照フィールド</label>
+              <select v-model="selectedField.lookupCustomerField" class="input-field text-sm">
+                <option value="">選択してください</option>
+                <option v-for="f in CUSTOMER_LOOKUP_FIELDS" :key="f.key" :value="f.key">{{ f.label }}</option>
+              </select>
+            </template>
+
+            <template v-if="selectedField.lookupSource === 'app'">
+              <label class="block text-xs font-medium text-gray-600 mt-2">参照アプリ</label>
+              <select v-model="selectedField.lookupAppId" class="input-field text-sm">
+                <option value="">選択してください</option>
+                <option v-for="a in otherAppDefs" :key="a.id" :value="a.id">{{ a.name }}</option>
+              </select>
+              <label class="block text-xs font-medium text-gray-600 mt-2">参照フィールド</label>
+              <select v-model="selectedField.lookupFieldKey" class="input-field text-sm">
+                <option value="">選択してください</option>
+                <option v-for="f in lookupFieldOptionsFor(selectedField.lookupAppId)" :key="f.key" :value="f.key">{{ f.label }}</option>
+              </select>
+            </template>
+            <p class="text-xs text-gray-400 leading-relaxed">
+              同じ顧客の最新の案件（またはパーソナルデータ）から値を読み込んで自動入力します（読み取り専用）。
+            </p>
           </div>
 
           <!-- 関連レコード設定 -->
           <div v-if="selectedField.type === 'related_records'" class="space-y-2">
             <label class="block text-xs font-medium text-gray-600">関連アプリ</label>
-            <select class="input-field text-sm">
+            <select v-model="selectedField.relatedAppId" class="input-field text-sm">
               <option value="">選択してください</option>
-              <option>顧客アプリ</option>
-              <option>サービスアプリ</option>
+              <option v-for="a in otherAppDefs" :key="a.id" :value="a.id">{{ a.name }}</option>
             </select>
-            <label class="block text-xs font-medium text-gray-600 mt-2">紐付けるフィールド</label>
-            <select class="input-field text-sm">
-              <option value="">選択してください</option>
-              <option>顧客ID</option>
-              <option>担当FP</option>
-            </select>
+            <p class="text-xs text-gray-400 leading-relaxed">
+              同じ顧客の、選択したアプリの案件一覧をここに表示します（読み取り専用）。
+            </p>
           </div>
 
           <!-- 自動フィールドの説明 -->
@@ -938,6 +1026,66 @@ const submitSettings = async () => {
               </div>
               <button type="button" class="btn-secondary text-sm shrink-0" :disabled="!staffPickUid" @click="addStaff">追加</button>
             </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">
+              担当未来設計士として選択可能なユーザー
+              <span class="font-normal text-gray-400">（未設定の場合は全ユーザーから選択可能）</span>
+            </label>
+            <div v-if="plannerUids.length > 0" class="flex flex-wrap gap-1.5 mb-2">
+              <span
+                v-for="uid in plannerUids"
+                :key="uid"
+                class="inline-flex items-center gap-1 rounded-full bg-primary-50 text-primary-700 text-xs font-medium px-2.5 py-1"
+              >
+                {{ userName(uid) }}
+                <button type="button" class="hover:text-primary-900" @click="removePlanner(uid)">
+                  <Icon name="heroicons:x-mark" class="h-3 w-3" />
+                </button>
+              </span>
+            </div>
+            <div class="flex gap-2">
+              <div class="flex-1">
+                <SearchableUserSelect v-model="plannerPickUid" :users="plannerCandidates" placeholder="追加するメンバーを選択" />
+              </div>
+              <button type="button" class="btn-secondary text-sm shrink-0" :disabled="!plannerPickUid" @click="addPlanner">追加</button>
+            </div>
+          </div>
+
+          <div class="rounded-lg border border-gray-200 p-3 space-y-2">
+            <label class="block text-xs font-medium text-gray-600">
+              放置アラート
+              <span class="font-normal text-gray-400">（指定日数以上ステータス変更・更新がない案件を担当者・担当未来設計士・アプリ責任者へ通知）</span>
+            </label>
+            <div class="flex items-center gap-2">
+              <input
+                v-model="staleAlertDaysInput"
+                type="number"
+                min="1"
+                class="input-field text-sm w-24"
+                placeholder="未設定"
+              />
+              <span class="text-xs text-gray-500 shrink-0">日以上更新がない場合に通知</span>
+            </div>
+            <template v-if="staleAlertDaysInput">
+              <p class="text-xs font-medium text-gray-600 pt-1">対象ステータス</p>
+              <div class="flex flex-wrap gap-2">
+                <label
+                  v-for="(label, key) in STATUS_LABELS"
+                  :key="key"
+                  class="flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    :checked="staleAlertStatuses.includes(key)"
+                    class="rounded text-primary-600"
+                    @change="toggleStaleAlertStatus(key)"
+                  />
+                  {{ label }}
+                </label>
+              </div>
+            </template>
           </div>
 
           <div class="flex gap-3 pt-2">
