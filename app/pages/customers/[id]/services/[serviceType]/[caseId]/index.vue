@@ -362,6 +362,9 @@ const handleDelete = () => {
         </dl>
       </div>
 
+      <!-- パーソナルデータ（読み取り専用） -->
+      <CustomerPersonalDataCard :customer="customer" />
+
       <!-- アプリ管理で設定した追加項目 -->
       <div v-if="customFieldEntries.length > 0" class="card p-5">
         <h2 class="font-semibold text-gray-900 mb-4 flex items-center gap-2">

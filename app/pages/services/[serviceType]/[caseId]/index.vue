@@ -2,6 +2,7 @@
 import { SERVICE_LABELS } from '~/types/service'
 import { LIFE_INSURANCE_FIELD_LABELS } from '~/types/lifeInsurance'
 import { useLifeInsuranceCases } from '~/composables/useLifeInsuranceCases'
+import { useCustomerStore } from '~/composables/useCustomerStore'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -19,6 +20,11 @@ if (!isLifeInsurance.value) {
 const { getById, fetchAll } = useLifeInsuranceCases()
 await fetchAll()
 const liCase = getById(caseId)
+
+// パーソナルデータ（読み取り専用でこの画面から直接閲覧できるようにする）
+const { getById: getCustomerById, ensureLoaded: ensureCustomersLoaded } = useCustomerStore()
+await ensureCustomersLoaded()
+const customer = computed(() => liCase.value?.customerId ? getCustomerById(liCase.value.customerId).value : null)
 
 const statusClass = (status: string) => {
   if (/未成約|不成立|見送/.test(status)) return 'bg-red-100 text-red-600'
@@ -107,6 +113,9 @@ const progressRestrictedEntries = computed(() => buildEntries(['contractContent'
           <div v-if="liCase.faceToFaceStaffName"><dt class="text-gray-500">面前担当者</dt><dd class="font-medium text-gray-900 mt-0.5">{{ liCase.faceToFaceStaffName }}</dd></div>
         </div>
       </div>
+
+      <!-- パーソナルデータ（読み取り専用） -->
+      <CustomerPersonalDataCard :customer="customer" />
 
       <!-- 契約・プランニング -->
       <div v-if="contractPlanningEntries.length > 0 || liCase.newOrSwitch || liCase.policyCopies?.length" class="card p-5 space-y-4">
