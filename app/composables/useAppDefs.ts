@@ -27,7 +27,6 @@ const toAppDef = (id: string, data: DocumentData): AppDef => ({
   staffUids: data.staffUids ?? [],
   sourceServiceType: data.sourceServiceType,
   category: data.category,
-  plannerUids: data.plannerUids ?? [],
   staleAlertDays: data.staleAlertDays,
   staleAlertStatuses: data.staleAlertStatuses,
   isPublished: data.isPublished ?? true,

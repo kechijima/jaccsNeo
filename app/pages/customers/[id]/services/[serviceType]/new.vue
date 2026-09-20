@@ -69,16 +69,16 @@ onMounted(async () => {
   allUsers.value = await fetchUsers().catch(() => [])
 })
 
-// 担当者: アプリの責任者・担当者（アプリ管理で設定）から選択
+// 担当者: アプリの責任者・担当者（アプリ管理で設定）から選択。
+// アプリ管理のフィールドビルダーで「担当者」項目が追加されている場合は、そちらが
+// 優先され、こちらの固定項目は表示しない（重複を避けるため）
 const assigneeOptions = computed(() => {
   const uids = new Set([appDef.value?.ownerUid, ...(appDef.value?.staffUids ?? [])].filter(Boolean))
   return allUsers.value.filter(u => uids.has(u.uid))
 })
-// 担当未来設計士: アプリで許可されたユーザー（未設定時は全ユーザー）から選択
-const plannerOptions = computed(() => {
-  const restricted = appDef.value?.plannerUids ?? []
-  return restricted.length > 0 ? allUsers.value.filter(u => restricted.includes(u.uid)) : allUsers.value
-})
+const builderAssigneeField = computed(() => appDef.value?.fields.find(f => f.type === 'assignee'))
+// 担当未来設計士: 全ユーザーから選択
+const plannerOptions = computed(() => allUsers.value)
 // リマインド対象者: 担当者・担当未来設計士に加え、任意のユーザーを追加指定できる
 const reminderAudienceCandidates = computed(() => allUsers.value)
 const toggleReminderAudience = (uid: string) => {
@@ -114,9 +114,14 @@ const handleSubmit = async () => {
     const cleanedCustomFields = Object.fromEntries(
       Object.entries(customFieldValues.value).filter(([, v]) => (Array.isArray(v) ? v.length > 0 : !!v)),
     )
+    // 担当者は、アプリ管理のフィールドビルダーで追加された「担当者」項目があればその値を、
+    // なければ固定の担当者選択欄の値を使う
+    const resolvedAssigneeUid = builderAssigneeField.value
+      ? (customFieldValues.value[builderAssigneeField.value.id] as string | undefined)
+      : form.value.assigneeUid
     await createCase(customerId.value, serviceType.value as ServiceType, {
       ...form.value,
-      assigneeUid: form.value.assigneeUid || undefined,
+      assigneeUid: resolvedAssigneeUid || undefined,
       plannerUid: form.value.plannerUid || undefined,
       reminderAudienceUids: form.value.reminderAudienceUids && form.value.reminderAudienceUids.length > 0
         ? form.value.reminderAudienceUids
@@ -511,9 +516,9 @@ const handleLiSubmit = async () => {
         </div>
       </div>
 
-      <!-- 担当者・担当未来設計士 -->
+      <!-- 担当者（アプリ管理のフィールドビルダーで「担当者」項目が追加されていない場合のみ表示）・担当未来設計士 -->
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
+        <div v-if="!builderAssigneeField">
           <label class="block text-sm font-medium text-gray-700 mb-1.5">担当者</label>
           <select v-model="form.assigneeUid" class="input-field">
             <option value="">選択してください</option>
@@ -596,7 +601,13 @@ const handleLiSubmit = async () => {
           <Icon name="heroicons:squares-2x2" class="h-5 w-5 text-primary-600" />
           {{ appDef.name }}の項目
         </h3>
-        <AppDynamicFields v-model="customFieldValues" :fields="appDef.fields" :customer-id="customerId" />
+        <AppDynamicFields
+          v-model="customFieldValues"
+          :fields="appDef.fields"
+          :customer-id="customerId"
+          :owner-uid="appDef.ownerUid"
+          :staff-uids="appDef.staffUids"
+        />
       </div>
 
       <!-- ファイル添付（Phase3で実装） -->

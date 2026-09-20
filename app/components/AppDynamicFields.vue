@@ -4,19 +4,24 @@
 // 対応している項目タイプ: text / textarea / date / time / datetime /
 // radio / dropdown / checkbox / multi_select / yes_no / label（表示のみ）/
 // space（レイアウトのみ）/ lookup（同じ顧客のパーソナルデータ・他アプリの最新案件から
-// 自動入力、読み取り専用）/ related_records（同じ顧客の他アプリの案件一覧を表示、読み取り専用）。
+// 自動入力、読み取り専用）/ related_records（同じ顧客の他アプリの案件一覧を表示、読み取り専用）/
+// assignee（アプリの責任者・担当者から選択）。
 // 未対応（group / table / file / record_number）はその旨を表示し、値の入力・保存は行わない
 import type { AppFieldDef } from '~/types/appDef'
 import type { ServiceCase } from '~/types/service'
+import type { AppUser } from '~/types/user'
 import { STATUS_LABELS } from '~/types/service'
 import { useCustomerStore } from '~/composables/useCustomerStore'
 import { useAppDefs } from '~/composables/useAppDefs'
 import { useServices } from '~/composables/useServices'
+import { useUsers } from '~/composables/useUsers'
 
 const props = defineProps<{
   fields: AppFieldDef[]
   modelValue: Record<string, string | string[]>
   customerId?: string
+  ownerUid?: string
+  staffUids?: string[]
 }>()
 
 const emit = defineEmits<{ (e: 'update:modelValue', value: Record<string, string | string[]>): void }>()
@@ -24,7 +29,7 @@ const emit = defineEmits<{ (e: 'update:modelValue', value: Record<string, string
 const SUPPORTED_TYPES = [
   'text', 'textarea', 'date', 'time', 'datetime',
   'radio', 'dropdown', 'checkbox', 'multi_select', 'yes_no',
-  'lookup', 'related_records',
+  'lookup', 'related_records', 'assignee',
 ]
 const isSupported = (type: string) => SUPPORTED_TYPES.includes(type)
 
@@ -54,6 +59,17 @@ const toggleArr = (id: string, opt: string) => {
 const { getById: getCustomerById, ensureLoaded: ensureCustomersLoaded } = useCustomerStore()
 const { appDefs, fetchAll: fetchAppDefs } = useAppDefs()
 const { fetchCases } = useServices()
+
+// ── 担当者（アプリの責任者・担当者から選択） ────────────────────────
+const { fetchUsers } = useUsers()
+const allUsers = ref<AppUser[]>([])
+if (props.fields.some(f => f.type === 'assignee')) {
+  fetchUsers().then((users) => { allUsers.value = users }).catch(() => {})
+}
+const assigneeOptions = computed(() => {
+  const uids = new Set([props.ownerUid, ...(props.staffUids ?? [])].filter(Boolean))
+  return allUsers.value.filter(u => uids.has(u.uid))
+})
 
 const customer = computed(() => props.customerId ? getCustomerById(props.customerId).value : null)
 
@@ -286,6 +302,18 @@ const statusClass = (status: string) => {
             <Icon name="heroicons:chevron-right" class="h-3.5 w-3.5 text-gray-300 shrink-0" />
           </NuxtLink>
         </div>
+      </div>
+
+      <!-- 担当者（アプリの責任者・担当者から選択） -->
+      <div v-else-if="f.type === 'assignee'">
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">{{ f.label }}<span v-if="f.required" class="text-red-500 ml-1">*</span></label>
+        <select :value="getStr(f.id)" class="input-field" @change="setStr(f.id, ($event.target as HTMLSelectElement).value)">
+          <option value="">選択してください</option>
+          <option v-for="u in assigneeOptions" :key="u.uid" :value="u.uid">{{ u.displayName }}</option>
+        </select>
+        <p v-if="assigneeOptions.length === 0" class="mt-1 text-xs text-gray-400">
+          アプリ管理でこのアプリの責任者・担当者を設定すると選択できます
+        </p>
       </div>
 
       <!-- 未対応の項目タイプ -->

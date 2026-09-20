@@ -70,7 +70,7 @@ const userName = (uid?: string) => allUsers.value.find(u => u.uid === uid)?.disp
 const customFieldEntries = computed(() => {
   if (!appDef.value || !caseData.value?.customFields) return []
   return appDef.value.fields
-    .filter(f => f.type !== 'related_records' && caseData.value!.customFields[f.id] !== undefined)
+    .filter(f => f.type !== 'related_records' && f.type !== 'assignee' && caseData.value!.customFields[f.id] !== undefined)
     .map(f => {
       const raw = caseData.value!.customFields[f.id]
       return { label: f.label, value: Array.isArray(raw) ? raw.join('、') : raw }

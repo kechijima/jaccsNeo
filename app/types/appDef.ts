@@ -25,7 +25,6 @@ export interface AppDef {
   staffUids: string[]      // アプリ担当者
   sourceServiceType?: string  // 案件データの保存・連携先キー。未指定の場合は自分自身のIDを使う
   category?: string       // 「アプリ」一覧でのカテゴリ（例: '保険'）。未設定時は自動分類にフォールバック
-  plannerUids?: string[]  // 担当未来設計士として選択可能なユーザー。未設定・空の場合は全ユーザーから選択可能
   staleAlertDays?: number     // 指定日数以上ステータス変更・更新がない場合にアラート通知する。未設定・0以下の場合はアラートなし
   staleAlertStatuses?: string[]  // アラート対象のステータス。未設定時は既定で「相談中」「検討中」
   isPublished: boolean     // 公開（利用可能）かどうか。falseの場合は下書き扱い

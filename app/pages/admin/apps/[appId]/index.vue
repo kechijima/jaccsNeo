@@ -25,7 +25,6 @@ const ownerUid = ref('')
 const staffUids = ref<string[]>([])
 const sourceServiceType = ref('')
 const category = ref('その他')
-const plannerUids = ref<string[]>([])
 const staleAlertDaysInput = ref('')
 const staleAlertStatuses = ref<string[]>([])
 const isPublished = ref(true)
@@ -51,7 +50,6 @@ onMounted(async () => {
       staffUids.value = [...app.staffUids]
       sourceServiceType.value = app.sourceServiceType ?? ''
       category.value = app.category && APP_CATEGORY_LIST.includes(app.category) ? app.category : 'その他'
-      plannerUids.value = [...(app.plannerUids ?? [])]
       staleAlertDaysInput.value = app.staleAlertDays ? String(app.staleAlertDays) : ''
       staleAlertStatuses.value = [...(app.staleAlertStatuses ?? ['consulting', 'considering'])]
       isPublished.value = app.isPublished
@@ -87,6 +85,12 @@ const FIELD_CATEGORIES: FieldCategory[] = [
       { type: 'record_number',  label: 'レコード番号', icon: 'heroicons:hashtag',         description: 'レコードに採番された固有の番号を表示' },
       { type: 'label',          label: 'ラベル',       icon: 'heroicons:tag',              description: 'フォームに説明や注意を表示' },
       { type: 'space',          label: 'スペース',     icon: 'heroicons:minus',            description: 'フォームにスペースを追加' },
+    ],
+  },
+  {
+    label: '担当者',
+    fields: [
+      { type: 'assignee', label: '担当者', icon: 'heroicons:user-circle', description: 'このアプリの責任者・担当者（アプリ管理で設定）から選択する項目' },
     ],
   },
   {
@@ -195,7 +199,7 @@ const GENERIC_CASE_FIELD_OPTIONS = [
 ]
 
 // ルックアップの参照先フィールドとして選べない項目タイプ（値を持たない・循環参照になるもの）
-const NOT_LOOKUPABLE_TYPES = ['label', 'space', 'file', 'record_number', 'lookup', 'related_records', 'group', 'table']
+const NOT_LOOKUPABLE_TYPES = ['label', 'space', 'file', 'record_number', 'lookup', 'related_records', 'group', 'table', 'assignee']
 
 const lookupFieldOptionsFor = (targetAppId: string | undefined) => {
   const app = otherAppDefs.value.find(a => a.id === targetAppId)
@@ -395,18 +399,6 @@ const removeStaff = (uid: string) => {
 }
 const userName = (uid: string) => users.value.find(u => u.uid === uid)?.displayName ?? uid
 
-// ── 担当未来設計士として選択可能なユーザー ──────────────────────
-const plannerPickUid = ref('')
-const plannerCandidates = computed(() => users.value.filter(u => !plannerUids.value.includes(u.uid)))
-const addPlanner = () => {
-  if (!plannerPickUid.value) return
-  plannerUids.value.push(plannerPickUid.value)
-  plannerPickUid.value = ''
-}
-const removePlanner = (uid: string) => {
-  plannerUids.value = plannerUids.value.filter(u => u !== uid)
-}
-
 // ── 放置アラート ──────────────────────────────────────────────
 const toggleStaleAlertStatus = (status: string) => {
   staleAlertStatuses.value = staleAlertStatuses.value.includes(status)
@@ -426,7 +418,6 @@ const submitSettings = async () => {
       staffUids: staffUids.value,
       sourceServiceType: sourceServiceType.value || undefined,
       category: category.value || undefined,
-      plannerUids: plannerUids.value,
       staleAlertDays,
       staleAlertStatuses: staleAlertDays ? staleAlertStatuses.value : undefined,
       isPublished: isPublished.value,
@@ -612,6 +603,13 @@ const submitSettings = async () => {
           <div v-else-if="f.type === 'yes_no'" class="flex items-center gap-2">
             <input type="checkbox" disabled class="accent-primary-600 rounded h-4 w-4" />
             <label class="text-sm font-medium text-gray-700">{{ f.label }}</label>
+          </div>
+          <!-- 担当者 -->
+          <div v-else-if="f.type === 'assignee'">
+            <label class="block text-sm font-medium text-gray-700 mb-1">{{ f.label }}<span v-if="f.required" class="text-red-500 ml-1">*</span></label>
+            <select class="input-field text-sm" disabled>
+              <option value="">選択してください</option>
+            </select>
           </div>
           <!-- ルックアップ -->
           <div v-else-if="f.type === 'lookup'">
@@ -1025,31 +1023,6 @@ const submitSettings = async () => {
                 <SearchableUserSelect v-model="staffPickUid" :users="staffCandidates" placeholder="追加するメンバーを選択" />
               </div>
               <button type="button" class="btn-secondary text-sm shrink-0" :disabled="!staffPickUid" @click="addStaff">追加</button>
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">
-              担当未来設計士として選択可能なユーザー
-              <span class="font-normal text-gray-400">（未設定の場合は全ユーザーから選択可能）</span>
-            </label>
-            <div v-if="plannerUids.length > 0" class="flex flex-wrap gap-1.5 mb-2">
-              <span
-                v-for="uid in plannerUids"
-                :key="uid"
-                class="inline-flex items-center gap-1 rounded-full bg-primary-50 text-primary-700 text-xs font-medium px-2.5 py-1"
-              >
-                {{ userName(uid) }}
-                <button type="button" class="hover:text-primary-900" @click="removePlanner(uid)">
-                  <Icon name="heroicons:x-mark" class="h-3 w-3" />
-                </button>
-              </span>
-            </div>
-            <div class="flex gap-2">
-              <div class="flex-1">
-                <SearchableUserSelect v-model="plannerPickUid" :users="plannerCandidates" placeholder="追加するメンバーを選択" />
-              </div>
-              <button type="button" class="btn-secondary text-sm shrink-0" :disabled="!plannerPickUid" @click="addPlanner">追加</button>
             </div>
           </div>
 
