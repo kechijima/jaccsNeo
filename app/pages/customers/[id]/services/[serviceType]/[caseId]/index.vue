@@ -57,7 +57,7 @@ const loading = ref(false)
 const submittingReport = ref(false)
 const newReportContent = ref('')
 const attachedFiles = ref<File[]>([])
-const serviceLabel = computed(() => SERVICE_LABELS[serviceType.value] ?? serviceType.value)
+const serviceLabel = computed(() => SERVICE_LABELS[serviceType.value] ?? appDef.value?.name ?? serviceType.value)
 
 const dbCase = ref<any>(null)
 const caseData = computed(() => {

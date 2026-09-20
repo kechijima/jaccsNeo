@@ -20,7 +20,7 @@ const customerId = computed(() => route.params.id as string)
 const serviceType = computed(() => route.params.serviceType as string)
 const isLifeInsurance = computed(() => serviceType.value === 'lifeInsurance')
 
-const serviceLabel = computed(() => SERVICE_LABELS[serviceType.value] ?? serviceType.value)
+const serviceLabel = computed(() => SERVICE_LABELS[serviceType.value] ?? appDef.value?.name ?? serviceType.value)
 const { show: showToast } = useToast()
 
 // ===== 汎用アプリ用フォーム =====

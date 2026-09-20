@@ -5,7 +5,7 @@ import {
   NEW_OR_SWITCH_OPTIONS, WEEKDAY_OPTIONS, RESIDENCE_TYPE_OPTIONS,
   MET_PARENTS_OPTIONS, PROGRESS_STATUS_OPTIONS,
 } from '~/types/lifeInsurance'
-import { SERVICE_LABELS } from '~/types/service'
+import { SERVICE_LABELS, APP_CATEGORY_LIST } from '~/types/service'
 import { readCsvFile, parseCsv, guessFieldType } from '~/utils/csv'
 import type { AppUser } from '~/types/user'
 
@@ -28,6 +28,7 @@ const appDescription = ref('')
 const ownerUid = ref('')
 const staffUids = ref<string[]>([])
 const sourceServiceType = ref('')
+const category = ref('その他')
 const isPublished = ref(true)
 const users = ref<AppUser[]>([])
 
@@ -43,6 +44,7 @@ onMounted(async () => {
       ownerUid.value = app.ownerUid ?? ''
       staffUids.value = [...app.staffUids]
       sourceServiceType.value = app.sourceServiceType ?? ''
+      category.value = app.category && APP_CATEGORY_LIST.includes(app.category) ? app.category : 'その他'
       isPublished.value = app.isPublished
       fields.value = app.fields.map(f => ({ ...f, options: [...f.options] }))
     }
@@ -400,6 +402,7 @@ const submitSettings = async () => {
       ownerUid: ownerUid.value || undefined,
       staffUids: staffUids.value,
       sourceServiceType: sourceServiceType.value || undefined,
+      category: category.value || undefined,
       isPublished: isPublished.value,
     })
     showSettings.value = false
@@ -932,19 +935,31 @@ const submitSettings = async () => {
           </div>
 
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">既存データとの連携</label>
+            <label class="block text-xs font-medium text-gray-600 mb-1">カテゴリ</label>
+            <select v-model="category" class="input-field text-sm">
+              <option v-for="c in APP_CATEGORY_LIST" :key="c" :value="c">{{ c }}</option>
+            </select>
+            <p class="mt-1.5 text-xs text-gray-400 leading-relaxed">
+              「アプリ」一覧で、このカテゴリの中にこのアプリが表示されます。
+            </p>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">データ保存先</label>
             <select v-model="sourceServiceType" class="input-field text-sm">
-              <option value="">連携しない</option>
-              <option value="lifeInsurance">生命保険</option>
-              <optgroup label="その他のアプリ（案件登録フォームに項目が反映されます）">
+              <option value="">連携しない（下書き。案件登録フォームには反映されません）</option>
+              <option :value="appId">このアプリ専用のデータとして保存（新規アプリの既定）</option>
+              <option value="lifeInsurance">生命保険（通知のみ）</option>
+              <optgroup label="既存の18アプリのデータに連携（案件登録フォームに項目が反映されます）">
                 <option v-for="opt in OTHER_SERVICE_TYPE_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
               </optgroup>
             </select>
             <p class="mt-1.5 text-xs text-gray-400 leading-relaxed">
               「生命保険」を選択した場合のみ、実際の案件データ（アプリ &gt; 生命保険）で登録・編集されるたびに
               下の「アプリ責任者」へ通知が届きます（生命保険は専用画面のため、ここで作成した項目とは連動しません）。<br />
-              それ以外のアプリを選択すると、ここで作成した項目が該当アプリの「案件登録」フォーム・案件詳細に実際に反映され、
-              入力データも保存されるようになります。
+              それ以外を選択すると、ここで作成した項目が該当アプリの「案件登録」フォーム・案件詳細に実際に反映され、
+              入力データも保存されるようになります。新規作成したアプリは、通常は「このアプリ専用のデータとして保存」の
+              ままで問題ありません。
             </p>
           </div>
 

@@ -1,113 +1,62 @@
 <script setup lang="ts">
-import { SERVICE_LABELS } from '~/types/service'
+import { APP_CATEGORY_DEFS, APP_CATEGORY_LIST } from '~/types/service'
+import type { ServiceCase } from '~/types/service'
 import { useCustomerStore } from '~/composables/useCustomerStore'
 import { useAppServices } from '~/composables/useAppServices'
+import { useAppCatalog } from '~/composables/useAppCatalog'
 import { useLifeInsuranceCases } from '~/composables/useLifeInsuranceCases'
+import { useServices } from '~/composables/useServices'
 import { useFavorites } from '~/composables/useFavorites'
+import type { AppCatalogEntry } from '~/composables/useAppCatalog'
 
 definePageMeta({ middleware: ['auth'] })
 
 const { customers, ensureLoaded: ensureCustomersLoaded } = useCustomerStore()
 const { countForType } = useAppServices()
 const { cases: liCases, fetchAll: fetchLiCases } = useLifeInsuranceCases()
-await Promise.all([fetchLiCases(), ensureCustomersLoaded()])
+const { catalog, ensureLoaded: ensureCatalogLoaded } = useAppCatalog()
+const { fetchAllCases } = useServices()
+
+await Promise.all([fetchLiCases(), ensureCustomersLoaded(), ensureCatalogLoaded()])
+
+// 新規作成された（固定18アプリに紐づかない）アプリの件数は、実際の案件データから集計する
+const customCases = ref<ServiceCase[]>([])
+if (catalog.value.some(e => e.isCustom)) {
+  customCases.value = await fetchAllCases()
+}
 
 const { isFavoriteApp, toggleFavoriteApp, ensureLoaded: ensureFavoritesLoaded } = useFavorites()
 ensureFavoritesLoaded()
 
-// ── カウント計算（生命保険はFirestore連動の専用案件数、それ以外はパーソナルデータのサービス項目から集計） ──
-const getCount = (type: string) => type === 'lifeInsurance' ? liCases.value.length : countForType(type)
+// ── カウント計算（生命保険はFirestore連動の専用案件数、固定アプリはパーソナルデータの
+// サービス項目、新規作成アプリは実際の案件データから集計） ──
+const getCount = (entry: AppCatalogEntry) => {
+  if (entry.key === 'lifeInsurance') return liCases.value.length
+  if (entry.isCustom) return customCases.value.filter(c => c.serviceType === entry.key).length
+  return countForType(entry.key)
+}
 
 // ── サマリー ──────────────────────────────────────────────────────────
 const totalCases = computed(() =>
-  customers.value.reduce((sum, c) => sum + Object.keys(c.services ?? {}).length, 0),
+  customers.value.reduce((sum, c) => sum + Object.keys(c.services ?? {}).length, 0)
+  + customCases.value.length,
 )
 
 const customersWithCases = computed(() =>
   customers.value.filter(c => Object.keys(c.services ?? {}).length > 0).length,
 )
 
-// ── カテゴリ定義 ──────────────────────────────────────────────────────
-const categories = computed(() => [
-  {
-    label: '保険',
-    icon: 'heroicons:shield-check',
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-50',
-    borderColor: 'border-blue-100',
-    badgeColor: 'bg-blue-100 text-blue-700',
-    services: [
-      { key: 'lifeInsurance',  label: SERVICE_LABELS.lifeInsurance },
-      { key: 'fireInsurance',  label: SERVICE_LABELS.fireInsurance },
-      { key: 'autoInsurance',  label: SERVICE_LABELS.autoInsurance },
-    ],
-  },
-  {
-    label: '不動産',
-    icon: 'heroicons:home',
-    color: 'text-amber-600',
-    bgColor: 'bg-amber-50',
-    borderColor: 'border-amber-100',
-    badgeColor: 'bg-amber-100 text-amber-700',
-    services: [
-      { key: 'realEstatePurchase', label: SERVICE_LABELS.realEstatePurchase },
-      { key: 'realEstateSale',     label: SERVICE_LABELS.realEstateSale },
-      { key: 'realEstateRental',   label: SERVICE_LABELS.realEstateRental },
-      { key: 'homeLoan',           label: SERVICE_LABELS.homeLoan },
-    ],
-  },
-  {
-    label: 'キャリア',
-    icon: 'heroicons:briefcase',
-    color: 'text-purple-600',
-    bgColor: 'bg-purple-50',
-    borderColor: 'border-purple-100',
-    badgeColor: 'bg-purple-100 text-purple-700',
-    services: [
-      { key: 'jobChange',      label: SERVICE_LABELS.jobChange },
-      { key: 'seniorPlanning', label: SERVICE_LABELS.seniorPlanning },
-    ],
-  },
-  {
-    label: '通信',
-    icon: 'heroicons:wifi',
-    color: 'text-sky-600',
-    bgColor: 'bg-sky-50',
-    borderColor: 'border-sky-100',
-    badgeColor: 'bg-sky-100 text-sky-700',
-    services: [
-      { key: 'communication', label: SERVICE_LABELS.communication },
-      { key: 'hikari',        label: SERVICE_LABELS.hikari },
-    ],
-  },
-  {
-    label: 'ライフ',
-    icon: 'heroicons:sparkles',
-    color: 'text-rose-600',
-    bgColor: 'bg-rose-50',
-    borderColor: 'border-rose-100',
-    badgeColor: 'bg-rose-100 text-rose-700',
-    services: [
-      { key: 'moving',      label: SERVICE_LABELS.moving },
-      { key: 'renovation',  label: SERVICE_LABELS.renovation },
-      { key: 'travel',      label: SERVICE_LABELS.travel },
-      { key: 'bridal',      label: SERVICE_LABELS.bridal },
-    ],
-  },
-  {
-    label: '法務',
-    icon: 'heroicons:scale',
-    color: 'text-gray-600',
-    bgColor: 'bg-gray-100',
-    borderColor: 'border-gray-200',
-    badgeColor: 'bg-gray-200 text-gray-700',
-    services: [
-      { key: 'legal',        label: SERVICE_LABELS.legal },
-      { key: 'inheritance',  label: SERVICE_LABELS.inheritance },
-      { key: 'companySetup', label: SERVICE_LABELS.companySetup },
-    ],
-  },
-])
+// ── カテゴリ別グルーピング（アプリ管理で設定したカテゴリに基づく） ──────
+const categories = computed(() => {
+  const byCategory = new Map<string, AppCatalogEntry[]>()
+  for (const entry of catalog.value) {
+    if (!byCategory.has(entry.category)) byCategory.set(entry.category, [])
+    byCategory.get(entry.category)!.push(entry)
+  }
+  return APP_CATEGORY_LIST
+    .filter(label => byCategory.has(label))
+    .map(label => ({ label, meta: APP_CATEGORY_DEFS[label], services: byCategory.get(label)! }))
+})
 
 // ── 検索・フィルタ ──────────────────────────────────────────────────
 const searchQuery = ref('')
@@ -187,11 +136,11 @@ const filteredCategories = computed(() => {
       <div class="card p-4 col-span-1">
         <p class="text-xs text-gray-500 font-medium">サービス種別</p>
         <p class="mt-1 text-2xl font-bold text-gray-900">
-          18<span class="text-sm font-normal text-gray-500 ml-1">種</span>
+          {{ catalog.length }}<span class="text-sm font-normal text-gray-500 ml-1">種</span>
         </p>
         <div class="mt-2 flex items-center gap-1 text-xs text-gray-400">
           <Icon name="heroicons:tag" class="h-3.5 w-3.5" />
-          6カテゴリ
+          {{ categories.length }}カテゴリ
         </div>
       </div>
       <div class="card p-4 col-span-1">
@@ -218,9 +167,9 @@ const filteredCategories = computed(() => {
         <div class="flex items-center gap-2 mb-3">
           <span
             class="inline-flex items-center justify-center h-7 w-7 rounded-lg"
-            :class="cat.bgColor"
+            :class="cat.meta.bgColor"
           >
-            <Icon :name="cat.icon" class="h-4 w-4" :class="cat.color" />
+            <Icon :name="cat.meta.icon" class="h-4 w-4" :class="cat.meta.color" />
           </span>
           <h2 class="font-semibold text-gray-800">{{ cat.label }}</h2>
           <span class="text-xs text-gray-400">{{ cat.services.length }}種</span>
@@ -238,14 +187,15 @@ const filteredCategories = computed(() => {
             <div class="flex items-start justify-between gap-2">
               <div
                 class="inline-flex items-center justify-center h-9 w-9 rounded-xl shrink-0"
-                :class="cat.bgColor"
+                :class="cat.meta.bgColor"
               >
-                <Icon :name="cat.icon" class="h-5 w-5" :class="cat.color" />
+                <Icon :name="cat.meta.icon" class="h-5 w-5" :class="cat.meta.color" />
               </div>
               <div class="flex items-center gap-1.5 shrink-0">
+                <span v-if="svc.isCustom" class="badge text-xs bg-primary-100 text-primary-700">新規</span>
                 <span
                   class="badge text-xs"
-                  :class="cat.badgeColor"
+                  :class="cat.meta.badgeColor"
                 >
                   {{ cat.label }}
                 </span>
@@ -270,7 +220,7 @@ const filteredCategories = computed(() => {
                 {{ svc.label }}
               </p>
               <p class="mt-1.5 text-sm text-gray-500">
-                <span class="text-lg font-bold text-gray-900">{{ getCount(svc.key) }}</span>
+                <span class="text-lg font-bold text-gray-900">{{ getCount(svc) }}</span>
                 <span class="ml-1 text-gray-400">件の案件</span>
               </p>
             </div>

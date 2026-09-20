@@ -26,6 +26,7 @@ const toAppDef = (id: string, data: DocumentData): AppDef => ({
   ownerUid: data.ownerUid,
   staffUids: data.staffUids ?? [],
   sourceServiceType: data.sourceServiceType,
+  category: data.category,
   isPublished: data.isPublished ?? true,
   createdBy: data.createdBy ?? '',
   createdAt: toDate(data.createdAt),
@@ -80,6 +81,12 @@ export const useAppDefs = () => {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     })
+    // 連携先が指定されていない場合、作成したアプリ自身のIDを連携先（データ保存先）として
+    // 自動設定する。これにより「アプリ管理」で作成しただけで、既存18アプリと同様に
+    // 案件登録フォーム・「アプリ」一覧に反映される状態になる
+    if (!input.sourceServiceType) {
+      await updateDoc(ref, { sourceServiceType: ref.id })
+    }
     await fetchAll(true)
     return ref.id
   }

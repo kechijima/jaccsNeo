@@ -45,6 +45,45 @@ export const SERVICE_LABELS: Record<string, string> = {
   waterServer:       'ウォーターサーバー',
 }
 
+// 固定18種＋生命保険の、既定のカテゴリ分類（アプリ管理でAppDefにカテゴリが
+// 設定されていない場合のフォールバックとして使用）
+export const SERVICE_CATEGORY_MAP: Record<string, string> = {
+  lifeInsurance:      '保険',
+  fireInsurance:      '保険',
+  autoInsurance:      '保険',
+  realEstatePurchase: '不動産',
+  realEstateSale:     '不動産',
+  realEstateRental:   '不動産',
+  homeLoan:           '不動産',
+  jobChange:          'キャリア',
+  seniorPlanning:     'キャリア',
+  communication:      '通信',
+  hikari:             '通信',
+  moving:             'ライフ',
+  renovation:         'ライフ',
+  travel:             'ライフ',
+  bridal:             'ライフ',
+  waterServer:        'ライフ',
+  legal:              '法務',
+  inheritance:        '法務',
+  companySetup:       '法務',
+}
+
+// アプリ管理でアプリに設定できるカテゴリと、一覧表示に使う見た目定義
+export const APP_CATEGORY_DEFS: Record<string, {
+  icon: string; color: string; bgColor: string; badgeColor: string; activeColor: string; borderColor: string
+}> = {
+  '保険':   { icon: 'heroicons:shield-check', color: 'text-blue-600',   bgColor: 'bg-blue-50',   badgeColor: 'bg-blue-100 text-blue-700',     activeColor: 'bg-blue-600 text-white',   borderColor: 'border-blue-100' },
+  '不動産': { icon: 'heroicons:home',         color: 'text-amber-600',  bgColor: 'bg-amber-50',  badgeColor: 'bg-amber-100 text-amber-700',   activeColor: 'bg-amber-500 text-white',  borderColor: 'border-amber-100' },
+  'キャリア': { icon: 'heroicons:briefcase',    color: 'text-purple-600', bgColor: 'bg-purple-50', badgeColor: 'bg-purple-100 text-purple-700', activeColor: 'bg-purple-600 text-white', borderColor: 'border-purple-100' },
+  '通信':   { icon: 'heroicons:wifi',         color: 'text-sky-600',    bgColor: 'bg-sky-50',    badgeColor: 'bg-sky-100 text-sky-700',       activeColor: 'bg-sky-600 text-white',    borderColor: 'border-sky-100' },
+  'ライフ': { icon: 'heroicons:sparkles',     color: 'text-rose-600',   bgColor: 'bg-rose-50',   badgeColor: 'bg-rose-100 text-rose-700',     activeColor: 'bg-rose-500 text-white',   borderColor: 'border-rose-100' },
+  '法務':   { icon: 'heroicons:scale',        color: 'text-gray-600',   bgColor: 'bg-gray-100',  badgeColor: 'bg-gray-200 text-gray-700',     activeColor: 'bg-gray-700 text-white',   borderColor: 'border-gray-200' },
+  'その他': { icon: 'heroicons:squares-2x2',  color: 'text-teal-600',   bgColor: 'bg-teal-50',   badgeColor: 'bg-teal-100 text-teal-700',     activeColor: 'bg-teal-600 text-white',   borderColor: 'border-teal-100' },
+}
+
+export const APP_CATEGORY_LIST = Object.keys(APP_CATEGORY_DEFS)
+
 export const STATUS_LABELS: Record<ServiceStatus, string> = {
   consulting:  '相談中',
   considering: '検討中',

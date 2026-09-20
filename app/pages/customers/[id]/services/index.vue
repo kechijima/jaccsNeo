@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { SERVICE_LABELS } from '~/types/service'
+import { APP_CATEGORY_DEFS, APP_CATEGORY_LIST } from '~/types/service'
 import { useCustomerStore } from '~/composables/useCustomerStore'
 import { useAppServices } from '~/composables/useAppServices'
+import { useAppCatalog } from '~/composables/useAppCatalog'
+import { useServices } from '~/composables/useServices'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -11,68 +13,25 @@ const { canEditCustomer } = usePermission()
 
 const { getById, ensureLoaded } = useCustomerStore()
 const { resolveKey } = useAppServices()
-await ensureLoaded()
+const { catalog, ensureLoaded: ensureCatalogLoaded } = useAppCatalog()
+await Promise.all([ensureLoaded(), ensureCatalogLoaded()])
 const customer = getById(customerId)
 const customerName = computed(() => customer.value?.name ?? '')
 const canEdit = computed(() => customer.value ? canEditCustomer(customer.value.assignedFpId ?? '') : false)
 
-// ── カテゴリ定義 ──────────────────────────────────────────────────────
-const CATEGORY_DEFS = [
-  {
-    key: '保険',
-    label: '保険',
-    icon: 'heroicons:shield-check',
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-50',
-    activeColor: 'bg-blue-600 text-white',
-    services: ['lifeInsurance', 'fireInsurance', 'autoInsurance'],
-  },
-  {
-    key: '不動産',
-    label: '不動産',
-    icon: 'heroicons:home',
-    color: 'text-amber-600',
-    bgColor: 'bg-amber-50',
-    activeColor: 'bg-amber-500 text-white',
-    services: ['realEstatePurchase', 'realEstateSale', 'realEstateRental', 'homeLoan'],
-  },
-  {
-    key: 'キャリア',
-    label: 'キャリア',
-    icon: 'heroicons:briefcase',
-    color: 'text-purple-600',
-    bgColor: 'bg-purple-50',
-    activeColor: 'bg-purple-600 text-white',
-    services: ['jobChange', 'seniorPlanning'],
-  },
-  {
-    key: '通信',
-    label: '通信',
-    icon: 'heroicons:wifi',
-    color: 'text-sky-600',
-    bgColor: 'bg-sky-50',
-    activeColor: 'bg-sky-600 text-white',
-    services: ['communication', 'hikari'],
-  },
-  {
-    key: 'ライフ',
-    label: 'ライフ',
-    icon: 'heroicons:sparkles',
-    color: 'text-rose-600',
-    bgColor: 'bg-rose-50',
-    activeColor: 'bg-rose-500 text-white',
-    services: ['moving', 'renovation', 'travel', 'bridal'],
-  },
-  {
-    key: '法務',
-    label: '法務',
-    icon: 'heroicons:scale',
-    color: 'text-gray-600',
-    bgColor: 'bg-gray-100',
-    activeColor: 'bg-gray-700 text-white',
-    services: ['legal', 'inheritance', 'companySetup'],
-  },
-]
+// 新規作成された（固定18アプリに紐づかない）アプリは、この顧客の実際の案件データの
+// 有無で「対応あり」を判定する
+const { fetchCases } = useServices()
+const customCaseCounts = ref<Record<string, number>>({})
+await Promise.all(
+  catalog.value.filter(e => e.isCustom).map(async (e) => {
+    try {
+      customCaseCounts.value[e.key] = (await fetchCases(customerId.value, e.key)).length
+    } catch {
+      customCaseCounts.value[e.key] = 0
+    }
+  }),
+)
 
 // ── フィルター状態 ────────────────────────────────────────────────────
 const selectedCategory = ref('')       // '' = すべて
@@ -87,23 +46,54 @@ const isFiltering = computed(() =>
   selectedCategory.value !== '' || onlyWithContent.value
 )
 
-// ── サービス行ビルド（パーソナルデータのservices値から導出） ──────────
-const buildService = (svcKey: string) => {
-  const value = (customer.value?.services as any)?.[resolveKey(svcKey)] ?? ''
+// ── サービス行ビルド（固定アプリはパーソナルデータのservices値、新規作成アプリは
+// 実際の案件データ件数から導出） ──────────────────────────────────────
+const buildService = (entry: { key: string; label: string; isCustom: boolean }) => {
+  if (entry.isCustom) {
+    const count = customCaseCounts.value[entry.key] ?? 0
+    return {
+      key: entry.key,
+      label: entry.label,
+      status: count > 0 ? 'active' : 'none',
+      statusLabel: count > 0 ? `${count}件` : '対応なし',
+      date: '',
+    }
+  }
+  const value = (customer.value?.services as any)?.[resolveKey(entry.key)] ?? ''
   const status = value ? 'active' : 'none'
   const statusLabel = value
     ? (value.length > 30 ? value.slice(0, 30) + '...' : value)
     : '対応なし'
-  return { key: svcKey, label: SERVICE_LABELS[svcKey] ?? svcKey, status, statusLabel, date: '' }
+  return { key: entry.key, label: entry.label, status, statusLabel, date: '' }
 }
+
+// ── カテゴリ別グルーピング ────────────────────────────────────────────
+const CATEGORY_DEFS = computed(() => {
+  const byCategory = new Map<string, typeof catalog.value>()
+  for (const entry of catalog.value) {
+    if (!byCategory.has(entry.category)) byCategory.set(entry.category, [])
+    byCategory.get(entry.category)!.push(entry)
+  }
+  return APP_CATEGORY_LIST
+    .filter(label => byCategory.has(label))
+    .map(label => ({
+      key: label,
+      label,
+      icon: APP_CATEGORY_DEFS[label].icon,
+      color: APP_CATEGORY_DEFS[label].color,
+      bgColor: APP_CATEGORY_DEFS[label].bgColor,
+      activeColor: APP_CATEGORY_DEFS[label].activeColor,
+      entries: byCategory.get(label)!,
+    }))
+})
 
 // ── フィルタリング済みカテゴリ一覧 ────────────────────────────────────
 const filteredCategories = computed(() => {
-  return CATEGORY_DEFS
+  return CATEGORY_DEFS.value
     .filter(cat => !selectedCategory.value || cat.key === selectedCategory.value)
     .map(cat => {
-      const services = cat.services
-        .map(k => buildService(k))
+      const services = cat.entries
+        .map(e => buildService(e))
         .filter(svc => {
           if (onlyWithContent.value && svc.status === 'none') return false
           return true
@@ -114,15 +104,15 @@ const filteredCategories = computed(() => {
 })
 
 // ── 集計 ─────────────────────────────────────────────────────────────
-const totalCount = computed(() =>
-  CATEGORY_DEFS.reduce((n, cat) => n + cat.services.length, 0)
-)
+const totalCount = computed(() => catalog.value.length)
 const filteredCount = computed(() =>
   filteredCategories.value.reduce((n, cat) => n + cat.services.length, 0)
 )
 const withContentCount = computed(() =>
-  CATEGORY_DEFS.flatMap(cat => cat.services)
-    .filter(k => (customer.value?.services as any)?.[resolveKey(k)]).length
+  catalog.value.filter((e) => {
+    if (e.isCustom) return (customCaseCounts.value[e.key] ?? 0) > 0
+    return !!(customer.value?.services as any)?.[resolveKey(e.key)]
+  }).length
 )
 
 // ── バッジスタイル ────────────────────────────────────────────────────

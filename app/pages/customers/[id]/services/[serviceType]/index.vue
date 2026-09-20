@@ -5,6 +5,7 @@ import { LIFE_INSURANCE_FIELD_LABELS } from '~/types/lifeInsurance'
 import { useCustomerStore } from '~/composables/useCustomerStore'
 import { useServices } from '~/composables/useServices'
 import { useLifeInsuranceCases } from '~/composables/useLifeInsuranceCases'
+import { useAppDefs } from '~/composables/useAppDefs'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -13,7 +14,15 @@ const customerId = computed(() => route.params.id as string)
 const serviceType = computed(() => route.params.serviceType as string)
 const { canEditCustomer } = usePermission()
 
-const serviceLabel = computed(() => SERVICE_LABELS[serviceType.value] ?? serviceType.value)
+// SERVICE_LABELSにない場合は、連携されたAppDefの名前を表示名として使う
+// （アプリ管理で新規作成した、固定18アプリに含まれないアプリ向け）
+const { appDefs, fetchAll: fetchAppDefs } = useAppDefs()
+await fetchAppDefs()
+const serviceLabel = computed(() =>
+  SERVICE_LABELS[serviceType.value]
+  ?? appDefs.value.find(a => a.sourceServiceType === serviceType.value)?.name
+  ?? serviceType.value,
+)
 const isLifeInsurance = computed(() => serviceType.value === 'lifeInsurance')
 
 const { getById, ensureLoaded } = useCustomerStore()

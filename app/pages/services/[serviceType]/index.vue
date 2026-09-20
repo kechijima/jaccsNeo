@@ -5,13 +5,23 @@ import { useServices } from '~/composables/useServices'
 import { useCustomerStore } from '~/composables/useCustomerStore'
 import { useLifeInsuranceCases } from '~/composables/useLifeInsuranceCases'
 import { useFavorites } from '~/composables/useFavorites'
+import { useAppDefs } from '~/composables/useAppDefs'
 
 definePageMeta({ middleware: ['auth'] })
 
 const route = useRoute()
 const serviceType = computed(() => route.params.serviceType as string)
-const serviceLabel = computed(() => SERVICE_LABELS[serviceType.value] ?? serviceType.value)
 const isLifeInsurance = computed(() => serviceType.value === 'lifeInsurance')
+
+// SERVICE_LABELSにない場合は、連携されたAppDefの名前を表示名として使う
+// （アプリ管理で新規作成した、固定18アプリに含まれないアプリ向け）
+const { appDefs, fetchAll: fetchAppDefs } = useAppDefs()
+await fetchAppDefs()
+const serviceLabel = computed(() =>
+  SERVICE_LABELS[serviceType.value]
+  ?? appDefs.value.find(a => a.sourceServiceType === serviceType.value)?.name
+  ?? serviceType.value,
+)
 
 const { isFavoriteApp, toggleFavoriteApp, ensureLoaded: ensureFavoritesLoaded } = useFavorites()
 ensureFavoritesLoaded()
