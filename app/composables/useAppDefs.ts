@@ -59,6 +59,13 @@ export const useAppDefs = () => {
   const getById = (id: Ref<string> | string) =>
     computed(() => appDefs.value.find(a => a.id === unref(id)) ?? null)
 
+  // 指定したserviceTypeに連携（sourceServiceType）していて、かつ公開済みのAppDefを1件返す。
+  // 複数存在する場合は最初に見つかったものを使う想定（運用上は1serviceTypeにつき1つのみを想定）
+  const getPublishedByServiceType = async (serviceType: string): Promise<AppDef | null> => {
+    await fetchAll()
+    return appDefs.value.find(a => a.sourceServiceType === serviceType && a.isPublished) ?? null
+  }
+
   const fetchOne = async (id: string): Promise<AppDef | null> => {
     const snap = await getDoc(doc($db, COLLECTION, id))
     if (!snap.exists()) return null
@@ -96,5 +103,5 @@ export const useAppDefs = () => {
     })
   }
 
-  return { appDefs, loading, loaded, fetchAll, getById, fetchOne, create, update, duplicateFrom }
+  return { appDefs, loading, loaded, fetchAll, getById, fetchOne, getPublishedByServiceType, create, update, duplicateFrom }
 }

@@ -5,12 +5,17 @@ import {
   NEW_OR_SWITCH_OPTIONS, WEEKDAY_OPTIONS, RESIDENCE_TYPE_OPTIONS,
   MET_PARENTS_OPTIONS, PROGRESS_STATUS_OPTIONS,
 } from '~/types/lifeInsurance'
+import { SERVICE_LABELS } from '~/types/service'
 import type { AppUser } from '~/types/user'
 
 definePageMeta({ middleware: ['auth', 'admin'] })
 
 const route = useRoute()
 const appId = computed(() => route.params.appId as string)
+
+const OTHER_SERVICE_TYPE_OPTIONS = Object.entries(SERVICE_LABELS)
+  .filter(([value]) => value !== 'lifeInsurance')
+  .map(([value, label]) => ({ value, label }))
 
 const { fetchOne, update } = useAppDefs()
 const { fetchUsers } = useUsers()
@@ -831,12 +836,23 @@ const submitSettings = async () => {
             <select v-model="sourceServiceType" class="input-field text-sm">
               <option value="">連携しない</option>
               <option value="lifeInsurance">生命保険</option>
+              <optgroup label="その他のアプリ（案件登録フォームに項目が反映されます）">
+                <option v-for="opt in OTHER_SERVICE_TYPE_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+              </optgroup>
             </select>
             <p class="mt-1.5 text-xs text-gray-400 leading-relaxed">
-              「生命保険」を選択すると、実際の生命保険データ（アプリ &gt; 生命保険）で案件が登録・編集されるたびに、
-              下の「アプリ責任者」へ通知が届くようになります。ここで作成しているフィールドや入力データとは連動しません
-              （生命保険の案件データそのものは既存の生命保険画面から登録・編集します）。
+              「生命保険」を選択した場合のみ、実際の案件データ（アプリ &gt; 生命保険）で登録・編集されるたびに
+              下の「アプリ責任者」へ通知が届きます（生命保険は専用画面のため、ここで作成した項目とは連動しません）。<br />
+              それ以外のアプリを選択すると、ここで作成した項目が該当アプリの「案件登録」フォーム・案件詳細に実際に反映され、
+              入力データも保存されるようになります。
             </p>
+          </div>
+
+          <div v-if="sourceServiceType && sourceServiceType !== 'lifeInsurance'">
+            <NuxtLink :to="`/admin/apps/${appId}/import`" class="btn-secondary text-sm w-full flex items-center justify-center gap-1.5">
+              <Icon name="heroicons:arrow-up-tray" class="h-4 w-4" />
+              kintone CSVから案件を一括インポート
+            </NuxtLink>
           </div>
 
           <div>

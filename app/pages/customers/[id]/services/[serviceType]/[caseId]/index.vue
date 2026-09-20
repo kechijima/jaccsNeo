@@ -7,6 +7,8 @@ import { useStorage } from '~/composables/useStorage'
 import { usePermission } from '~/composables/usePermission'
 import { useMentionClick } from '~/composables/useMentionClick'
 import { useAuthStore } from '~/stores/auth'
+import { useAppDefs } from '~/composables/useAppDefs'
+import type { AppDef } from '~/types/appDef'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -21,6 +23,25 @@ const { sendNotification } = useNotifications()
 const { uploadFile } = useStorage()
 const { canEditCustomer: checkEditPermission } = usePermission()
 const authStore = useAuthStore()
+
+// アプリ管理（フォームビルダー）でこのserviceTypeに連携された項目定義。
+// 設定されていれば、案件のcustomFieldsをラベル付きで表示する
+const { getPublishedByServiceType } = useAppDefs()
+const appDef = ref<AppDef | null>(null)
+onMounted(async () => {
+  appDef.value = await getPublishedByServiceType(serviceType.value).catch(() => null)
+})
+
+const customFieldEntries = computed(() => {
+  if (!appDef.value || !caseData.value?.customFields) return []
+  return appDef.value.fields
+    .filter(f => caseData.value!.customFields[f.id] !== undefined)
+    .map(f => {
+      const raw = caseData.value!.customFields[f.id]
+      return { label: f.label, value: Array.isArray(raw) ? raw.join('、') : raw }
+    })
+    .filter(e => e.value)
+})
 
 const { getById, ensureLoaded } = useCustomerStore()
 await ensureLoaded()
@@ -281,6 +302,20 @@ const handleDelete = () => {
               {{ caseData.reminderNote }}
               <span v-if="caseData.reminderDate" class="text-rose-600">（{{ caseData.reminderDate.replace(/-/g, '/') }}）</span>
             </dd>
+          </div>
+        </dl>
+      </div>
+
+      <!-- アプリ管理で設定した追加項目 -->
+      <div v-if="customFieldEntries.length > 0" class="card p-5">
+        <h2 class="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <Icon name="heroicons:squares-2x2" class="h-5 w-5 text-primary-600" />
+          {{ appDef?.name }}の項目
+        </h2>
+        <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+          <div v-for="entry in customFieldEntries" :key="entry.label">
+            <dt class="text-gray-500">{{ entry.label }}</dt>
+            <dd class="font-medium text-gray-900 whitespace-pre-line">{{ entry.value }}</dd>
           </div>
         </dl>
       </div>

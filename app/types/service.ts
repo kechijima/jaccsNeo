@@ -76,6 +76,9 @@ export interface ServiceCase {
   notes?: string         // 備考
   reminderDate?: string  // リマインダー日
   reminderNote?: string  // リマインダー内容
+  // アプリ管理（フォームビルダー）でこのserviceTypeに紐づけたAppDefのフィールドID
+  // をキーとする入力値。AppDefが設定されていないserviceTypeでは常に空
+  customFields?: Record<string, string | string[]>
   attachments?: ServiceAttachment[]
   reports?: ServiceProgressReport[] // 進捗報告
   createdBy: string
@@ -100,6 +103,7 @@ export interface ServiceCaseForm {
   notes?: string
   reminderDate?: string
   reminderNote?: string
+  customFields?: Record<string, string | string[]>
 }
 
 export interface ServiceSummary {

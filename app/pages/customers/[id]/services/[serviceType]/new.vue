@@ -10,6 +10,8 @@ import { useCustomerStore } from '~/composables/useCustomerStore'
 import { useLifeInsuranceCases } from '~/composables/useLifeInsuranceCases'
 import { useStorage } from '~/composables/useStorage'
 import { useToast } from '~/composables/useToast'
+import { useAppDefs } from '~/composables/useAppDefs'
+import type { AppDef } from '~/types/appDef'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -42,6 +44,19 @@ const form = ref<ServiceCaseForm>({
 const submitting = ref(false)
 const error = ref('')
 
+// ===== アプリ管理（フォームビルダー）で設定したこのアプリ専用の追加項目 =====
+// serviceTypeにAppDef（sourceServiceType）が連携・公開されている場合のみ、
+// その項目を追加フォームとして表示する
+const { getPublishedByServiceType } = useAppDefs()
+const appDef = ref<AppDef | null>(null)
+const customFieldValues = ref<Record<string, string | string[]>>({})
+
+onMounted(async () => {
+  if (!isLifeInsurance.value) {
+    appDef.value = await getPublishedByServiceType(serviceType.value).catch(() => null)
+  }
+})
+
 onMounted(async () => {
   try {
     const c = await fetchCustomer(customerId.value)
@@ -65,7 +80,15 @@ const handleSubmit = async () => {
   submitting.value = true
   error.value = ''
   try {
-    await createCase(customerId.value, serviceType.value as ServiceType, form.value)
+    // 空文字・空配列のフィールドは保存しない（Firestoreはundefinedを許可しないため、
+    // 未入力分をあらかじめ取り除いておく）
+    const cleanedCustomFields = Object.fromEntries(
+      Object.entries(customFieldValues.value).filter(([, v]) => (Array.isArray(v) ? v.length > 0 : !!v)),
+    )
+    await createCase(customerId.value, serviceType.value as ServiceType, {
+      ...form.value,
+      customFields: Object.keys(cleanedCustomFields).length > 0 ? cleanedCustomFields : undefined,
+    })
     showToast('案件を追加しました')
     await navigateTo(`/customers/${customerId.value}/services/${serviceType.value}`)
   }
@@ -494,6 +517,15 @@ const handleLiSubmit = async () => {
           <label class="block text-sm font-medium text-gray-700 mb-1.5">リマインダー内容</label>
           <input v-model="form.reminderNote" type="text" placeholder="リマインダー内容を入力..." class="input-field" />
         </div>
+      </div>
+
+      <!-- アプリ管理で設定した追加項目 -->
+      <div v-if="appDef && appDef.fields.length > 0" class="pt-4 border-t border-gray-100 space-y-4">
+        <h3 class="font-semibold text-gray-900 flex items-center gap-2">
+          <Icon name="heroicons:squares-2x2" class="h-5 w-5 text-primary-600" />
+          {{ appDef.name }}の項目
+        </h3>
+        <AppDynamicFields v-model="customFieldValues" :fields="appDef.fields" />
       </div>
 
       <!-- ファイル添付（Phase3で実装） -->
