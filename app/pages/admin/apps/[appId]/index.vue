@@ -247,6 +247,7 @@ const CSV_FIELD_TYPE_OPTIONS = [
   { value: 'checkbox',     label: 'チェックボックス' },
   { value: 'multi_select', label: '複数選択' },
   { value: 'yes_no',       label: 'はい/いいえ' },
+  { value: 'assignee',     label: '担当者' },
 ]
 
 // 顧客名・氏名の列はCSV一括インポート時に顧客照合用の列として使うため、項目候補からは除外する
