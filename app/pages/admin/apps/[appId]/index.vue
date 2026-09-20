@@ -235,6 +235,14 @@ const removeField = (id: string) => {
   if (selectedId.value === id) selectedId.value = null
 }
 
+// ドラッグ&ドロップに加え、クリックだけでも並び替えできるようにする
+const moveField = (index: number, direction: -1 | 1) => {
+  const target = index + direction
+  if (target < 0 || target >= fields.value.length) return
+  const [item] = fields.value.splice(index, 1)
+  fields.value.splice(target, 0, item)
+}
+
 // ── CSVから項目を読み込む ─────────────────────────────────────
 const CSV_FIELD_TYPE_OPTIONS = [
   { value: 'text',         label: '文字列（1行）' },
@@ -733,6 +741,26 @@ const submitSettings = async () => {
                   <p class="text-xs text-gray-400 truncate">{{ getFieldDef(field.type)?.description }}</p>
                 </div>
                 <span v-if="field.required" class="text-xs text-red-500 font-medium shrink-0 ml-1">必須</span>
+                <div class="flex flex-col shrink-0">
+                  <button
+                    type="button"
+                    class="p-0.5 rounded text-gray-300 hover:text-primary-600 hover:bg-primary-50 transition disabled:opacity-20 disabled:pointer-events-none"
+                    :disabled="index === 0"
+                    title="上へ移動"
+                    @click.stop="moveField(index, -1)"
+                  >
+                    <Icon name="heroicons:chevron-up" class="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    class="p-0.5 rounded text-gray-300 hover:text-primary-600 hover:bg-primary-50 transition disabled:opacity-20 disabled:pointer-events-none"
+                    :disabled="index === fields.length - 1"
+                    title="下へ移動"
+                    @click.stop="moveField(index, 1)"
+                  >
+                    <Icon name="heroicons:chevron-down" class="h-3.5 w-3.5" />
+                  </button>
+                </div>
                 <button
                   class="p-1 rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-50 transition shrink-0"
                   @click.stop="removeField(field.id)"
