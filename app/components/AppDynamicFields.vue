@@ -3,10 +3,12 @@
 // 実際に入力・保存できるフォームを描画する共通コンポーネント。
 // 対応している項目タイプ: text / textarea / date / time / datetime /
 // radio / dropdown / checkbox / multi_select / yes_no / label（表示のみ）/
-// space（レイアウトのみ）/ lookup（同じ顧客のパーソナルデータ・他アプリの最新案件から
-// 自動入力、読み取り専用）/ related_records（同じ顧客の他アプリの案件一覧を表示、読み取り専用）/
+// space（レイアウトのみ）/ group（セクション見出し、値は持たない）/
+// file（Firebase Storageへアップロードし、ダウンロードURLを値として保存）/
+// lookup（同じ顧客のパーソナルデータ・他アプリの最新案件から自動入力、読み取り専用）/
+// related_records（同じ顧客の他アプリの案件一覧を表示、読み取り専用）/
 // assignee（アプリの責任者・担当者から選択）。
-// 未対応（group / table / file / record_number）はその旨を表示し、値の入力・保存は行わない
+// 未対応（table / record_number）はその旨を表示し、値の入力・保存は行わない
 import type { AppFieldDef } from '~/types/appDef'
 import type { ServiceCase } from '~/types/service'
 import type { AppUser } from '~/types/user'
@@ -15,6 +17,7 @@ import { useCustomerStore } from '~/composables/useCustomerStore'
 import { useAppDefs } from '~/composables/useAppDefs'
 import { useServices } from '~/composables/useServices'
 import { useUsers } from '~/composables/useUsers'
+import { useStorage } from '~/composables/useStorage'
 
 const props = defineProps<{
   fields: AppFieldDef[]
@@ -29,7 +32,7 @@ const emit = defineEmits<{ (e: 'update:modelValue', value: Record<string, string
 const SUPPORTED_TYPES = [
   'text', 'textarea', 'date', 'time', 'datetime',
   'radio', 'dropdown', 'checkbox', 'multi_select', 'yes_no',
-  'lookup', 'related_records', 'assignee',
+  'lookup', 'related_records', 'assignee', 'group', 'file',
 ]
 const isSupported = (type: string) => SUPPORTED_TYPES.includes(type)
 
@@ -70,6 +73,40 @@ const assigneeOptions = computed(() => {
   const uids = new Set([props.ownerUid, ...(props.staffUids ?? [])].filter(Boolean))
   return allUsers.value.filter(u => uids.has(u.uid))
 })
+
+// ── ファイル添付（Firebase Storageへアップロードし、ダウンロードURLを値として保存） ──
+const { uploadFile } = useStorage()
+const fileUploading = ref<Record<string, boolean>>({})
+const fileError = ref<Record<string, string>>({})
+
+const handleFileUpload = async (f: AppFieldDef, e: Event) => {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  fileUploading.value = { ...fileUploading.value, [f.id]: true }
+  fileError.value = { ...fileError.value, [f.id]: '' }
+  try {
+    const path = `appCustomFieldFiles/${props.customerId ?? 'unknown'}/${f.id}/${Date.now()}_${file.name}`
+    const url = await uploadFile(path, file)
+    setStr(f.id, url)
+  } catch (err: any) {
+    fileError.value = { ...fileError.value, [f.id]: err.message ?? 'アップロードに失敗しました' }
+  } finally {
+    fileUploading.value = { ...fileUploading.value, [f.id]: false }
+    input.value = ''
+  }
+}
+
+// FirebaseのダウンロードURLから元のファイル名を復元する
+const filenameFromStorageUrl = (url: string): string => {
+  try {
+    const encodedPath = url.split('/o/')[1]?.split('?')[0] ?? ''
+    const decodedPath = decodeURIComponent(encodedPath)
+    return decodedPath.split('/').pop() || 'ファイル'
+  } catch {
+    return 'ファイル'
+  }
+}
 
 const customer = computed(() => props.customerId ? getCustomerById(props.customerId).value : null)
 
@@ -180,6 +217,40 @@ const statusClass = (status: string) => {
       />
       <!-- スペース -->
       <div v-else-if="f.type === 'space'" class="h-2" />
+
+      <!-- グループ（セクション見出し、値は持たない） -->
+      <div v-else-if="f.type === 'group'" class="pt-2 border-t border-gray-100 first:border-t-0 first:pt-0">
+        <h4 class="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+          <Icon name="heroicons:rectangle-group" class="h-4 w-4 text-gray-400" />
+          {{ f.label }}
+        </h4>
+      </div>
+
+      <!-- ファイル添付 -->
+      <div v-else-if="f.type === 'file'">
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">{{ f.label }}<span v-if="f.required" class="text-red-500 ml-1">*</span></label>
+        <div v-if="getStr(f.id)" class="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm">
+          <Icon name="heroicons:paper-clip" class="h-4 w-4 text-gray-400 shrink-0" />
+          <a :href="getStr(f.id)" target="_blank" rel="noopener" class="flex-1 min-w-0 truncate text-primary-600 hover:underline">
+            {{ filenameFromStorageUrl(getStr(f.id)) }}
+          </a>
+          <button type="button" class="text-gray-300 hover:text-red-400 shrink-0" @click="setStr(f.id, '')">
+            <Icon name="heroicons:x-mark" class="h-4 w-4" />
+          </button>
+        </div>
+        <div v-else>
+          <input
+            type="file"
+            class="input-field text-sm"
+            :disabled="fileUploading[f.id]"
+            @change="handleFileUpload(f, $event)"
+          />
+          <p v-if="fileUploading[f.id]" class="text-xs text-gray-400 mt-1 flex items-center gap-1">
+            <Icon name="heroicons:arrow-path" class="h-3 w-3 animate-spin" />アップロード中...
+          </p>
+          <p v-if="fileError[f.id]" class="text-xs text-red-500 mt-1">{{ fileError[f.id] }}</p>
+        </div>
+      </div>
 
       <!-- 文字列（1行） -->
       <div v-else-if="f.type === 'text'">
