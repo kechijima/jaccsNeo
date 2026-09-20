@@ -6,6 +6,7 @@ import {
   MET_PARENTS_OPTIONS, PROGRESS_STATUS_OPTIONS,
 } from '~/types/lifeInsurance'
 import { SERVICE_LABELS } from '~/types/service'
+import { readCsvFile, parseCsv, guessFieldType } from '~/utils/csv'
 import type { AppUser } from '~/types/user'
 
 definePageMeta({ middleware: ['auth', 'admin'] })
@@ -225,6 +226,87 @@ const removeField = (id: string) => {
   if (selectedId.value === id) selectedId.value = null
 }
 
+// ── CSVから項目を読み込む ─────────────────────────────────────
+const CSV_FIELD_TYPE_OPTIONS = [
+  { value: 'text',         label: '文字列（1行）' },
+  { value: 'textarea',     label: '文字列（複数行）' },
+  { value: 'date',         label: '日付' },
+  { value: 'time',         label: '時刻' },
+  { value: 'datetime',     label: '日時' },
+  { value: 'radio',        label: 'ラジオボタン' },
+  { value: 'dropdown',     label: 'ドロップダウン' },
+  { value: 'checkbox',     label: 'チェックボックス' },
+  { value: 'multi_select', label: '複数選択' },
+  { value: 'yes_no',       label: 'はい/いいえ' },
+]
+
+// 顧客名・氏名の列はCSV一括インポート時に顧客照合用の列として使うため、項目候補からは除外する
+const CUSTOMER_NAME_HEADER_RE = /顧客|氏名|名前/
+
+interface CsvGuessedField {
+  header: string
+  include: boolean
+  label: string
+  type: string
+  options: string[]
+}
+
+const csvFileInput   = ref<HTMLInputElement | null>(null)
+const csvImporting   = ref(false)
+const csvImportError = ref('')
+const showCsvReview  = ref(false)
+const csvGuessedFields = ref<CsvGuessedField[]>([])
+
+const openCsvPicker = () => {
+  csvImportError.value = ''
+  csvFileInput.value?.click()
+}
+
+const handleCsvFileSelected = async (e: Event) => {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  csvImporting.value = true
+  csvImportError.value = ''
+  try {
+    const text = await readCsvFile(file)
+    const { headers, rows } = parseCsv(text)
+    if (headers.length === 0) throw new Error('CSVからヘッダーを読み取れませんでした')
+    csvGuessedFields.value = headers
+      .filter(h => !CUSTOMER_NAME_HEADER_RE.test(h))
+      .map((header) => {
+        const values = rows.map(r => r[header] ?? '')
+        const guess = guessFieldType(values)
+        return { header, include: true, label: header, type: guess.type, options: guess.options }
+      })
+    showCsvReview.value = true
+  } catch (err: any) {
+    csvImportError.value = err.message ?? 'CSVの読み込みに失敗しました'
+  } finally {
+    csvImporting.value = false
+    if (csvFileInput.value) csvFileInput.value.value = ''
+  }
+}
+
+const csvOptionsText = (g: CsvGuessedField) => g.options.join(', ')
+const setCsvOptionsText = (g: CsvGuessedField, text: string) => {
+  g.options = text.split(',').map(s => s.trim()).filter(Boolean)
+}
+
+const applyCsvGuessedFields = () => {
+  for (const g of csvGuessedFields.value) {
+    if (!g.include) continue
+    fields.value.push({
+      id:       `f-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      type:     g.type,
+      label:    g.label.trim() || g.header,
+      required: false,
+      options:  hasOptions(g.type) ? (g.options.length > 0 ? g.options : ['選択肢1', '選択肢2']) : [],
+    })
+  }
+  showCsvReview.value = false
+  csvGuessedFields.value = []
+}
+
 const addOption    = (f: CanvasField) => f.options.push(`選択肢${f.options.length + 1}`)
 const removeOption = (f: CanvasField, i: number) => f.options.splice(i, 1)
 
@@ -370,6 +452,23 @@ const submitSettings = async () => {
           <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
           生命保険の項目を読み込む
         </button>
+        <button
+          v-if="!previewMode"
+          class="btn-secondary text-sm flex items-center gap-1.5"
+          :disabled="csvImporting"
+          @click="openCsvPicker"
+        >
+          <Icon v-if="csvImporting" name="heroicons:arrow-path" class="h-4 w-4 animate-spin" />
+          <Icon v-else name="heroicons:document-arrow-up" class="h-4 w-4" />
+          CSVから項目を読み込む
+        </button>
+        <input
+          ref="csvFileInput"
+          type="file"
+          accept=".csv"
+          class="hidden"
+          @change="handleCsvFileSelected"
+        />
         <button class="btn-secondary text-sm flex items-center gap-1.5" @click="showSettings = true">
           <Icon name="heroicons:user-group" class="h-4 w-4" />
           責任者・担当者
@@ -389,6 +488,7 @@ const submitSettings = async () => {
       </div>
     </div>
     <p v-if="saveError" class="text-xs text-red-600 bg-red-50 px-5 py-1.5">{{ saveError }}</p>
+    <p v-if="csvImportError" class="text-xs text-red-600 bg-red-50 px-5 py-1.5">{{ csvImportError }}</p>
 
     <!-- ── プレビューモード ── -->
     <div v-if="previewMode" class="flex-1 overflow-y-auto bg-gray-50 p-6">
@@ -890,6 +990,69 @@ const submitSettings = async () => {
             <button class="flex-1 btn-primary" :disabled="settingsSaving" @click="submitSettings">
               <Icon v-if="settingsSaving" name="heroicons:arrow-path" class="h-4 w-4 animate-spin mr-1" />
               保存する
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- CSVから項目を読み込むモーダル -->
+    <Teleport to="body">
+      <div
+        v-if="showCsvReview"
+        class="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40"
+        @click.self="showCsvReview = false"
+      >
+        <div class="bg-white w-full md:max-w-2xl rounded-t-2xl md:rounded-2xl p-6 space-y-4 shadow-xl max-h-[85vh] overflow-y-auto">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="font-bold text-gray-900">CSVから項目を読み込む</h3>
+              <p class="text-xs text-gray-500 mt-0.5">列の値から項目タイプを推測しました。内容を確認・修正してから追加してください</p>
+            </div>
+            <button class="p-1.5 hover:bg-gray-100 rounded-lg" @click="showCsvReview = false">
+              <Icon name="heroicons:x-mark" class="h-5 w-5 text-gray-500" />
+            </button>
+          </div>
+
+          <div v-if="csvGuessedFields.length === 0" class="text-sm text-gray-400 text-center py-8">
+            追加できる項目が見つかりませんでした
+          </div>
+
+          <div v-else class="space-y-2">
+            <div v-for="g in csvGuessedFields" :key="g.header" class="flex items-start gap-2.5 border border-gray-200 rounded-lg p-2.5">
+              <input v-model="g.include" type="checkbox" class="mt-2.5 accent-primary-600 shrink-0" />
+              <div class="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <label class="block text-[10px] text-gray-400 mb-0.5">列名: {{ g.header }}</label>
+                  <input v-model="g.label" type="text" class="input-field text-xs py-1.5" placeholder="フィールド名" />
+                </div>
+                <div>
+                  <label class="block text-[10px] text-gray-400 mb-0.5">項目タイプ</label>
+                  <select v-model="g.type" class="input-field text-xs py-1.5">
+                    <option v-for="t in CSV_FIELD_TYPE_OPTIONS" :key="t.value" :value="t.value">{{ t.label }}</option>
+                  </select>
+                </div>
+                <div v-if="hasOptions(g.type)" class="sm:col-span-2">
+                  <label class="block text-[10px] text-gray-400 mb-0.5">選択肢（カンマ区切り）</label>
+                  <input
+                    :value="csvOptionsText(g)"
+                    type="text"
+                    class="input-field text-xs py-1.5"
+                    @input="setCsvOptionsText(g, ($event.target as HTMLInputElement).value)"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex gap-3 pt-2">
+            <button class="flex-1 btn-secondary" @click="showCsvReview = false">キャンセル</button>
+            <button
+              class="flex-1 btn-primary"
+              :disabled="!csvGuessedFields.some(f => f.include)"
+              @click="applyCsvGuessedFields"
+            >
+              選択した項目を追加（{{ csvGuessedFields.filter(f => f.include).length }}件）
             </button>
           </div>
         </div>
