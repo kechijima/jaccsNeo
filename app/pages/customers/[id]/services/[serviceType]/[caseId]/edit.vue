@@ -28,6 +28,18 @@ const loading = ref(true)
 const notFound = ref(false)
 const error = ref('')
 
+// 担当者・ステータス・成約報酬（金額）は、案件の担当者本人、またはEM2以上
+// （system_admin・board・em2_above）のみ編集可能にする（それ以外は読み取り専用）
+const { isEm2OrAbove } = usePermission()
+const { user: currentUser } = useCurrentUser()
+const originalAssigneeUid = ref('')
+const originalStatus = ref<ServiceStatus>('consulting')
+const originalAmount = ref('')
+const canEditProtected = computed(() => {
+  if (isEm2OrAbove.value) return true
+  return !!originalAssigneeUid.value && originalAssigneeUid.value === currentUser.value?.uid
+})
+
 const form = ref<ServiceCaseForm>({
   status: 'consulting' as ServiceStatus,
   date: '',
@@ -95,6 +107,9 @@ onMounted(async () => {
       reminderAudienceUids: raw.reminderAudienceUids ? [...raw.reminderAudienceUids] : [],
     }
     customFieldValues.value = raw.customFields ? { ...raw.customFields } : {}
+    originalAssigneeUid.value = raw.assigneeUid ?? ''
+    originalStatus.value = raw.status
+    originalAmount.value = raw.amount ?? ''
   }
   catch (e: any) {
     error.value = e.message ?? 'データの取得に失敗しました'
@@ -110,6 +125,16 @@ const handleSubmit = async () => {
   try {
     // 空文字・空配列のフィールドは保存しない（Firestoreはundefinedを許可しないため、
     // 未入力分をあらかじめ取り除いておく）
+    // 担当者・ステータス・成約報酬（金額）は編集権限がない場合、画面上は無効化して
+    // いるが、念のため送信直前にも元の値へ強制的に戻しておく
+    if (!canEditProtected.value) {
+      form.value.status = originalStatus.value
+      form.value.amount = originalAmount.value
+      form.value.assigneeUid = originalAssigneeUid.value
+      if (builderAssigneeField.value) {
+        customFieldValues.value = { ...customFieldValues.value, [builderAssigneeField.value.id]: originalAssigneeUid.value }
+      }
+    }
     const cleanedCustomFields = Object.fromEntries(
       Object.entries(customFieldValues.value).filter(([, v]) => (Array.isArray(v) ? v.length > 0 : !!v)),
     )
@@ -177,6 +202,11 @@ const handleDelete = async () => {
 
       <p v-if="error" class="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{{ error }}</p>
 
+      <p v-if="!canEditProtected" class="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 flex items-center gap-1.5">
+        <Icon name="heroicons:lock-closed" class="h-3.5 w-3.5 shrink-0" />
+        担当者・対応ステータス・金額・保険料は、この案件の担当者本人または管理者のみ編集できます
+      </p>
+
       <!-- ステータス -->
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">対応ステータス <span class="text-red-500">*</span></label>
@@ -191,8 +221,12 @@ const handleDelete = async () => {
             ]"
             :key="opt.value"
             type="button"
-            class="flex items-center gap-1.5 cursor-pointer rounded-lg border px-3 py-2 text-sm transition"
-            :class="form.status === opt.value ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'"
+            class="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition"
+            :class="[
+              form.status === opt.value ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300',
+              canEditProtected ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed pointer-events-none',
+            ]"
+            :disabled="!canEditProtected"
             @click="form.status = opt.value as ServiceStatus"
           >{{ opt.label }}</button>
         </div>
@@ -202,7 +236,7 @@ const handleDelete = async () => {
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div v-if="!builderAssigneeField">
           <label class="block text-sm font-medium text-gray-700 mb-1.5">担当者</label>
-          <select v-model="form.assigneeUid" class="input-field">
+          <select v-model="form.assigneeUid" class="input-field disabled:bg-gray-50 disabled:text-gray-400" :disabled="!canEditProtected">
             <option value="">選択してください</option>
             <option v-for="u in assigneeOptions" :key="u.uid" :value="u.uid">{{ u.displayName }}</option>
           </select>
@@ -235,8 +269,8 @@ const handleDelete = async () => {
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1.5">金額・保険料</label>
-        <input v-model="form.amount" type="text" class="input-field" />
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">金額・保険料（成約報酬）</label>
+        <input v-model="form.amount" type="text" class="input-field disabled:bg-gray-50 disabled:text-gray-400" :disabled="!canEditProtected" />
       </div>
 
       <div>
@@ -283,6 +317,7 @@ const handleDelete = async () => {
           :customer-id="customerId"
           :owner-uid="appDef.ownerUid"
           :staff-uids="appDef.staffUids"
+          :assignee-readonly="!canEditProtected"
         />
       </div>
 

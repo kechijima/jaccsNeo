@@ -25,6 +25,7 @@ const props = defineProps<{
   customerId?: string
   ownerUid?: string
   staffUids?: string[]
+  assigneeReadonly?: boolean
 }>()
 
 const emit = defineEmits<{ (e: 'update:modelValue', value: Record<string, string | string[]>): void }>()
@@ -378,11 +379,17 @@ const statusClass = (status: string) => {
       <!-- 担当者（アプリの責任者・担当者から選択） -->
       <div v-else-if="f.type === 'assignee'">
         <label class="block text-sm font-medium text-gray-700 mb-1.5">{{ f.label }}<span v-if="f.required" class="text-red-500 ml-1">*</span></label>
-        <select :value="getStr(f.id)" class="input-field" @change="setStr(f.id, ($event.target as HTMLSelectElement).value)">
+        <select
+          :value="getStr(f.id)"
+          class="input-field disabled:bg-gray-50 disabled:text-gray-400"
+          :disabled="assigneeReadonly"
+          @change="setStr(f.id, ($event.target as HTMLSelectElement).value)"
+        >
           <option value="">選択してください</option>
           <option v-for="u in assigneeOptions" :key="u.uid" :value="u.uid">{{ u.displayName }}</option>
         </select>
-        <p v-if="assigneeOptions.length === 0" class="mt-1 text-xs text-gray-400">
+        <p v-if="assigneeReadonly" class="mt-1 text-xs text-gray-400">この案件の担当者本人または管理者のみ変更できます</p>
+        <p v-else-if="assigneeOptions.length === 0" class="mt-1 text-xs text-gray-400">
           アプリ管理でこのアプリの責任者・担当者を設定すると選択できます
         </p>
       </div>
