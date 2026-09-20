@@ -11,7 +11,9 @@ import { useLifeInsuranceCases } from '~/composables/useLifeInsuranceCases'
 import { useStorage } from '~/composables/useStorage'
 import { useToast } from '~/composables/useToast'
 import { useAppDefs } from '~/composables/useAppDefs'
+import { useUsers } from '~/composables/useUsers'
 import type { AppDef } from '~/types/appDef'
+import type { AppUser } from '~/types/user'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -39,6 +41,9 @@ const form = ref<ServiceCaseForm>({
   notes: '',
   reminderDate: '',
   reminderNote: '',
+  assigneeUid: '',
+  plannerUid: '',
+  reminderAudienceUids: [],
 })
 
 const submitting = ref(false)
@@ -56,6 +61,30 @@ onMounted(async () => {
     appDef.value = await getPublishedByServiceType(serviceType.value).catch(() => null)
   }
 })
+
+// ===== 担当者・担当未来設計士（全アプリ共通の標準項目） =====
+const { fetchUsers } = useUsers()
+const allUsers = ref<AppUser[]>([])
+onMounted(async () => {
+  allUsers.value = await fetchUsers().catch(() => [])
+})
+
+// 担当者: アプリの責任者・担当者（アプリ管理で設定）から選択
+const assigneeOptions = computed(() => {
+  const uids = new Set([appDef.value?.ownerUid, ...(appDef.value?.staffUids ?? [])].filter(Boolean))
+  return allUsers.value.filter(u => uids.has(u.uid))
+})
+// 担当未来設計士: アプリで許可されたユーザー（未設定時は全ユーザー）から選択
+const plannerOptions = computed(() => {
+  const restricted = appDef.value?.plannerUids ?? []
+  return restricted.length > 0 ? allUsers.value.filter(u => restricted.includes(u.uid)) : allUsers.value
+})
+// リマインド対象者: 担当者・担当未来設計士に加え、任意のユーザーを追加指定できる
+const reminderAudienceCandidates = computed(() => allUsers.value)
+const toggleReminderAudience = (uid: string) => {
+  const curr = form.value.reminderAudienceUids ?? []
+  form.value.reminderAudienceUids = curr.includes(uid) ? curr.filter(u => u !== uid) : [...curr, uid]
+}
 
 onMounted(async () => {
   try {
@@ -87,6 +116,11 @@ const handleSubmit = async () => {
     )
     await createCase(customerId.value, serviceType.value as ServiceType, {
       ...form.value,
+      assigneeUid: form.value.assigneeUid || undefined,
+      plannerUid: form.value.plannerUid || undefined,
+      reminderAudienceUids: form.value.reminderAudienceUids && form.value.reminderAudienceUids.length > 0
+        ? form.value.reminderAudienceUids
+        : undefined,
       customFields: Object.keys(cleanedCustomFields).length > 0 ? cleanedCustomFields : undefined,
     })
     showToast('案件を追加しました')
@@ -477,6 +511,27 @@ const handleLiSubmit = async () => {
         </div>
       </div>
 
+      <!-- 担当者・担当未来設計士 -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">担当者</label>
+          <select v-model="form.assigneeUid" class="input-field">
+            <option value="">選択してください</option>
+            <option v-for="u in assigneeOptions" :key="u.uid" :value="u.uid">{{ u.displayName }}</option>
+          </select>
+          <p v-if="assigneeOptions.length === 0" class="mt-1 text-xs text-gray-400">
+            アプリ管理でこのアプリの責任者・担当者を設定すると選択できます
+          </p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">担当未来設計士</label>
+          <select v-model="form.plannerUid" class="input-field">
+            <option value="">選択してください</option>
+            <option v-for="u in plannerOptions" :key="u.uid" :value="u.uid">{{ u.displayName }}</option>
+          </select>
+        </div>
+      </div>
+
       <!-- 対応日 -->
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">対応開始日</label>
@@ -516,6 +571,22 @@ const handleLiSubmit = async () => {
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">リマインダー内容</label>
           <input v-model="form.reminderNote" type="text" placeholder="リマインダー内容を入力..." class="input-field" />
+        </div>
+      </div>
+
+      <!-- リマインド対象者 -->
+      <div v-if="form.reminderDate">
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">
+          リマインド対象者
+          <span class="text-xs font-normal text-gray-400">（未選択の場合は担当者・担当未来設計士に表示されます）</span>
+        </label>
+        <div class="flex flex-wrap gap-2">
+          <label
+            v-for="u in reminderAudienceCandidates" :key="u.uid"
+            class="flex items-center gap-1.5 cursor-pointer rounded-lg border px-3 py-1.5 text-sm transition"
+            :class="(form.reminderAudienceUids ?? []).includes(u.uid) ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'"
+            @click="toggleReminderAudience(u.uid)"
+          >{{ u.displayName }}</label>
         </div>
       </div>
 

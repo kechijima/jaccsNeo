@@ -8,7 +8,9 @@ import { usePermission } from '~/composables/usePermission'
 import { useMentionClick } from '~/composables/useMentionClick'
 import { useAuthStore } from '~/stores/auth'
 import { useAppDefs } from '~/composables/useAppDefs'
+import { useUsers } from '~/composables/useUsers'
 import type { AppDef } from '~/types/appDef'
+import type { AppUser } from '~/types/user'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -56,6 +58,14 @@ onMounted(async () => {
   appDef.value = await getPublishedByServiceType(serviceType.value).catch(() => null)
   await loadRelatedRecords()
 })
+
+// 担当者・担当未来設計士の表示名解決
+const { fetchUsers } = useUsers()
+const allUsers = ref<AppUser[]>([])
+onMounted(async () => {
+  allUsers.value = await fetchUsers().catch(() => [])
+})
+const userName = (uid?: string) => allUsers.value.find(u => u.uid === uid)?.displayName ?? ''
 
 const customFieldEntries = computed(() => {
   if (!appDef.value || !caseData.value?.customFields) return []
@@ -294,6 +304,14 @@ const handleDelete = () => {
           案件情報
         </h2>
         <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+          <div v-if="caseData.assigneeUid">
+            <dt class="text-gray-500">担当者</dt>
+            <dd class="font-medium text-gray-900">{{ userName(caseData.assigneeUid) || '（未登録のユーザー）' }}</dd>
+          </div>
+          <div v-if="caseData.plannerUid">
+            <dt class="text-gray-500">担当未来設計士</dt>
+            <dd class="font-medium text-gray-900">{{ userName(caseData.plannerUid) || '（未登録のユーザー）' }}</dd>
+          </div>
           <div v-if="caseData.contractDate">
             <dt class="text-gray-500">成約日</dt>
             <dd class="font-medium text-gray-900">{{ caseData.contractDate }}</dd>

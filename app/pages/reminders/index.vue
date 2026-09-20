@@ -39,13 +39,23 @@ onMounted(async () => {
   }
 })
 
-// 自分が担当（assignedFpName）の顧客のみに絞り込む。生命保険・各アプリ案件の
-// リマインダーは案件自体に担当者の項目がないため、この絞り込み済み顧客IDの
-// 範囲でのみ表示する
+// パーソナルデータのリマインダーは、自分が担当（assignedFpName）の顧客のみに絞り込む
 const myCustomers = computed(() =>
   customers.value.filter(c => c.assignedFpName === user.value?.displayName),
 )
 const myCustomerIds = computed(() => new Set(myCustomers.value.map(c => c.id)))
+
+// 各アプリ案件のリマインダーは、(1)担当者・担当未来設計士・リマインド対象者に
+// 自分が指定されている場合、または(2)案件自体に担当者等が未設定で、かつ自分が
+// その顧客の担当FPである場合に表示する
+const isMyGenericCase = (c: ServiceCase) => {
+  const uid = user.value?.uid
+  if (uid && (c.assigneeUid === uid || c.plannerUid === uid || (c.reminderAudienceUids ?? []).includes(uid))) {
+    return true
+  }
+  if (c.assigneeUid || c.plannerUid || (c.reminderAudienceUids ?? []).length > 0) return false
+  return myCustomerIds.value.has(c.customerId)
+}
 
 // リマインダー日時（"YYYY-MM-DD"／"YYYY-MM-DDTHH:mm"／CSV由来の"YYYY-MM-DD HH:mm"）を統一的にDateへ変換
 const parseFlexibleDate = (s?: string): Date | null => {
@@ -92,9 +102,9 @@ const reminderItems = computed<ReminderItem[]>(() => {
     })
   }
 
-  const customerNameById = new Map(myCustomers.value.map(c => [c.id, c.name]))
+  const customerNameById = new Map(customers.value.map(c => [c.id, c.name]))
   for (const c of genericCases.value) {
-    if (!myCustomerIds.value.has(c.customerId)) continue
+    if (!isMyGenericCase(c)) continue
     const date = parseFlexibleDate(c.reminderDate)
     if (!date) continue
     items.push({
