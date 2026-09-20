@@ -1,10 +1,6 @@
 <script setup lang="ts">
 import { useAppDefs } from '~/composables/useAppDefs'
 import { useUsers } from '~/composables/useUsers'
-import {
-  NEW_OR_SWITCH_OPTIONS, WEEKDAY_OPTIONS, RESIDENCE_TYPE_OPTIONS,
-  MET_PARENTS_OPTIONS, PROGRESS_STATUS_OPTIONS,
-} from '~/types/lifeInsurance'
 import { SERVICE_LABELS, APP_CATEGORY_LIST } from '~/types/service'
 import { readCsvFile, parseCsv, guessFieldType } from '~/utils/csv'
 import type { AppUser } from '~/types/user'
@@ -177,50 +173,6 @@ const addField = (type: string, atIndex?: number) => {
   if (atIndex !== undefined) fields.value.splice(atIndex, 0, f)
   else fields.value.push(f)
   selectedId.value = f.id
-}
-
-// 生命保険の実案件編集画面（/services/lifeInsurance/[caseId]/edit）と同じ項目構成を読み込む
-const LIFE_INSURANCE_FIELD_SPECS: Array<{ type: string; label: string; required?: boolean; options?: string[] }> = [
-  { type: 'group',    label: '担当情報' },
-  { type: 'text',     label: '面前担当者名', required: true },
-  { type: 'text',     label: '担当 未来設計士' },
-  { type: 'group',    label: '契約・プランニング' },
-  { type: 'textarea', label: '設計書依頼（保険内容）' },
-  { type: 'radio',    label: '新規（無保険状態）or 乗換契約', options: [...NEW_OR_SWITCH_OPTIONS] },
-  { type: 'file',     label: '保険証券コピー①' },
-  { type: 'file',     label: '保険証券コピー②' },
-  { type: 'file',     label: '保険証券コピー③' },
-  { type: 'group',    label: 'アポ希望' },
-  { type: 'datetime', label: 'アポ希望日①' },
-  { type: 'datetime', label: 'アポ希望日②' },
-  { type: 'datetime', label: 'アポ希望日③' },
-  { type: 'checkbox', label: 'アポ可能曜日（日程が合わない場合）', options: [...WEEKDAY_OPTIONS] },
-  { type: 'group',    label: 'ヒアリング項目' },
-  { type: 'text',     label: '収支（いくら貯金できるか）' },
-  { type: 'text',     label: 'ボーナス' },
-  { type: 'text',     label: '貯蓄' },
-  { type: 'checkbox', label: '住居', options: [...RESIDENCE_TYPE_OPTIONS] },
-  { type: 'radio',    label: '親など（ショッカー）に会ったか', options: [...MET_PARENTS_OPTIONS] },
-  { type: 'group',    label: '進行状況' },
-  { type: 'dropdown', label: '進行状況', options: [...PROGRESS_STATUS_OPTIONS] },
-  { type: 'date',     label: '面前日' },
-  { type: 'time',     label: '設定時刻' },
-  { type: 'text',     label: 'リマインダー' },
-  { type: 'textarea', label: '契約内容' },
-  { type: 'textarea', label: 'プランニング内容' },
-  { type: 'textarea', label: 'プランニング・目的' },
-]
-
-const loadLifeInsuranceFields = () => {
-  if (fields.value.length > 0 && !confirm('既存のフィールドを、生命保険の実際の項目で置き換えます。よろしいですか？')) return
-  fields.value = LIFE_INSURANCE_FIELD_SPECS.map(spec => ({
-    id:       `f-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    type:     spec.type,
-    label:    spec.label,
-    required: spec.required ?? false,
-    options:  spec.options ? [...spec.options] : [],
-  }))
-  selectedId.value = null
 }
 
 const removeField = (id: string) => {
@@ -447,14 +399,6 @@ const submitSettings = async () => {
         <span v-if="saved" class="text-xs text-green-600 flex items-center gap-1">
           <Icon name="heroicons:check-circle" class="h-4 w-4" />保存しました
         </span>
-        <button
-          v-if="!previewMode"
-          class="btn-secondary text-sm flex items-center gap-1.5"
-          @click="loadLifeInsuranceFields"
-        >
-          <Icon name="heroicons:arrow-down-tray" class="h-4 w-4" />
-          生命保険の項目を読み込む
-        </button>
         <button
           v-if="!previewMode"
           class="btn-secondary text-sm flex items-center gap-1.5"
@@ -689,10 +633,6 @@ const submitSettings = async () => {
             <Icon name="heroicons:squares-plus" class="h-14 w-14 mb-3 text-gray-200" />
             <p class="font-medium">フィールドをここにドラッグ</p>
             <p class="text-sm mt-1">または左のパレットをクリックして追加</p>
-            <button type="button" class="btn-secondary text-sm mt-4" @click="loadLifeInsuranceFields">
-              <Icon name="heroicons:arrow-down-tray" class="h-4 w-4 mr-1" />
-              生命保険の項目を読み込む
-            </button>
           </div>
 
           <div v-else class="space-y-1">
