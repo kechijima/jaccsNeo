@@ -1,5 +1,6 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https')
 const { onDocumentCreated } = require('firebase-functions/v2/firestore')
+const { onSchedule } = require('firebase-functions/v2/scheduler')
 const { setGlobalOptions } = require('firebase-functions/v2')
 const admin = require('firebase-admin')
 
@@ -170,5 +171,88 @@ exports.sendPushOnNotificationCreate = onDocumentCreated('notifications/{uid}/it
     await admin.firestore().doc(`users/${uid}`).update({
       fcmTokens: admin.firestore.FieldValue.arrayRemove(...invalidTokens),
     })
+  }
+})
+
+const STATUS_LABELS = {
+  consulting: '相談中',
+  considering: '検討中',
+  contracted: '成約',
+  completed: '完了',
+  failed: '不成立',
+}
+
+// 毎朝9時（日本時間）に、アプリ管理（appDefs）で「放置アラート」（staleAlertDays /
+// staleAlertStatuses）が設定されているアプリについて、対象ステータスのまま指定日数
+// 以上ステータス変更・更新がない案件（customers/{cid}/services/{type}/cases/{caseId}）を
+// 検出し、担当者・担当未来設計士・アプリ責任者へ通知する。
+// collectionGroupクエリにwhereを付けるとコレクショングループ用の複合インデックスが
+// 別途必要になる（このリポジトリのCIはFirestoreのインデックスを自動デプロイしない）ため、
+// useServices.tsのfetchAllCases()と同様、絞り込みなしで全件取得してから
+// メモリ上でフィルタする。同じ案件に毎日通知しないよう、案件のupdatedAtを
+// staleAlertSentForに記録し、再更新されるまで再通知しない
+exports.checkStaleServiceCases = onSchedule({ schedule: '0 9 * * *', timeZone: 'Asia/Tokyo' }, async () => {
+  const db = admin.firestore()
+
+  const appDefsSnap = await db.collection('appDefs').where('isPublished', '==', true).get()
+  const targets = appDefsSnap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(a => a.sourceServiceType && a.staleAlertDays > 0)
+  if (targets.length === 0) return
+
+  const casesSnap = await db.collectionGroup('cases').get()
+  const now = Date.now()
+  const notificationPrefsCache = new Map()
+
+  const isNotifiable = async (uid) => {
+    if (!notificationPrefsCache.has(uid)) {
+      const snap = await db.doc(`users/${uid}`).get()
+      notificationPrefsCache.set(uid, snap.data()?.notificationPrefs ?? null)
+    }
+    const prefs = notificationPrefsCache.get(uid)
+    return prefs?.system !== false
+  }
+
+  for (const app of targets) {
+    const statuses = (Array.isArray(app.staleAlertStatuses) && app.staleAlertStatuses.length > 0)
+      ? app.staleAlertStatuses
+      : ['consulting', 'considering']
+    const thresholdMs = app.staleAlertDays * 24 * 60 * 60 * 1000
+
+    for (const caseDoc of casesSnap.docs) {
+      const c = caseDoc.data()
+      if (c.serviceType !== app.sourceServiceType) continue
+      if (!statuses.includes(c.status)) continue
+      const updatedAt = c.updatedAt?.toDate?.()
+      if (!updatedAt) continue
+      if (now - updatedAt.getTime() < thresholdMs) continue
+
+      const updatedAtIso = updatedAt.toISOString()
+      if (c.staleAlertSentFor === updatedAtIso) continue
+
+      const recipientUids = [...new Set([c.assigneeUid, c.plannerUid, app.ownerUid].filter(Boolean))]
+      if (recipientUids.length === 0) continue
+
+      const customerRef = caseDoc.ref.parent.parent.parent.parent
+      const customerSnap = await customerRef.get()
+      const customerName = customerSnap.data()?.name ?? '顧客'
+      const statusLabel = STATUS_LABELS[c.status] ?? c.status
+
+      for (const uid of recipientUids) {
+        if (!(await isNotifiable(uid))) continue
+        await db.collection('notifications').doc(uid).collection('items').add({
+          type: 'system',
+          title: '案件が一定期間更新されていません',
+          body: `${customerName}様の「${app.name}」案件が、ステータス「${statusLabel}」のまま${app.staleAlertDays}日以上更新されていません。`,
+          linkUrl: `/customers/${customerRef.id}/services/${app.sourceServiceType}/${caseDoc.id}`,
+          relatedId: caseDoc.id,
+          uid,
+          isRead: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        })
+      }
+
+      await caseDoc.ref.update({ staleAlertSentFor: updatedAtIso })
+    }
   }
 })
