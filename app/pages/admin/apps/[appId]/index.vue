@@ -258,7 +258,7 @@ interface CsvGuessedField {
   include: boolean
   label: string
   type: string
-  options: string[]
+  optionsText: string
 }
 
 const csvFileInput   = ref<HTMLInputElement | null>(null)
@@ -286,7 +286,7 @@ const handleCsvFileSelected = async (e: Event) => {
       .map((header) => {
         const values = rows.map(r => r[header] ?? '')
         const guess = guessFieldType(values)
-        return { header, include: true, label: header, type: guess.type, options: guess.options }
+        return { header, include: true, label: header, type: guess.type, optionsText: guess.options.join(', ') }
       })
     showCsvReview.value = true
   } catch (err: any) {
@@ -297,20 +297,16 @@ const handleCsvFileSelected = async (e: Event) => {
   }
 }
 
-const csvOptionsText = (g: CsvGuessedField) => g.options.join(', ')
-const setCsvOptionsText = (g: CsvGuessedField, text: string) => {
-  g.options = text.split(',').map(s => s.trim()).filter(Boolean)
-}
-
 const applyCsvGuessedFields = () => {
   for (const g of csvGuessedFields.value) {
     if (!g.include) continue
+    const options = g.optionsText.split(',').map(s => s.trim()).filter(Boolean)
     fields.value.push({
       id:       `f-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       type:     g.type,
       label:    g.label.trim() || g.header,
       required: false,
-      options:  hasOptions(g.type) ? (g.options.length > 0 ? g.options : ['選択肢1', '選択肢2']) : [],
+      options:  hasOptions(g.type) ? (options.length > 0 ? options : ['選択肢1', '選択肢2']) : [],
     })
   }
   showCsvReview.value = false
@@ -1111,12 +1107,7 @@ const submitSettings = async () => {
                 </div>
                 <div v-if="hasOptions(g.type)" class="sm:col-span-2">
                   <label class="block text-[10px] text-gray-400 mb-0.5">選択肢（カンマ区切り）</label>
-                  <input
-                    :value="csvOptionsText(g)"
-                    type="text"
-                    class="input-field text-xs py-1.5"
-                    @input="setCsvOptionsText(g, ($event.target as HTMLInputElement).value)"
-                  />
+                  <input v-model="g.optionsText" type="text" class="input-field text-xs py-1.5" />
                 </div>
               </div>
             </div>
