@@ -243,6 +243,26 @@ const addField = (type: string, atIndex?: number) => {
   selectedId.value = f.id
 }
 
+// ── モバイル用: 項目追加ボトムシート ──────────────────────────
+// 画面が狭いモバイルでは、左のパレット列・右の設定列を常時表示すると
+// 見づらいため、右下の＋ボタン→候補から選んで「追加」ボタンで確定、という
+// 2ステップのフローにしている（デスクトップのドラッグ&ドロップ・クリック追加とは別）
+const showMobileAddField = ref(false)
+const pendingFieldType = ref('')
+const openMobileAddField = () => {
+  pendingFieldType.value = ''
+  showMobileAddField.value = true
+}
+const closeMobileAddField = () => {
+  showMobileAddField.value = false
+  pendingFieldType.value = ''
+}
+const confirmMobileAddField = () => {
+  if (!pendingFieldType.value) return
+  addField(pendingFieldType.value)
+  closeMobileAddField()
+}
+
 const removeField = (id: string) => {
   fields.value = fields.value.filter(f => f.id !== id)
   if (selectedId.value === id) selectedId.value = null
@@ -768,8 +788,8 @@ const handleDeleteApp = async () => {
     <!-- ── 設定モード（3カラム） ── -->
     <div v-else class="flex flex-1 overflow-hidden">
 
-      <!-- 左: フィールドパレット -->
-      <div class="w-52 shrink-0 bg-white border-r border-gray-200 overflow-y-auto">
+      <!-- 左: フィールドパレット（デスクトップのみ。モバイルは右下の＋ボタンから追加） -->
+      <div class="hidden md:block md:w-52 md:shrink-0 md:bg-white md:border-r md:border-gray-200 md:overflow-y-auto">
         <div class="px-3 pt-3 pb-4">
           <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">フィールド追加</p>
           <div v-for="cat in FIELD_CATEGORIES" :key="cat.label" class="mb-4">
@@ -789,6 +809,15 @@ const handleDeleteApp = async () => {
           </div>
         </div>
       </div>
+
+      <!-- モバイル用: 項目追加フローティングボタン -->
+      <button
+        type="button"
+        class="md:hidden fixed bottom-6 right-4 z-30 flex items-center justify-center h-14 w-14 rounded-full bg-primary-600 text-white shadow-lg active:scale-95 transition"
+        @click="openMobileAddField"
+      >
+        <Icon name="heroicons:plus" class="h-6 w-6" />
+      </button>
 
       <!-- 中央: キャンバス -->
       <div
@@ -886,16 +915,21 @@ const handleDeleteApp = async () => {
         </div>
       </div>
 
-      <!-- 右: フィールド設定パネル -->
-      <div class="w-68 shrink-0 bg-white border-l border-gray-200 overflow-y-auto" style="width: 272px;">
-        <!-- 未選択 -->
-        <div v-if="!selectedField" class="flex flex-col items-center justify-center h-full text-center text-gray-400 p-6">
-          <Icon name="heroicons:cursor-arrow-rays" class="h-10 w-10 mb-2 text-gray-200" />
-          <p class="text-sm">フィールドを選択すると<br>設定が表示されます</p>
+      <!-- モバイル用オーバーレイ背景（フィールド選択中のみ、タップで閉じる） -->
+      <div v-if="selectedField" class="md:hidden fixed inset-0 z-40 bg-black/40" @click="selectedId = null" />
+
+      <!-- 右: フィールド設定パネル（モバイルは下からのボトムシート、デスクトップは右カラム固定表示） -->
+      <div
+        v-if="selectedField"
+        class="fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-2xl bg-white shadow-2xl md:static md:z-auto md:max-h-none md:w-[272px] md:shrink-0 md:overflow-y-auto md:rounded-none md:border-l md:border-gray-200 md:shadow-none"
+      >
+        <!-- モバイル用ドラッグハンドル -->
+        <div class="md:hidden flex justify-center pt-2 pb-1">
+          <div class="h-1 w-10 rounded-full bg-gray-300" />
         </div>
 
         <!-- 設定フォーム -->
-        <div v-else class="p-4 space-y-4">
+        <div class="p-4 space-y-4">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
               <Icon :name="FIELD_ICON[selectedField.type]" class="h-4 w-4 text-primary-500" />
@@ -1029,6 +1063,12 @@ const handleDeleteApp = async () => {
             </button>
           </div>
         </div>
+      </div>
+
+      <!-- 未選択時の右カラム（デスクトップのみ。モバイルは選択中のみボトムシートを表示） -->
+      <div v-else class="hidden md:flex md:w-[272px] md:shrink-0 md:flex-col md:items-center md:justify-center md:h-full md:text-center md:text-gray-400 md:p-6 md:bg-white md:border-l md:border-gray-200">
+        <Icon name="heroicons:cursor-arrow-rays" class="h-10 w-10 mb-2 text-gray-200" />
+        <p class="text-sm">フィールドを選択すると<br>設定が表示されます</p>
       </div>
 
     </div>
@@ -1300,6 +1340,54 @@ const handleDeleteApp = async () => {
               @click="applyCsvGuessedFields"
             >
               選択した項目を追加（{{ csvGuessedFields.filter(f => f.include).length }}件）
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- モバイル用: 項目追加ボトムシート -->
+    <Teleport to="body">
+      <div
+        v-if="showMobileAddField"
+        class="md:hidden fixed inset-0 z-50 flex items-end justify-center bg-black/40"
+        @click.self="closeMobileAddField"
+      >
+        <div class="w-full max-h-[80vh] flex flex-col rounded-t-2xl bg-white shadow-xl">
+          <div class="flex items-center justify-between px-4 pt-4 pb-2 shrink-0">
+            <h3 class="font-bold text-gray-900">項目を追加</h3>
+            <button class="p-1.5 hover:bg-gray-100 rounded-lg" @click="closeMobileAddField">
+              <Icon name="heroicons:x-mark" class="h-5 w-5 text-gray-500" />
+            </button>
+          </div>
+
+          <div class="flex-1 overflow-y-auto px-4 pb-3">
+            <div v-for="cat in FIELD_CATEGORIES" :key="cat.label" class="mb-4">
+              <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">{{ cat.label }}</p>
+              <div class="grid grid-cols-2 gap-2">
+                <button
+                  v-for="f in cat.fields"
+                  :key="f.type"
+                  type="button"
+                  class="flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm text-left transition"
+                  :class="pendingFieldType === f.type ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-700'"
+                  @click="pendingFieldType = f.type"
+                >
+                  <Icon :name="f.icon" class="h-4 w-4 shrink-0" :class="pendingFieldType === f.type ? 'text-primary-600' : 'text-gray-400'" />
+                  <span class="truncate">{{ f.label }}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-4 py-3 border-t border-gray-100 shrink-0">
+            <button
+              type="button"
+              class="btn-primary w-full text-sm"
+              :disabled="!pendingFieldType"
+              @click="confirmMobileAddField"
+            >
+              追加
             </button>
           </div>
         </div>
