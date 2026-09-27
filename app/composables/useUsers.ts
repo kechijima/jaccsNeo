@@ -55,6 +55,29 @@ export const useUsers = () => {
     return toAppUser(snap.id, snap.data())
   }
 
+  // タイトル（役職）のうちEM1〜EM4は、自分がメイン/サブサポーターに指定されている
+  // 人数によって自動的に決まる（1人→EM1、2人→EM2、3人→EM3、4人以上→EM4）。
+  // Sプラン・Bプランは対象内で、サポート人数が1人以上になったタイミングで自動的に
+  // EM*へ上書きする（0人に戻っても自動では戻さない。手動での再設定を想定）。
+  // PM*・MM*はEM4到達後に別基準で手動昇格させるタイトルのため、自動上書きの対象外
+  // （既にPM*・MM*になっている人は、サポート人数が変わってもタイトルを変更しない）
+  const recalcEmTitle = async (uid: string): Promise<void> => {
+    if (!uid) return
+    const [mainSnap, subSnap] = await Promise.all([
+      getDocs(query(usersCol(), where('mainSupporterUid', '==', uid))),
+      getDocs(query(usersCol(), where('subSupporterUid', '==', uid))),
+    ])
+    const supportedUids = new Set([...mainSnap.docs, ...subSnap.docs].map(d => d.id))
+    if (supportedUids.size === 0) return
+    const newTitle = `EM${Math.min(supportedUids.size, 4)}`
+    const current = await getDoc(doc($db, 'users', uid))
+    if (!current.exists()) return
+    const currentPosition: string = current.data().position ?? ''
+    if (currentPosition.startsWith('PM') || currentPosition.startsWith('MM')) return
+    if (currentPosition === newTitle) return
+    await updateDoc(doc($db, 'users', uid), { position: newTitle, updatedAt: serverTimestamp() })
+  }
+
   // ===== ユーザー情報更新（管理者・理事会専用。役割・所属など） =====
   const updateUser = async (uid: string, data: {
     displayName?: string
@@ -71,6 +94,20 @@ export const useUsers = () => {
     isWithdrawn?: boolean
   }): Promise<void> => {
     if (!authStore.isBoard) throw new Error('権限がありません')
+
+    // メイン/サブサポーターの変更前の値を控えておく（変更後、旧サポーター側の
+    // タイトルも再計算するため）
+    const touchesSupport = 'mainSupporterUid' in data || 'subSupporterUid' in data
+    let prevMainSupporterUid: string | null = null
+    let prevSubSupporterUid: string | null = null
+    if (touchesSupport) {
+      const before = await getDoc(doc($db, 'users', uid))
+      if (before.exists()) {
+        prevMainSupporterUid = before.data().mainSupporterUid ?? null
+        prevSubSupporterUid = before.data().subSupporterUid ?? null
+      }
+    }
+
     await updateDoc(doc($db, 'users', uid), {
       ...data,
       // 脱退が確定したユーザーはアカウントも無効化する（ログイン不可・一覧上も「無効」扱い）
@@ -78,6 +115,14 @@ export const useUsers = () => {
       updatedBy: authStore.user?.uid,
       updatedAt: serverTimestamp(),
     })
+
+    if (touchesSupport) {
+      const affectedUids = new Set(
+        [prevMainSupporterUid, prevSubSupporterUid, data.mainSupporterUid, data.subSupporterUid]
+          .filter((v): v is string => !!v),
+      )
+      await Promise.all([...affectedUids].map(recalcEmTitle))
+    }
   }
 
   // ===== 自分自身のプロフィール更新（マイページ用。本人のみ許可） =====
