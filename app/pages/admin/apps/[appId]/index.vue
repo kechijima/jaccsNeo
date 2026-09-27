@@ -21,17 +21,31 @@ const loading = ref(true)
 const loadError = ref('')
 const appName = ref('')
 const appDescription = ref('')
-const ownerUid = ref('')
+const ownerUids = ref<string[]>([])
 const staffUids = ref<string[]>([])
 const sourceServiceType = ref('')
 const category = ref('その他')
 const staleAlertDaysInput = ref('')
 const staleAlertStatuses = ref<string[]>([])
+const linkedAppIds = ref<string[]>([])
 const isPublished = ref(true)
 const users = ref<AppUser[]>([])
 
-// 他のアプリ（ルックアップ・関連レコード一覧の参照先候補）
+// 他のアプリ（ルックアップ・関連レコード一覧・連動アプリの参照先候補）
 const otherAppDefs = computed(() => allAppDefs.value.filter(a => a.id !== appId.value && a.isPublished))
+
+// ── 連動アプリ ──────────────────────────────────────────────────
+const linkedAppPickId = ref('')
+const linkedAppCandidates = computed(() => otherAppDefs.value.filter(a => !linkedAppIds.value.includes(a.id)))
+const addLinkedApp = () => {
+  if (!linkedAppPickId.value) return
+  linkedAppIds.value.push(linkedAppPickId.value)
+  linkedAppPickId.value = ''
+}
+const removeLinkedApp = (id: string) => {
+  linkedAppIds.value = linkedAppIds.value.filter(i => i !== id)
+}
+const linkedAppName = (id: string) => allAppDefs.value.find(a => a.id === id)?.name ?? id
 
 onMounted(async () => {
   try {
@@ -46,12 +60,13 @@ onMounted(async () => {
     } else {
       appName.value = app.name
       appDescription.value = app.description ?? ''
-      ownerUid.value = app.ownerUid ?? ''
+      ownerUids.value = [...(app.ownerUids ?? [])]
       staffUids.value = [...app.staffUids]
       sourceServiceType.value = app.sourceServiceType ?? ''
       category.value = app.category && APP_CATEGORY_LIST.includes(app.category) ? app.category : 'その他'
       staleAlertDaysInput.value = app.staleAlertDays ? String(app.staleAlertDays) : ''
       staleAlertStatuses.value = [...(app.staleAlertStatuses ?? ['consulting', 'considering'])]
+      linkedAppIds.value = [...(app.linkedAppIds ?? [])]
       isPublished.value = app.isPublished
       fields.value = app.fields.map(f => ({ ...f, options: [...f.options] }))
     }
@@ -388,12 +403,22 @@ const handleSave = async () => {
 }
 
 // ── アプリ設定（責任者・担当者） ──────────────────────────────
+const ownerPickUid = ref('')
 const staffPickUid = ref('')
 const settingsSaving = ref(false)
 const settingsError = ref('')
 
+const ownerCandidates = computed(() => users.value.filter(u => !ownerUids.value.includes(u.uid)))
 const staffCandidates = computed(() => users.value.filter(u => !staffUids.value.includes(u.uid)))
 
+const addOwner = () => {
+  if (!ownerPickUid.value) return
+  ownerUids.value.push(ownerPickUid.value)
+  ownerPickUid.value = ''
+}
+const removeOwner = (uid: string) => {
+  ownerUids.value = ownerUids.value.filter(u => u !== uid)
+}
 const addStaff = () => {
   if (!staffPickUid.value) return
   staffUids.value.push(staffPickUid.value)
@@ -419,12 +444,13 @@ const submitSettings = async () => {
     await update(appId.value, {
       name: appName.value,
       description: appDescription.value || undefined,
-      ownerUid: ownerUid.value || undefined,
+      ownerUids: ownerUids.value,
       staffUids: staffUids.value,
       sourceServiceType: sourceServiceType.value || undefined,
       category: category.value || undefined,
       staleAlertDays,
       staleAlertStatuses: staleAlertDays ? staleAlertStatuses.value : undefined,
+      linkedAppIds: linkedAppIds.value,
       isPublished: isPublished.value,
     })
     showSettings.value = false
@@ -1038,10 +1064,53 @@ const handleDeleteApp = async () => {
 
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">
-              アプリ責任者
-              <span class="font-normal text-gray-400">（データの登録・編集・削除を通知）</span>
+              連動アプリ
+              <span class="font-normal text-gray-400">（同じ顧客に対して、案件詳細からボタン一つで案件を作成できるアプリ）</span>
             </label>
-            <SearchableUserSelect v-model="ownerUid" :users="users" />
+            <div v-if="linkedAppIds.length > 0" class="flex flex-wrap gap-1.5 mb-2">
+              <span
+                v-for="id in linkedAppIds"
+                :key="id"
+                class="inline-flex items-center gap-1 rounded-full bg-primary-50 text-primary-700 text-xs font-medium px-2.5 py-1"
+              >
+                {{ linkedAppName(id) }}
+                <button type="button" class="hover:text-primary-900" @click="removeLinkedApp(id)">
+                  <Icon name="heroicons:x-mark" class="h-3 w-3" />
+                </button>
+              </span>
+            </div>
+            <div class="flex gap-2">
+              <select v-model="linkedAppPickId" class="input-field text-sm flex-1">
+                <option value="">追加するアプリを選択</option>
+                <option v-for="a in linkedAppCandidates" :key="a.id" :value="a.id">{{ a.name }}</option>
+              </select>
+              <button type="button" class="btn-secondary text-sm shrink-0" :disabled="!linkedAppPickId" @click="addLinkedApp">追加</button>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">
+              アプリ責任者
+              <span class="font-normal text-gray-400">（複数人指定可。データの登録・編集・削除を通知）</span>
+            </label>
+            <div v-if="ownerUids.length > 0" class="flex flex-wrap gap-1.5 mb-2">
+              <span
+                v-for="uid in ownerUids"
+                :key="uid"
+                class="inline-flex items-center gap-1 rounded-full bg-primary-50 text-primary-700 text-xs font-medium px-2.5 py-1"
+              >
+                {{ userName(uid) }}
+                <button type="button" class="hover:text-primary-900" @click="removeOwner(uid)">
+                  <Icon name="heroicons:x-mark" class="h-3 w-3" />
+                </button>
+              </span>
+            </div>
+            <div class="flex gap-2">
+              <div class="flex-1">
+                <SearchableUserSelect v-model="ownerPickUid" :users="ownerCandidates" placeholder="追加する責任者を選択" />
+              </div>
+              <button type="button" class="btn-secondary text-sm shrink-0" :disabled="!ownerPickUid" @click="addOwner">追加</button>
+            </div>
           </div>
 
           <div>

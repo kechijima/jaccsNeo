@@ -73,7 +73,7 @@ onMounted(async () => {
 // アプリ管理のフィールドビルダーで「担当者」項目が追加されている場合は、そちらが
 // 優先され、こちらの固定項目は表示しない（重複を避けるため）
 const assigneeOptions = computed(() => {
-  const uids = new Set([appDef.value?.ownerUid, ...(appDef.value?.staffUids ?? [])].filter(Boolean))
+  const uids = new Set([...(appDef.value?.ownerUids ?? []), ...(appDef.value?.staffUids ?? [])].filter(Boolean))
   return allUsers.value.filter(u => uids.has(u.uid))
 })
 const builderAssigneeField = computed(() => appDef.value?.fields.find(f => f.type === 'assignee'))
@@ -605,7 +605,7 @@ const handleLiSubmit = async () => {
           v-model="customFieldValues"
           :fields="appDef.fields"
           :customer-id="customerId"
-          :owner-uid="appDef.ownerUid"
+          :owner-uids="appDef.ownerUids"
           :staff-uids="appDef.staffUids"
         />
       </div>

@@ -230,7 +230,7 @@ exports.checkStaleServiceCases = onSchedule({ schedule: '0 9 * * *', timeZone: '
       const updatedAtIso = updatedAt.toISOString()
       if (c.staleAlertSentFor === updatedAtIso) continue
 
-      const recipientUids = [...new Set([c.assigneeUid, c.plannerUid, app.ownerUid].filter(Boolean))]
+      const recipientUids = [...new Set([c.assigneeUid, c.plannerUid, ...(app.ownerUids ?? [])].filter(Boolean))]
       if (recipientUids.length === 0) continue
 
       const customerRef = caseDoc.ref.parent.parent.parent.parent

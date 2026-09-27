@@ -21,12 +21,13 @@ export interface AppDef {
   name: string
   description?: string
   fields: AppFieldDef[]
-  ownerUid?: string        // アプリ責任者（データの登録・編集・削除を通知）
+  ownerUids?: string[]     // アプリ責任者（複数人指定可。データの登録・編集・削除を通知）
   staffUids: string[]      // アプリ担当者
   sourceServiceType?: string  // 案件データの保存・連携先キー。未指定の場合は自分自身のIDを使う
   category?: string       // 「アプリ」一覧でのカテゴリ（例: '保険'）。未設定時は自動分類にフォールバック
   staleAlertDays?: number     // 指定日数以上ステータス変更・更新がない場合にアラート通知する。未設定・0以下の場合はアラートなし
   staleAlertStatuses?: string[]  // アラート対象のステータス。未設定時は既定で「相談中」「検討中」
+  linkedAppIds?: string[]    // 連動アプリ（同じ顧客に対して、ボタン一つで案件を作成できる他のAppDefのID）
   isPublished: boolean     // 公開（利用可能）かどうか。falseの場合は下書き扱い
   createdBy: string
   createdAt: Timestamp

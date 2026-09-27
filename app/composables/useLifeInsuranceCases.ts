@@ -34,17 +34,20 @@ const notifyAppOwner = async (action: '登録' | '編集', caseName: string, cas
   try {
     const { appDefs, fetchAll: fetchAppDefs } = useAppDefs()
     await fetchAppDefs()
-    const app = appDefs.value.find(a => a.sourceServiceType === 'lifeInsurance' && a.ownerUid)
-    if (!app?.ownerUid) return
+    const app = appDefs.value.find(a => a.sourceServiceType === 'lifeInsurance' && (a.ownerUids?.length ?? 0) > 0)
+    if (!app?.ownerUids?.length) return
     const authStore = useAuthStore()
-    if (app.ownerUid === authStore.user?.uid) return // 自分自身の操作には通知しない
-    await useNotifications().sendNotification(app.ownerUid, {
-      type: 'system',
-      title: `生命保険案件が${action}されました`,
-      body: `${authStore.user?.displayName ?? '担当者'} さんが「${caseName}」の案件を${action}しました。`,
-      linkUrl: `/services/lifeInsurance/${caseId}`,
-      relatedId: caseId,
-    })
+    const { sendNotification } = useNotifications()
+    for (const ownerUid of app.ownerUids) {
+      if (ownerUid === authStore.user?.uid) continue // 自分自身の操作には通知しない
+      await sendNotification(ownerUid, {
+        type: 'system',
+        title: `生命保険案件が${action}されました`,
+        body: `${authStore.user?.displayName ?? '担当者'} さんが「${caseName}」の案件を${action}しました。`,
+        linkUrl: `/services/lifeInsurance/${caseId}`,
+        relatedId: caseId,
+      })
+    }
   } catch (e) {
     console.error('アプリ責任者への通知に失敗しました', e)
   }

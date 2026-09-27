@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useAppDefs } from '~/composables/useAppDefs'
 import { useUsers } from '~/composables/useUsers'
+import { APP_CATEGORY_LIST } from '~/types/service'
 import type { AppUser } from '~/types/user'
 
 definePageMeta({ middleware: ['auth', 'admin'] })
@@ -12,6 +13,27 @@ const loadError = ref('')
 const users = ref<AppUser[]>([])
 const deletingId = ref('')
 const deleteError = ref('')
+
+// ── 検索・絞り込み ────────────────────────────────────────────────────
+const searchQuery = ref('')
+const selectedCategory = ref('all')
+const selectedStatus = ref('all')
+
+const usedCategories = computed(() => {
+  const set = new Set(appDefs.value.map(a => a.category).filter((c): c is string => !!c))
+  return APP_CATEGORY_LIST.filter(c => set.has(c))
+})
+
+const filteredAppDefs = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  return appDefs.value.filter((app) => {
+    if (selectedCategory.value !== 'all' && (app.category || 'その他') !== selectedCategory.value) return false
+    if (selectedStatus.value === 'published' && !app.isPublished) return false
+    if (selectedStatus.value === 'draft' && app.isPublished) return false
+    if (q && !app.name.toLowerCase().includes(q) && !(app.description ?? '').toLowerCase().includes(q)) return false
+    return true
+  })
+})
 
 const handleDelete = async (app: { id: string; name: string }) => {
   if (!confirm(`「${app.name}」を削除します。フィールド設定・アプリの各種設定はすべて失われます（登録済みの案件データ自体は削除されません）。よろしいですか？`)) return
@@ -36,6 +58,7 @@ onMounted(async () => {
 })
 
 const userName = (uid?: string) => users.value.find(u => u.uid === uid)?.displayName ?? ''
+const ownerNames = (uids?: string[]) => (uids ?? []).map(uid => userName(uid)).filter(Boolean).join('・')
 
 // ── 新規作成モーダル ──────────────────────────────────────────────────
 const showCreate = ref(false)
@@ -107,6 +130,28 @@ const submitCreate = async () => {
       </button>
     </div>
 
+    <!-- 検索・絞り込み -->
+    <div v-if="!loading && !loadError && appDefs.length > 0" class="flex flex-wrap items-center gap-2">
+      <div class="relative flex-1 min-w-[200px]">
+        <Icon name="heroicons:magnifying-glass" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="アプリ名・説明で検索..."
+          class="input-field pl-9 text-sm"
+        />
+      </div>
+      <select v-model="selectedCategory" class="input-field text-sm w-auto shrink-0">
+        <option value="all">全カテゴリ</option>
+        <option v-for="c in usedCategories" :key="c" :value="c">{{ c }}</option>
+      </select>
+      <select v-model="selectedStatus" class="input-field text-sm w-auto shrink-0">
+        <option value="all">すべての状態</option>
+        <option value="published">公開中のみ</option>
+        <option value="draft">下書きのみ</option>
+      </select>
+    </div>
+
     <!-- 読み込み中 -->
     <div v-if="loading" class="card p-12 text-center">
       <Icon name="heroicons:arrow-path" class="h-8 w-8 text-gray-300 mx-auto mb-2 animate-spin" />
@@ -128,10 +173,16 @@ const submitCreate = async () => {
       <button class="btn-primary text-sm mt-4" @click="openCreate">最初のアプリを作成する</button>
     </div>
 
+    <!-- 絞り込み結果が0件 -->
+    <div v-else-if="filteredAppDefs.length === 0" class="card p-16 text-center">
+      <Icon name="heroicons:magnifying-glass" class="h-10 w-10 text-gray-200 mx-auto mb-2" />
+      <p class="text-gray-400">条件に一致するアプリが見つかりませんでした</p>
+    </div>
+
     <!-- アプリ一覧 -->
     <div v-else class="grid sm:grid-cols-2 gap-4">
       <NuxtLink
-        v-for="app in appDefs"
+        v-for="app in filteredAppDefs"
         :key="app.id"
         :to="`/admin/apps/${app.id}`"
         class="card p-5 hover:shadow-md transition"
@@ -144,6 +195,7 @@ const submitCreate = async () => {
                 class="badge text-[10px] shrink-0"
                 :class="app.isPublished ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
               >{{ app.isPublished ? '公開中' : '下書き' }}</span>
+              <span v-if="app.category" class="badge text-[10px] shrink-0 bg-primary-50 text-primary-600">{{ app.category }}</span>
             </div>
             <p class="text-xs text-gray-400 mt-0.5">{{ app.fields.length }}項目</p>
           </div>
@@ -165,7 +217,7 @@ const submitCreate = async () => {
         <div class="flex items-center gap-3 mt-3 pt-3 border-t border-gray-100 text-xs text-gray-500">
           <span class="flex items-center gap-1">
             <Icon name="heroicons:user" class="h-3.5 w-3.5 text-gray-300" />
-            責任者: {{ userName(app.ownerUid) || '未設定' }}
+            責任者: {{ ownerNames(app.ownerUids) || '未設定' }}
           </span>
           <span v-if="app.staffUids.length > 0" class="flex items-center gap-1">
             <Icon name="heroicons:users" class="h-3.5 w-3.5 text-gray-300" />

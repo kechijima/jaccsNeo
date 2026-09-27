@@ -84,6 +84,13 @@ const relatedRecordEntries = computed(() =>
     .map(f => ({ field: f, data: relatedRecordsData.value[f.id] })),
 )
 
+// 連動アプリ: 同じ顧客に対して、ボタン一つで別アプリの案件登録画面へ遷移できる
+const linkedApps = computed(() =>
+  (appDef.value?.linkedAppIds ?? [])
+    .map(id => allAppDefs.value.find(a => a.id === id))
+    .filter((a): a is AppDef => !!a?.sourceServiceType),
+)
+
 const relatedStatusClass = (status: string) => {
   if (/成約/.test(status)) return 'bg-green-100 text-green-700'
   if (/不成立/.test(status)) return 'bg-red-100 text-red-600'
@@ -303,6 +310,20 @@ const handleDelete = () => {
             <Icon name="heroicons:trash" class="h-4 w-4" />
           </button>
         </div>
+      </div>
+
+      <!-- 連動アプリ: 同じ顧客に対して別アプリの案件をボタン一つで登録 -->
+      <div v-if="linkedApps.length > 0" class="flex flex-wrap items-center gap-2">
+        <span class="text-xs text-gray-400 shrink-0">連動アプリ:</span>
+        <NuxtLink
+          v-for="app in linkedApps"
+          :key="app.id"
+          :to="`/customers/${customerId}/services/${app.sourceServiceType}/new`"
+          class="btn-secondary text-xs flex items-center gap-1"
+        >
+          <Icon name="heroicons:arrow-top-right-on-square" class="h-3.5 w-3.5" />
+          {{ app.name }}の案件を作成
+        </NuxtLink>
       </div>
 
       <!-- 基本情報 -->

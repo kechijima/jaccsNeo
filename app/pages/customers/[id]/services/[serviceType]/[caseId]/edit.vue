@@ -63,7 +63,7 @@ const allUsers = ref<AppUser[]>([])
 // 担当者: アプリの責任者・担当者（アプリ管理で設定）から選択。フィールドビルダーで
 // 「担当者」項目が追加されている場合は、そちらを優先しこの固定項目は表示しない
 const assigneeOptions = computed(() => {
-  const uids = new Set([appDef.value?.ownerUid, ...(appDef.value?.staffUids ?? [])].filter(Boolean))
+  const uids = new Set([...(appDef.value?.ownerUids ?? []), ...(appDef.value?.staffUids ?? [])].filter(Boolean))
   return allUsers.value.filter(u => uids.has(u.uid))
 })
 const builderAssigneeField = computed(() => appDef.value?.fields.find(f => f.type === 'assignee'))
@@ -315,7 +315,7 @@ const handleDelete = async () => {
           v-model="customFieldValues"
           :fields="appDef.fields"
           :customer-id="customerId"
-          :owner-uid="appDef.ownerUid"
+          :owner-uids="appDef.ownerUids"
           :staff-uids="appDef.staffUids"
           :assignee-readonly="!canEditProtected"
         />

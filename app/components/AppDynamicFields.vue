@@ -23,7 +23,7 @@ const props = defineProps<{
   fields: AppFieldDef[]
   modelValue: Record<string, string | string[]>
   customerId?: string
-  ownerUid?: string
+  ownerUids?: string[]
   staffUids?: string[]
   assigneeReadonly?: boolean
 }>()
@@ -71,7 +71,7 @@ if (props.fields.some(f => f.type === 'assignee')) {
   fetchUsers().then((users) => { allUsers.value = users }).catch(() => {})
 }
 const assigneeOptions = computed(() => {
-  const uids = new Set([props.ownerUid, ...(props.staffUids ?? [])].filter(Boolean))
+  const uids = new Set([...(props.ownerUids ?? []), ...(props.staffUids ?? [])].filter(Boolean))
   return allUsers.value.filter(u => uids.has(u.uid))
 })
 
