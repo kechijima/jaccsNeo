@@ -1,10 +1,23 @@
 <script setup lang="ts">
+import { useAuthStore } from '~/stores/auth'
+
 definePageMeta({
   layout: 'auth',
   middleware: [],  // 認証不要ページ
 })
 
 const { login, sendPasswordReset, resetPasswordWithDob } = useAuth()
+
+// セッションが永続化されているため、既にログイン済みの状態でこのページを
+// 直接開く（別タブでログイン済みのままブックマークから開く等）ケースがある。
+// 認証確認が完了し、実際にはログイン済みだと分かった場合はダッシュボードへ
+// 送る（確認前はauthStore.isLoggedInがfalseのままのため、confirmedを待つ）
+const authStore = useAuthStore()
+watch(() => authStore.confirmed, (confirmed) => {
+  if (confirmed && authStore.isLoggedIn) {
+    navigateTo('/dashboard', { replace: true })
+  }
+}, { immediate: true })
 
 const email    = ref('')
 const password = ref('')

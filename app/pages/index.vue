@@ -1,12 +1,25 @@
 <script setup lang="ts">
 import { useAuthStore } from '~/stores/auth'
 
-// ログインは毎回必須（セッションを永続化していない）ため、認証確認の完了を
-// 待たずに現時点のログイン状態だけで即座に振り分ける。初回起動時は
-// 必ず未ログイン状態なので、待たずにそのままログイン画面へ進める
+// セッションは永続化されている（firebase.client.ts）ため、authStore.isLoggedIn
+// は起動直後（Firebaseからまだ応答が来ていない時点）では実際のログイン状態を
+// 反映していない。認証確認が完了する（initialized）まで待ってから振り分ける
+// （待っている間はapp.vueのスプラッシュが表示される）
 definePageMeta({ middleware: [] })
 
 const authStore = useAuthStore()
+
+if (!authStore.initialized) {
+  await new Promise<void>((resolve) => {
+    const stop = watch(() => authStore.initialized, (val) => {
+      if (val) {
+        stop()
+        resolve()
+      }
+    })
+  })
+}
+
 await navigateTo(authStore.isLoggedIn ? '/dashboard' : '/login', { replace: true })
 </script>
 <template><div /></template>
