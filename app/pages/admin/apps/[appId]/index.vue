@@ -556,6 +556,65 @@ const handleDeleteApp = async () => {
           フォームプレビュー
         </h2>
 
+        <!-- 標準項目（フィールドビルダーの設定に関わらず、生命保険以外の全アプリで共通して表示される項目） -->
+        <div v-if="sourceServiceType && sourceServiceType !== 'lifeInsurance'" class="space-y-4 pb-4 mb-1 border-b border-dashed border-gray-200">
+          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide">標準項目（自動的に表示されます）</p>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">対応ステータス<span class="text-red-500 ml-1">*</span></label>
+            <div class="flex flex-wrap gap-2">
+              <span v-for="s in ['相談中', '検討中', '成約', '完了', '不成立']" :key="s" class="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-400">{{ s }}</span>
+            </div>
+          </div>
+          <div v-if="!fields.some(f => f.type === 'assignee')">
+            <label class="block text-sm font-medium text-gray-700 mb-1">担当者</label>
+            <select class="input-field text-sm" disabled><option>選択してください</option></select>
+            <p class="text-xs text-gray-400 mt-1">アプリ責任者・アプリ担当者から選択（フィールドビルダーで「担当者」を追加すると、そちらに置き換わります）</p>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">担当未来設計士</label>
+            <select class="input-field text-sm" disabled><option>選択してください</option></select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">対応開始日</label>
+            <input type="date" class="input-field text-sm" disabled />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">成約日</label>
+            <input type="date" class="input-field text-sm" disabled />
+            <p class="text-xs text-gray-400 mt-1">対応ステータスが「成約」「完了」の場合のみ表示されます</p>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">会社名・保険会社</label>
+            <input type="text" class="input-field text-sm" placeholder="例: メットライフ生命" disabled />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">金額・保険料</label>
+            <input type="text" class="input-field text-sm" placeholder="例: 月額 15,000円" disabled />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">備考・メモ</label>
+            <textarea rows="3" class="input-field text-sm resize-none" placeholder="案件の詳細・経緯・メモを入力..." disabled />
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">リマインダー日</label>
+              <input type="date" class="input-field text-sm" disabled />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">リマインダー内容</label>
+              <input type="text" class="input-field text-sm" disabled />
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">リマインド対象者</label>
+            <div class="flex flex-wrap gap-2">
+              <span class="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-400">ユーザー名</span>
+            </div>
+            <p class="text-xs text-gray-400 mt-1">リマインダー日を設定した場合のみ表示されます（未選択時は担当者・担当未来設計士に表示）</p>
+          </div>
+        </div>
+
         <div v-if="fields.length === 0" class="text-center py-16 text-gray-400">
           <Icon name="heroicons:squares-plus" class="h-12 w-12 mx-auto mb-2 text-gray-200" />
           <p>フィールドがありません</p>
