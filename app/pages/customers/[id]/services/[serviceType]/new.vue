@@ -12,6 +12,7 @@ import { useStorage } from '~/composables/useStorage'
 import { useToast } from '~/composables/useToast'
 import { useAppDefs } from '~/composables/useAppDefs'
 import { useUsers } from '~/composables/useUsers'
+import { useCurrentUser } from '~/composables/useCurrentUser'
 import type { AppDef } from '~/types/appDef'
 import type { AppUser } from '~/types/user'
 
@@ -32,6 +33,10 @@ const { createCase } = useServices()
 const customerName = ref('')
 const customer = ref<any>(null)
 
+// 担当未来設計士は、ログイン中の自分自身を初期値として選択しておく
+// （多くの場合、自分が担当する案件を自分で登録するため）
+const { user: currentUser } = useCurrentUser()
+
 const form = ref<ServiceCaseForm>({
   status: 'consulting' as ServiceStatus,
   date: '',
@@ -42,7 +47,7 @@ const form = ref<ServiceCaseForm>({
   reminderDate: '',
   reminderNote: '',
   assigneeUid: '',
-  plannerUid: '',
+  plannerUid: currentUser.value?.uid ?? '',
   reminderAudienceUids: [],
 })
 
