@@ -537,6 +537,31 @@ const handleLiSubmit = async () => {
         </select>
       </div>
 
+      <!-- アプリ管理で設定した追加項目 -->
+      <div v-if="appDef && appDef.fields.length > 0" class="pt-4 border-t border-gray-100 space-y-4">
+        <h3 class="font-semibold text-gray-900 flex items-center gap-2">
+          <Icon name="heroicons:squares-2x2" class="h-5 w-5 text-primary-600" />
+          {{ appDef.name }}の項目
+        </h3>
+        <AppDynamicFields
+          v-model="customFieldValues"
+          :fields="appDef.fields"
+          :customer-id="customerId"
+          :owner-uids="appDef.ownerUids"
+          :staff-uids="appDef.staffUids"
+          :assignee-readonly="!canEditProtected"
+        />
+      </div>
+
+      <!-- ファイル添付（Phase3で実装） -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">添付ファイル</label>
+        <div class="flex items-center justify-center rounded-lg border-2 border-dashed border-gray-200 p-6 text-sm text-gray-400">
+          <Icon name="heroicons:paper-clip" class="h-5 w-5 mr-2" />
+          ファイルをドラッグ&ドロップ（Phase3で実装予定）
+        </div>
+      </div>
+
       <p class="text-sm font-bold text-red-600 pt-2 border-t border-gray-100">担当者以外操作禁止</p>
 
       <!-- ステータス -->
@@ -620,31 +645,6 @@ const handleLiSubmit = async () => {
         >
           <option v-for="u in reminderAudienceCandidates" :key="u.uid" :value="u.uid">{{ u.displayName }}</option>
         </select>
-      </div>
-
-      <!-- アプリ管理で設定した追加項目 -->
-      <div v-if="appDef && appDef.fields.length > 0" class="pt-4 border-t border-gray-100 space-y-4">
-        <h3 class="font-semibold text-gray-900 flex items-center gap-2">
-          <Icon name="heroicons:squares-2x2" class="h-5 w-5 text-primary-600" />
-          {{ appDef.name }}の項目
-        </h3>
-        <AppDynamicFields
-          v-model="customFieldValues"
-          :fields="appDef.fields"
-          :customer-id="customerId"
-          :owner-uids="appDef.ownerUids"
-          :staff-uids="appDef.staffUids"
-          :assignee-readonly="!canEditProtected"
-        />
-      </div>
-
-      <!-- ファイル添付（Phase3で実装） -->
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1.5">添付ファイル</label>
-        <div class="flex items-center justify-center rounded-lg border-2 border-dashed border-gray-200 p-6 text-sm text-gray-400">
-          <Icon name="heroicons:paper-clip" class="h-5 w-5 mr-2" />
-          ファイルをドラッグ&ドロップ（Phase3で実装予定）
-        </div>
       </div>
 
       <!-- ボタン -->

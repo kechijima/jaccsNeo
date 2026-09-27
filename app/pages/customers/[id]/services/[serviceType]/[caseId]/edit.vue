@@ -223,6 +223,22 @@ const handleDelete = async () => {
         </select>
       </div>
 
+      <!-- アプリ管理で設定した追加項目 -->
+      <div v-if="appDef && appDef.fields.length > 0" class="pt-4 border-t border-gray-100 space-y-4">
+        <h3 class="font-semibold text-gray-900 flex items-center gap-2">
+          <Icon name="heroicons:squares-2x2" class="h-5 w-5 text-primary-600" />
+          {{ appDef.name }}の項目
+        </h3>
+        <AppDynamicFields
+          v-model="customFieldValues"
+          :fields="appDef.fields"
+          :customer-id="customerId"
+          :owner-uids="appDef.ownerUids"
+          :staff-uids="appDef.staffUids"
+          :assignee-readonly="!canEditProtected"
+        />
+      </div>
+
       <p class="text-sm font-bold text-red-600 pt-2 border-t border-gray-100">担当者以外操作禁止</p>
 
       <!-- ステータス -->
@@ -302,22 +318,6 @@ const handleDelete = async () => {
         >
           <option v-for="u in reminderAudienceCandidates" :key="u.uid" :value="u.uid">{{ u.displayName }}</option>
         </select>
-      </div>
-
-      <!-- アプリ管理で設定した追加項目 -->
-      <div v-if="appDef && appDef.fields.length > 0" class="pt-4 border-t border-gray-100 space-y-4">
-        <h3 class="font-semibold text-gray-900 flex items-center gap-2">
-          <Icon name="heroicons:squares-2x2" class="h-5 w-5 text-primary-600" />
-          {{ appDef.name }}の項目
-        </h3>
-        <AppDynamicFields
-          v-model="customFieldValues"
-          :fields="appDef.fields"
-          :customer-id="customerId"
-          :owner-uids="appDef.ownerUids"
-          :staff-uids="appDef.staffUids"
-          :assignee-readonly="!canEditProtected"
-        />
       </div>
 
       <div class="flex justify-between pt-2">
