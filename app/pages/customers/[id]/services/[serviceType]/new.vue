@@ -36,13 +36,12 @@ const customer = ref<any>(null)
 // 担当未来設計士は、ログイン中の自分自身を初期値として選択しておく
 // （多くの場合、自分が担当する案件を自分で登録するため）
 const { user: currentUser } = useCurrentUser()
+const { isEm2OrAbove } = usePermission()
 
 const form = ref<ServiceCaseForm>({
   status: 'consulting' as ServiceStatus,
-  date: '',
   contractDate: '',
   amount: '',
-  company: '',
   notes: '',
   reminderDate: '',
   reminderNote: '',
@@ -82,14 +81,36 @@ const assigneeOptions = computed(() => {
   return allUsers.value.filter(u => uids.has(u.uid))
 })
 const builderAssigneeField = computed(() => appDef.value?.fields.find(f => f.type === 'assignee'))
+// 担当者も、ログイン中の自分自身が候補に含まれていれば初期値として選択しておく
+// （アプリ管理・ユーザー一覧の読み込みが終わった時点で一度だけ反映する）
+watch(assigneeOptions, (opts) => {
+  if (!form.value.assigneeUid && opts.some(u => u.uid === currentUser.value?.uid)) {
+    form.value.assigneeUid = currentUser.value!.uid
+  }
+}, { immediate: true })
+// フィールドビルダーで追加された「担当者」項目を使う場合も同様に初期値を入れておく
+// （そうしないと、担当者本人以外操作禁止の対象になった時点で誰も選択できなくなるため）
+watch([builderAssigneeField, assigneeOptions], ([field, opts]) => {
+  if (!field) return
+  if (!customFieldValues.value[field.id] && opts.some(u => u.uid === currentUser.value?.uid)) {
+    customFieldValues.value = { ...customFieldValues.value, [field.id]: currentUser.value!.uid }
+  }
+}, { immediate: true })
 // 担当未来設計士: 全ユーザーから選択
 const plannerOptions = computed(() => allUsers.value)
 // リマインド対象者: 担当者・担当未来設計士に加え、任意のユーザーを追加指定できる
 const reminderAudienceCandidates = computed(() => allUsers.value)
-const toggleReminderAudience = (uid: string) => {
-  const curr = form.value.reminderAudienceUids ?? []
-  form.value.reminderAudienceUids = curr.includes(uid) ? curr.filter(u => u !== uid) : [...curr, uid]
-}
+
+// 対応ステータス・担当者・成約日・金額・備考・リマインダー関連は、案件の担当者
+// 本人（このフォームでは選択中の担当者と一致するかどうかで判定）、またはEM2以上
+// のみ入力可能。フィールドビルダーで「担当者」項目を追加している場合はその値を使う
+const resolvedAssigneeUid = computed(() => builderAssigneeField.value
+  ? (customFieldValues.value[builderAssigneeField.value.id] as string | undefined)
+  : form.value.assigneeUid)
+const canEditProtected = computed(() => {
+  if (isEm2OrAbove.value) return true
+  return !!resolvedAssigneeUid.value && resolvedAssigneeUid.value === currentUser.value?.uid
+})
 
 onMounted(async () => {
   try {
@@ -114,19 +135,26 @@ const handleSubmit = async () => {
   submitting.value = true
   error.value = ''
   try {
+    // 担当者以外操作禁止の項目は、画面上は無効化しているが、念のため送信直前にも
+    // 権限がない場合は初期値へ強制的に戻しておく（クライアント側の制御のための
+    // 二重チェック）
+    if (!canEditProtected.value) {
+      form.value.status = 'consulting' as ServiceStatus
+      form.value.contractDate = ''
+      form.value.amount = ''
+      form.value.notes = ''
+      form.value.reminderDate = ''
+      form.value.reminderNote = ''
+      form.value.reminderAudienceUids = []
+    }
     // 空文字・空配列のフィールドは保存しない（Firestoreはundefinedを許可しないため、
     // 未入力分をあらかじめ取り除いておく）
     const cleanedCustomFields = Object.fromEntries(
       Object.entries(customFieldValues.value).filter(([, v]) => (Array.isArray(v) ? v.length > 0 : !!v)),
     )
-    // 担当者は、アプリ管理のフィールドビルダーで追加された「担当者」項目があればその値を、
-    // なければ固定の担当者選択欄の値を使う
-    const resolvedAssigneeUid = builderAssigneeField.value
-      ? (customFieldValues.value[builderAssigneeField.value.id] as string | undefined)
-      : form.value.assigneeUid
     await createCase(customerId.value, serviceType.value as ServiceType, {
       ...form.value,
-      assigneeUid: resolvedAssigneeUid || undefined,
+      assigneeUid: resolvedAssigneeUid.value || undefined,
       plannerUid: form.value.plannerUid || undefined,
       reminderAudienceUids: form.value.reminderAudienceUids && form.value.reminderAudienceUids.length > 0
         ? form.value.reminderAudienceUids
@@ -500,6 +528,17 @@ const handleLiSubmit = async () => {
     <!-- ========================================================= -->
     <form v-else class="card p-6 space-y-5" @submit.prevent="handleSubmit">
 
+      <!-- 担当未来設計士（担当者以外操作禁止の対象外。誰でも変更可能） -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">担当未来設計士</label>
+        <select v-model="form.plannerUid" class="input-field">
+          <option value="">選択してください</option>
+          <option v-for="u in plannerOptions" :key="u.uid" :value="u.uid">{{ u.displayName }}</option>
+        </select>
+      </div>
+
+      <p class="text-sm font-bold text-red-600 pt-2 border-t border-gray-100">担当者以外操作禁止</p>
+
       <!-- ステータス -->
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">対応ステータス <span class="text-red-500">*</span></label>
@@ -514,73 +553,56 @@ const handleLiSubmit = async () => {
             ]"
             :key="opt.value"
             type="button"
-            class="flex items-center gap-1.5 cursor-pointer rounded-lg border px-3 py-2 text-sm transition"
-            :class="form.status === opt.value ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'"
+            class="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition"
+            :class="[
+              form.status === opt.value ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300',
+              canEditProtected ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed pointer-events-none',
+            ]"
+            :disabled="!canEditProtected"
             @click="form.status = opt.value as ServiceStatus"
           >{{ opt.label }}</button>
         </div>
       </div>
 
-      <!-- 担当者（アプリ管理のフィールドビルダーで「担当者」項目が追加されていない場合のみ表示）・担当未来設計士 -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div v-if="!builderAssigneeField">
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">担当者</label>
-          <select v-model="form.assigneeUid" class="input-field">
-            <option value="">選択してください</option>
-            <option v-for="u in assigneeOptions" :key="u.uid" :value="u.uid">{{ u.displayName }}</option>
-          </select>
-          <p v-if="assigneeOptions.length === 0" class="mt-1 text-xs text-gray-400">
-            アプリ管理でこのアプリの責任者・担当者を設定すると選択できます
-          </p>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">担当未来設計士</label>
-          <select v-model="form.plannerUid" class="input-field">
-            <option value="">選択してください</option>
-            <option v-for="u in plannerOptions" :key="u.uid" :value="u.uid">{{ u.displayName }}</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- 対応日 -->
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1.5">対応開始日</label>
-        <input v-model="form.date" type="date" class="input-field" />
+      <!-- 担当者（アプリ管理のフィールドビルダーで「担当者」項目が追加されていない場合のみ表示） -->
+      <div v-if="!builderAssigneeField">
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">担当者</label>
+        <select v-model="form.assigneeUid" class="input-field disabled:bg-gray-50 disabled:text-gray-400" :disabled="!canEditProtected">
+          <option value="">選択してください</option>
+          <option v-for="u in assigneeOptions" :key="u.uid" :value="u.uid">{{ u.displayName }}</option>
+        </select>
+        <p v-if="assigneeOptions.length === 0" class="mt-1 text-xs text-gray-400">
+          アプリ管理でこのアプリの責任者・担当者を設定すると選択できます
+        </p>
       </div>
 
       <!-- 成約日 -->
       <div v-if="form.status === 'contracted' || form.status === 'completed'">
         <label class="block text-sm font-medium text-gray-700 mb-1.5">成約日</label>
-        <input v-model="form.contractDate" type="date" class="input-field" />
-      </div>
-
-      <!-- 保険会社・会社名 -->
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1.5">会社名・保険会社</label>
-        <input v-model="form.company" type="text" placeholder="例: メットライフ生命" class="input-field" />
+        <input v-model="form.contractDate" type="date" class="input-field disabled:bg-gray-50 disabled:text-gray-400" :disabled="!canEditProtected" />
       </div>
 
       <!-- 金額 -->
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">金額・保険料</label>
-        <input v-model="form.amount" type="text" placeholder="例: 月額 15,000円" class="input-field" />
+        <input v-model="form.amount" type="text" placeholder="例: 月額 15,000円" class="input-field disabled:bg-gray-50 disabled:text-gray-400" :disabled="!canEditProtected" />
       </div>
 
       <!-- 備考 -->
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">備考・メモ</label>
-        <textarea v-model="form.notes" rows="4" placeholder="案件の詳細・経緯・メモを入力..." class="input-field" />
+        <textarea v-model="form.notes" rows="4" placeholder="案件の詳細・経緯・メモを入力..." class="input-field disabled:bg-gray-50 disabled:text-gray-400" :disabled="!canEditProtected" />
       </div>
 
       <!-- リマインダー -->
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">リマインダー日</label>
-          <input v-model="form.reminderDate" type="date" class="input-field" />
+          <input v-model="form.reminderDate" type="date" class="input-field disabled:bg-gray-50 disabled:text-gray-400" :disabled="!canEditProtected" />
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">リマインダー内容</label>
-          <input v-model="form.reminderNote" type="text" placeholder="リマインダー内容を入力..." class="input-field" />
+          <input v-model="form.reminderNote" type="text" placeholder="リマインダー内容を入力..." class="input-field disabled:bg-gray-50 disabled:text-gray-400" :disabled="!canEditProtected" />
         </div>
       </div>
 
@@ -590,14 +612,14 @@ const handleLiSubmit = async () => {
           リマインド対象者
           <span class="text-xs font-normal text-gray-400">（未選択の場合は担当者・担当未来設計士に表示されます）</span>
         </label>
-        <div class="flex flex-wrap gap-2">
-          <label
-            v-for="u in reminderAudienceCandidates" :key="u.uid"
-            class="flex items-center gap-1.5 cursor-pointer rounded-lg border px-3 py-1.5 text-sm transition"
-            :class="(form.reminderAudienceUids ?? []).includes(u.uid) ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'"
-            @click="toggleReminderAudience(u.uid)"
-          >{{ u.displayName }}</label>
-        </div>
+        <select
+          v-model="form.reminderAudienceUids"
+          multiple
+          class="input-field text-sm disabled:bg-gray-50 disabled:text-gray-400"
+          :disabled="!canEditProtected"
+        >
+          <option v-for="u in reminderAudienceCandidates" :key="u.uid" :value="u.uid">{{ u.displayName }}</option>
+        </select>
       </div>
 
       <!-- アプリ管理で設定した追加項目 -->
@@ -612,6 +634,7 @@ const handleLiSubmit = async () => {
           :customer-id="customerId"
           :owner-uids="appDef.ownerUids"
           :staff-uids="appDef.staffUids"
+          :assignee-readonly="!canEditProtected"
         />
       </div>
 

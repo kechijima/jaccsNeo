@@ -87,10 +87,8 @@ const onDrop = (e: DragEvent) => {
 // リマインダー日・リマインダー内容）／このアプリ専用項目（AppDefのfields）
 const CUSTOMER_NAME_TARGET = '__customerName'
 const GENERIC_FIELD_OPTIONS = [
-  { value: 'date',         label: '対応開始日' },
   { value: 'contractDate', label: '成約日' },
   { value: 'amount',       label: '金額・保険料' },
-  { value: 'company',      label: '会社名・保険会社' },
   { value: 'notes',        label: '備考・メモ' },
   { value: 'reminderDate', label: 'リマインダー日' },
   { value: 'reminderNote', label: 'リマインダー内容' },

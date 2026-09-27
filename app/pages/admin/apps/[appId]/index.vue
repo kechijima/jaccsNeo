@@ -206,10 +206,8 @@ const CUSTOMER_LOOKUP_FIELDS = [
 
 const GENERIC_CASE_FIELD_OPTIONS = [
   { key: 'builtin:status',       label: 'ステータス' },
-  { key: 'builtin:company',      label: '会社名・保険会社' },
   { key: 'builtin:amount',       label: '金額・保険料' },
   { key: 'builtin:notes',        label: '備考' },
-  { key: 'builtin:date',         label: '対応開始日' },
   { key: 'builtin:contractDate', label: '成約日' },
 ]
 
@@ -561,6 +559,14 @@ const handleDeleteApp = async () => {
           <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide">標準項目（自動的に表示されます）</p>
 
           <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">担当未来設計士</label>
+            <select class="input-field text-sm" disabled><option>選択してください</option></select>
+            <p class="text-xs text-gray-400 mt-1">初期値はログイン中のユーザー</p>
+          </div>
+
+          <p class="text-sm font-bold text-red-600 pt-2 border-t border-gray-100">担当者以外操作禁止</p>
+
+          <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">対応ステータス<span class="text-red-500 ml-1">*</span></label>
             <div class="flex flex-wrap gap-2">
               <span v-for="s in ['相談中', '検討中', '成約', '完了', '不成立']" :key="s" class="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-400">{{ s }}</span>
@@ -572,21 +578,9 @@ const handleDeleteApp = async () => {
             <p class="text-xs text-gray-400 mt-1">アプリ責任者・アプリ担当者から選択（フィールドビルダーで「担当者」を追加すると、そちらに置き換わります）</p>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">担当未来設計士</label>
-            <select class="input-field text-sm" disabled><option>選択してください</option></select>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">対応開始日</label>
-            <input type="date" class="input-field text-sm" disabled />
-          </div>
-          <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">成約日</label>
             <input type="date" class="input-field text-sm" disabled />
             <p class="text-xs text-gray-400 mt-1">対応ステータスが「成約」「完了」の場合のみ表示されます</p>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">会社名・保険会社</label>
-            <input type="text" class="input-field text-sm" placeholder="例: メットライフ生命" disabled />
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">金額・保険料</label>
@@ -608,9 +602,7 @@ const handleDeleteApp = async () => {
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">リマインド対象者</label>
-            <div class="flex flex-wrap gap-2">
-              <span class="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-400">ユーザー名</span>
-            </div>
+            <select class="input-field text-sm" multiple disabled><option>ユーザー名</option></select>
             <p class="text-xs text-gray-400 mt-1">リマインダー日を設定した場合のみ表示されます（未選択時は担当者・担当未来設計士に表示）</p>
           </div>
         </div>
