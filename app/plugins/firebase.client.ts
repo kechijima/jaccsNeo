@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app'
-import { initializeAuth, inMemoryPersistence, type Auth } from 'firebase/auth'
+import { initializeAuth, browserLocalPersistence, inMemoryPersistence, type Auth } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 // firebase/storage・firebase/functionsはそれぞれ useStorage.ts / useUsers.ts の
 // 該当処理内で動的import()する（利用ページがごく一部のため）。ここで静的importすると
@@ -66,12 +66,16 @@ export default defineNuxtPlugin(() => {
   // 制限された環境で同期的に例外を投げることがあり、アプリ起動全体がクラッシュして
   // 「読み込み中」のまま止まって見える不具合の原因になっていた（モバイルでのみ
   // 発生していたのはこのため）。
-  // ログイン状態を永続化しない方針（inMemoryPersistence固定）である以上、そもそも
-  // ブラウザストレージへ一切アクセスする必要がないため、initializeAuthで永続化方式を
-  // 最初からinMemoryPersistenceのみに限定して初期化し、上記の同期チェック自体を回避する
+  // 画面更新のたびにログアウトされる不便を解消するため、ログイン状態は
+  // browserLocalPersistence（localStorage）で永続化する。ただし前述の問題を
+  // 再発させないよう、indexedDBLocalPersistenceは候補に含めない（IndexedDBは
+  // 上記の理由で無効化したままにする）。localStorage自体が使えない環境
+  // （プライベートブラウズ等）では、Firebaseがフォールバックとして自動的に
+  // inMemoryPersistenceへ切り替える（この配列指定であれば、getAuth()の既定動作とは
+  // 異なり、切替時に同期的な例外を投げることはない）
   let auth: Auth
   try {
-    auth = initializeAuth(app, { persistence: inMemoryPersistence })
+    auth = initializeAuth(app, { persistence: [browserLocalPersistence, inMemoryPersistence] })
   } catch (e) {
     console.error('Firebase Authの初期化に失敗しました', e)
     return {}

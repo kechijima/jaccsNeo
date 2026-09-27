@@ -31,10 +31,12 @@ export const useAuth = () => {
   // 認証状態の監視（アプリ起動時に一度だけ呼ぶ）。ログイン・ログアウトの
   // たびにも自動で再発火し続けるため、ユーザー情報の反映はここに一本化している。
   //
-  // セッションはinMemoryPersistence（firebase.client.ts）のため、画面更新・
-  // アプリの再起動のたびにログイン状態は必ず失われ、毎回ログイン画面から
-  // 入り直す想定。そのため以前あった「前回ログイン時のプロフィールを
-  // localStorageにキャッシュして即座に復元する」処理は行わない
+  // セッションはbrowserLocalPersistence（firebase.client.ts、localStorageが
+  // 使えない環境ではinMemoryPersistenceへ自動フォールバック）のため、画面更新・
+  // アプリの再起動をまたいでもログイン状態は維持される。onAuthStateChangedが
+  // 復元されたセッションで再発火するのを待つだけでよく、前回ログイン時の
+  // プロフィールを別途localStorageにキャッシュして即座に復元するような処理は
+  // 不要（Firebase自身の永続化に任せる）
   const initAuth = () => {
     const { $auth } = useNuxtApp()
 
