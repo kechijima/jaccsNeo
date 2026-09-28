@@ -813,7 +813,7 @@ const handleDeleteApp = async () => {
       <!-- モバイル用: 項目追加フローティングボタン -->
       <button
         type="button"
-        class="md:hidden fixed bottom-6 right-4 z-30 flex items-center justify-center h-14 w-14 rounded-full bg-primary-600 text-white shadow-lg active:scale-95 transition"
+        class="md:hidden fixed bottom-20 right-4 z-30 flex items-center justify-center h-14 w-14 rounded-full bg-primary-600 text-white shadow-lg active:scale-95 transition"
         @click="openMobileAddField"
       >
         <Icon name="heroicons:plus" class="h-6 w-6" />
