@@ -28,6 +28,11 @@ const lookupQuery = ref('')
 const lookupOptions = computed(() => directorNames.value.map(n => ({ id: n, label: n })))
 const lookupResults = computed(() => searchByDirector(lookupQuery.value))
 
+// 逆引きの元データ（memberNames）には法人名も混在しているため、表示時のみ除外する
+// （データ自体やupsert/cleanup系の関数は法人名を扱う必要があるため変更しない）
+const CORPORATE_NAME_PATTERN = /株式会社|有限会社|合同会社|合資会社|合名会社|一般社団法人|一般財団法人|公益社団法人|公益財団法人|協同組合|事業協同組合|\(株\)|\(有\)|㈱|㈲/
+const personalMemberNames = (names: string[]) => names.filter(n => !CORPORATE_NAME_PATTERN.test(n))
+
 interface MemberRow {
   uid: string
   name: string
@@ -248,9 +253,9 @@ const filteredGroups = computed<GroupRow[]>(() => {
                 class="badge text-xs"
                 :class="r.role === 'main' ? 'bg-primary-100 text-primary-700' : 'bg-amber-100 text-amber-700'"
               >{{ DIRECTOR_ROLE_LABELS[r.role] }}</span>
-              <span class="text-xs text-gray-400">{{ r.memberNames.length }}名</span>
+              <span class="text-xs text-gray-400">{{ personalMemberNames(r.memberNames).length }}名</span>
             </div>
-            <p class="text-sm text-gray-600">{{ r.memberNames.join('、') }}</p>
+            <p class="text-sm text-gray-600">{{ personalMemberNames(r.memberNames).join('、') }}</p>
           </div>
         </div>
       </div>

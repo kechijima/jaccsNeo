@@ -1,4 +1,5 @@
 import type { Customer, CustomerForm, CustomerSummary } from '~/types/customer'
+import Encoding from 'encoding-japanese'
 import {
   CSV_FIELD_MAP,
   CSV_SERVICE_MAP,
@@ -190,11 +191,15 @@ export function exportApoToCsv(customers: Customer[]): string {
 }
 
 /**
- * BOMつきUTF-8でダウンロードトリガー
+ * Shift_JIS(CP932)でダウンロードトリガー
+ * WindowsだけでなくMacのExcelでもBOMつきUTF-8だと文字化けするケースがあるため、
+ * 日本語のExcel向けCSVとして最も互換性の高いShift_JISに変換して出力する
  */
 export function downloadCsv(csvText: string, filename: string) {
-  const bom = '\uFEFF'
-  const blob = new Blob([bom + csvText], { type: 'text/csv;charset=utf-8;' })
+  const unicodeArray = Encoding.stringToCode(csvText)
+  const sjisArray = Encoding.convert(unicodeArray, { to: 'SJIS', from: 'UNICODE' })
+  const bytes = new Uint8Array(sjisArray)
+  const blob = new Blob([bytes], { type: 'text/csv;charset=shift_jis;' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url

@@ -35,6 +35,29 @@ const submitMinutes = async () => {
 
 const minutesFmt = (d: Date) => d.toLocaleString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 
+// カレンダーの日付単位で議事録を絞り込む。
+// ・カレンダーから開いた場合はその日の日付（?date=）を使う
+// ・?dateが無い場合、繰り返し会議は「今日」を、単発イベントは開催日をデフォルトにする
+//   （繰り返しの各回で議事録を共有してしまい、過去分まで一緒に見えてしまう問題への対処）
+const toDateStr = (d: Date) => {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+const targetDateStr = computed(() => {
+  const q = route.query.date
+  if (typeof q === 'string' && q) return q
+  if (event.value && !event.value.recurrence) return toDateStr(event.value.startAt.toDate())
+  return toDateStr(new Date())
+})
+const isTodayTarget = computed(() => targetDateStr.value === toDateStr(new Date()))
+const targetDateLabel = computed(() => {
+  const [y, m, d] = targetDateStr.value.split('-').map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' })
+})
+const minutesForDate = computed(() => minutes.value.filter(m => toDateStr(m.createdAt) === targetDateStr.value))
+
 // 投稿者本人のみ編集可能
 const editingMinutesId = ref<string | null>(null)
 const editingMinutesContent = ref('')
@@ -285,10 +308,20 @@ const statusLabel = (status: string) => {
 
       <!-- 議事録（種別「会議」のみ） -->
       <div v-if="event.category === 'meeting'" class="card p-5 space-y-4">
-        <h2 class="font-semibold text-gray-900 flex items-center gap-2">
-          <Icon name="heroicons:document-text" class="h-5 w-5 text-primary-600" />
-          議事録
-        </h2>
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <h2 class="font-semibold text-gray-900 flex items-center gap-2">
+            <Icon name="heroicons:document-text" class="h-5 w-5 text-primary-600" />
+            議事録
+            <span class="text-xs font-normal text-gray-400">（{{ targetDateLabel }}）</span>
+          </h2>
+          <NuxtLink
+            v-if="!isTodayTarget"
+            :to="`/events/${eventId}`"
+            class="text-xs text-primary-600 hover:underline"
+          >
+            今日の議事録を見る
+          </NuxtLink>
+        </div>
 
         <!-- 新規投稿 -->
         <div class="space-y-2">
@@ -306,11 +339,11 @@ const statusLabel = (status: string) => {
           </div>
         </div>
 
-        <!-- 一覧（新着順） -->
+        <!-- 一覧（新着順、表示中の日付の分のみ） -->
         <div v-if="minutesLoading" class="text-center text-xs text-gray-400 py-4">読み込み中...</div>
-        <div v-else-if="minutes.length === 0" class="text-center text-xs text-gray-400 py-4">議事録はまだありません</div>
+        <div v-else-if="minutesForDate.length === 0" class="text-center text-xs text-gray-400 py-4">この日の議事録はまだありません</div>
         <div v-else class="space-y-3 border-t border-gray-100 pt-4">
-          <div v-for="m in minutes" :key="m.id" class="rounded-lg bg-gray-50 p-3">
+          <div v-for="m in minutesForDate" :key="m.id" class="rounded-lg bg-gray-50 p-3">
             <div class="flex items-center justify-between mb-1.5">
               <p class="text-xs font-semibold text-gray-700">{{ m.authorName || '不明' }}</p>
               <div class="flex items-center gap-2">

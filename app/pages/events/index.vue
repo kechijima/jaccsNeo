@@ -450,7 +450,7 @@ const createEventOnSelectedDay = () => {
             <NuxtLink
               v-for="evt in day.events.slice(0, 2)"
               :key="evt.id"
-              :to="`/events/${evt.id}`"
+              :to="`/events/${evt.id}?date=${dateParam(day.date)}`"
               class="flex items-center gap-1 w-full truncate text-xs rounded px-1 py-0.5 hover:opacity-80 transition cursor-pointer"
               :class="scopeBadgeClass(evt)"
               @click.stop
@@ -488,7 +488,7 @@ const createEventOnSelectedDay = () => {
             <NuxtLink
               v-for="evt in selectedDay.events"
               :key="evt.id"
-              :to="`/events/${evt.id}`"
+              :to="`/events/${evt.id}?date=${dateParam(selectedDay.date)}`"
               class="flex items-start gap-3 px-5 py-3 hover:bg-gray-50 transition"
               @click="selectedDay = null"
             >

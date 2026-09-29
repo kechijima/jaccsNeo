@@ -25,6 +25,7 @@
     "@vite-pwa/nuxt": "^1.1.1",
     "@vueuse/core": "^13.0.0",
     "@vueuse/nuxt": "^13.0.0",
+    "encoding-japanese": "^2.4.0",
     "firebase": "^11.0.0",
     "nuxt": "^4.4.2",
     "papaparse": "^5.7.0",
