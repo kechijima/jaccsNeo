@@ -4,13 +4,25 @@ export type UserRole = 'system_admin' | 'board' | 'em2_above' | 'general'
 
 export type SpecialTeam = 'real_estate' | 'non_life_insurance'
 
-// タイトル（旧: 役職）の選択肢
+// タイトル（旧: 役職）の選択肢（下から上の順。スペースの閲覧条件等の判定にも利用する）
 export const TITLE_OPTIONS = [
   'Sプラン', 'Bプラン',
   'EM1', 'EM2', 'EM3', 'EM4',
   'PM1', 'PM3', 'PM6', 'PM9', 'PM12',
   'MM1', 'MM2', 'MM3', 'MM4', 'MM5', 'MM6',
 ] as const
+
+// TITLE_OPTIONS内での序列（未設定・不明なタイトルは最下位=-1扱い）
+export const titleLevel = (position?: string): number =>
+  position ? TITLE_OPTIONS.indexOf(position as typeof TITLE_OPTIONS[number]) : -1
+
+// positionがminTitle以上の序列かどうか（minTitleが未設定/不明な場合は常に許可）
+export const meetsMinTitle = (position: string | undefined, minTitle: string | undefined | null): boolean => {
+  if (!minTitle) return true
+  const minLevel = titleLevel(minTitle)
+  if (minLevel < 0) return true
+  return titleLevel(position) >= minLevel
+}
 
 // グループはFirestoreの groups コレクションで動的に追加できるため、固定の列挙型ではなくstringとする
 export type GroupId = string

@@ -15,6 +15,8 @@ export interface Space {
   // メンバー個別指定に加え、権限（役割）やグループ単位でも対象者を指定できる
   targetGroupIds?: GroupId[]
   targetRoles?: UserRole[]
+  // 閲覧に必要な最低タイトル（例: 'EM1'）。未設定なら制限なし。TITLE_OPTIONSの序列で判定する
+  minTitleLevel?: string
   isArchived: boolean
   isPinned?: boolean
   headerImage?: string
@@ -90,6 +92,7 @@ export interface SpaceForm {
   memberUids?: string[]
   targetGroupIds?: GroupId[]
   targetRoles?: UserRole[]
+  minTitleLevel?: string
 }
 
 export interface PostForm {

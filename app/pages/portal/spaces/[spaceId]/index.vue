@@ -23,7 +23,13 @@ const { getGroupLabel, getGroupColor: getGroupColorClass, ensureLoaded: ensureGr
 const { isFavoriteSpace, toggleFavoriteSpace, ensureLoaded: ensureFavoritesLoaded } = useFavorites()
 ensureFavoritesLoaded()
 
-await store.fetchPostsForSpace(spaceId.value)
+// タイトル閲覧条件等でstore.spaces（閲覧可能なスペースのみ）に含まれない場合は
+// 投稿内容を一切取得せず、権限がない旨だけを表示する
+await store.fetchSpaces()
+const spaceRawPre = store.spaces.value.find(sp => sp.id === spaceId.value)
+const accessDenied = !spaceRawPre
+if (!accessDenied) await store.fetchPostsForSpace(spaceId.value)
+
 const members = ref<AppUser[]>([])
 onMounted(async () => {
   members.value = await fetchUsers().catch(() => [])
@@ -256,7 +262,12 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
 </script>
 
 <template>
-  <div class="flex h-full min-h-screen bg-gray-100">
+  <div v-if="accessDenied" class="p-10 text-center">
+    <Icon name="heroicons:lock-closed" class="h-10 w-10 text-gray-300 mx-auto mb-3" />
+    <p class="text-gray-500">このスペースを閲覧する権限がありません</p>
+    <NuxtLink to="/portal/spaces" class="mt-3 inline-block text-sm text-primary-600 hover:underline">← スペース一覧へ</NuxtLink>
+  </div>
+  <div v-else class="flex h-full min-h-screen bg-gray-100">
 
     <!-- メインコンテンツ -->
     <main class="flex-1 min-w-0 flex flex-col">

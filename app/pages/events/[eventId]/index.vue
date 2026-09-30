@@ -37,8 +37,8 @@ const minutesFmt = (d: Date) => d.toLocaleString('ja-JP', { year: 'numeric', mon
 
 // カレンダーの日付単位で議事録を絞り込む。
 // ・カレンダーから開いた場合はその日の日付（?date=）を使う
-// ・?dateが無い場合、繰り返し会議は「今日」を、単発イベントは開催日をデフォルトにする
-//   （繰り返しの各回で議事録を共有してしまい、過去分まで一緒に見えてしまう問題への対処）
+// ・?dateが無い場合は常に「今日」をデフォルトにする
+//   （過去の議事録を見るにはカレンダーで過去の日付を開いてもらう想定）
 const toDateStr = (d: Date) => {
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')
@@ -48,7 +48,6 @@ const toDateStr = (d: Date) => {
 const targetDateStr = computed(() => {
   const q = route.query.date
   if (typeof q === 'string' && q) return q
-  if (event.value && !event.value.recurrence) return toDateStr(event.value.startAt.toDate())
   return toDateStr(new Date())
 })
 const isTodayTarget = computed(() => targetDateStr.value === toDateStr(new Date()))

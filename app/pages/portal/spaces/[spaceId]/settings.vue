@@ -6,6 +6,7 @@ import { useUsers } from '~/composables/useUsers'
 import { useStorage } from '~/composables/useStorage'
 import { useGroupLabels } from '~/composables/useGroupLabels'
 import type { AudienceSelection } from '~/components/UserGroupPicker.vue'
+import { TITLE_OPTIONS } from '~/types/user'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -22,10 +23,11 @@ const saving = ref(false)
 const saved = ref(false)
 
 const form = ref({
-  name:        '',
-  description: '',
-  type:        'kumiai',
-  headerImage: '',
+  name:          '',
+  description:   '',
+  type:          'kumiai',
+  headerImage:   '',
+  minTitleLevel: '',
 })
 
 const audience = ref<AudienceSelection>({ uids: [], groupIds: [], roles: [] })
@@ -106,10 +108,11 @@ onMounted(async () => {
     allUsers.value = users
     if (s) {
       form.value = {
-        name:        s.name,
-        description: s.description ?? '',
-        type:        s.type,
-        headerImage: s.headerImage ?? '',
+        name:          s.name,
+        description:   s.description ?? '',
+        type:          s.type,
+        headerImage:   s.headerImage ?? '',
+        minTitleLevel: s.minTitleLevel ?? '',
       }
       audience.value = {
         uids:     s.memberUids ?? [],
@@ -139,6 +142,7 @@ const handleSave = async () => {
       description:    form.value.description,
       type:           form.value.type as SpaceForm['type'],
       headerImage:    form.value.headerImage,
+      minTitleLevel:  form.value.minTitleLevel || undefined,
       memberUids:     audience.value.uids,
       targetGroupIds: audience.value.groupIds,
       targetRoles:    audience.value.roles,
@@ -208,6 +212,15 @@ const handleSave = async () => {
             <option value="meeting">数字会議スペース</option>
             <option value="specialist">専門チームスペース</option>
             <option value="position">役職スペース</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">閲覧条件</label>
+          <p class="text-xs text-gray-400 mb-2">指定したタイトル以上の方のみ閲覧できます（システム管理者は常に閲覧可能）</p>
+          <select v-model="form.minTitleLevel" class="input-field">
+            <option value="">制限なし（メンバー設定のみで判定）</option>
+            <option v-for="t in TITLE_OPTIONS" :key="t" :value="t">{{ t }}以上</option>
           </select>
         </div>
 

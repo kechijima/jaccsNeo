@@ -17,27 +17,35 @@ const { format: formatDisplayName } = useDisplayName()
 const { ensureLoaded: ensureThemeColorLoaded } = useThemeColor()
 onMounted(() => { ensureGroupLabelsLoaded(); ensureThemeColorLoaded() })
 
-// 「チーム」メニュー（実績等の統計）は一般ロールには表示しないが、他メンバーを
-// 見る導線が全くなくなってしまうため、代わりに「メンバー一覧」だけは表示する
+// 「チーム」メニュー（実績等の統計）は一般ロールには表示しない。
+// 「メンバー一覧」はロールに関わらず全員に表示する
 const navItems = computed(() => [
   { label: 'ダッシュボード',   icon: 'heroicons:home',                   to: '/dashboard' },
   { label: 'パーソナルデータ', icon: 'heroicons:identification',         to: '/personal-data' },
-  { label: 'アプリ',           icon: 'heroicons:squares-2x2',            to: '/services' },
-  { label: '掲示板',           icon: 'heroicons:chat-bubble-left-right', to: '/portal' },
+  { label: 'プロダクトアプリ', icon: 'heroicons:squares-2x2',            to: '/services' },
+  { label: '活動報告',         icon: 'heroicons:chat-bubble-left-right', to: '/portal' },
   { label: 'カレンダー',       icon: 'heroicons:calendar-days',          to: '/events' },
   { label: 'リマインダー',     icon: 'heroicons:bell-alert',             to: '/reminders' },
-  ...(authStore.user?.role === 'general'
-    ? [{ label: 'メンバー一覧', icon: 'heroicons:users', to: '/team/members' }]
-    : [{ label: 'チーム', icon: 'heroicons:chart-bar', to: '/team' }]),
+  ...(authStore.user?.role !== 'general'
+    ? [{ label: 'チーム', icon: 'heroicons:chart-bar', to: '/team' }]
+    : []),
+  { label: 'メンバー一覧',     icon: 'heroicons:users',                  to: '/team/members' },
   { label: '申請',             icon: 'heroicons:document-check',         to: '/requests' },
 ])
+
+// 業務ツールアプリ（問い合わせ管理・動画配信・ファイル管理）
+const businessToolItems = [
+  { label: '問い合わせ管理', icon: 'heroicons:chat-bubble-left-ellipsis', to: '/tools/inquiries' },
+  { label: '動画配信',       icon: 'heroicons:play-circle',               to: '/tools/videos' },
+  { label: 'ファイル管理',   icon: 'heroicons:folder',                    to: '/tools/files' },
+]
 
 // SPボトムナビ用（項目数を絞り、短いラベルで表示崩れを防ぐ）
 const mobileNavItems = [
   { label: 'ホーム',   icon: 'heroicons:home',                   to: '/dashboard' },
   { label: 'データ',   icon: 'heroicons:identification',         to: '/personal-data' },
   { label: 'アプリ',   icon: 'heroicons:squares-2x2',            to: '/services' },
-  { label: '掲示板',   icon: 'heroicons:chat-bubble-left-right', to: '/portal' },
+  { label: '活動報告', icon: 'heroicons:chat-bubble-left-right', to: '/portal' },
   { label: 'カレンダー', icon: 'heroicons:calendar-days',          to: '/events' },
 ]
 
@@ -72,6 +80,23 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
       <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
         <NuxtLink
           v-for="item in navItems"
+          :key="item.to"
+          :to="item.to"
+          class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
+          :class="isActive(item.to)
+            ? 'bg-primary-50 text-primary-700'
+            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'"
+        >
+          <Icon :name="item.icon" class="h-5 w-5 shrink-0" />
+          {{ item.label }}
+        </NuxtLink>
+
+        <!-- 業務ツールアプリ -->
+        <div class="pt-3 pb-1">
+          <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">業務ツールアプリ</p>
+        </div>
+        <NuxtLink
+          v-for="item in businessToolItems"
           :key="item.to"
           :to="item.to"
           class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
@@ -337,7 +362,6 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
                   チーム
                 </NuxtLink>
                 <NuxtLink
-                  v-else
                   to="/team/members"
                   class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
                   :class="isActive('/team/members') ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100'"
@@ -346,6 +370,22 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
                   <Icon name="heroicons:users" class="h-5 w-5 shrink-0" />
                   メンバー一覧
                 </NuxtLink>
+
+                <div class="pt-3 pb-1">
+                  <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">業務ツールアプリ</p>
+                </div>
+                <NuxtLink
+                  v-for="item in businessToolItems"
+                  :key="item.to"
+                  :to="item.to"
+                  class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
+                  :class="isActive(item.to) ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100'"
+                  @click="isMobileMenuOpen = false"
+                >
+                  <Icon :name="item.icon" class="h-5 w-5 shrink-0" />
+                  {{ item.label }}
+                </NuxtLink>
+
                 <NuxtLink
                   to="/search"
                   class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"

@@ -47,11 +47,6 @@ const groupColors = { reterace: '#6366f1', miraito: '#0ea5e9', asset: '#f59e0b' 
         <h1 class="text-xl font-bold text-gray-900">チームダッシュボード</h1>
         <p class="text-sm text-gray-500 mt-0.5">{{ currentMonth }}</p>
       </div>
-      <div class="flex items-center gap-2">
-        <NuxtLink to="/team/members" class="btn-secondary text-sm flex items-center gap-1.5">
-          <Icon name="heroicons:users" class="h-4 w-4" />メンバー
-        </NuxtLink>
-      </div>
     </div>
 
     <!-- 全体ダッシュボード -->

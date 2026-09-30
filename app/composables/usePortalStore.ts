@@ -6,6 +6,7 @@ import type { Space, Post, Comment as SpaceComment } from '~/types/portal'
 import { useSpaces } from '~/composables/useSpaces'
 import { useEvents } from '~/composables/useEvents'
 import { useAuthStore } from '~/stores/auth'
+import { meetsMinTitle } from '~/types/user'
 
 const stripHtml = (html: string) => html.replace(/<[^>]*>/g, '').trim()
 
@@ -91,10 +92,15 @@ export const usePortalStore = () => {
   const posts          = useState<PostView[]>('portal:posts', () => [])
   const loadedSpaceIds = useState<string[]>('portal:loadedSpaceIds', () => [])
 
-  // ── スペース一覧（アーカイブ済みを除く） ────────────────────────────
+  // ── スペース一覧（アーカイブ済み・閲覧タイトル条件を満たさないものを除く） ──
+  // minTitleLevelはシステム管理者には適用しない（管理目的で全スペースを把握できる必要があるため）
   const fetchSpaces = async (force = false) => {
     if (spacesLoaded.value && !force) return
-    spaces.value = (await spacesApi.fetchAllSpaces()).filter(s => !s.isArchived)
+    const authStore = useAuthStore()
+    const isSystemAdmin = authStore.isSystemAdmin
+    spaces.value = (await spacesApi.fetchAllSpaces()).filter(s =>
+      !s.isArchived && (isSystemAdmin || meetsMinTitle(authStore.user?.position, s.minTitleLevel)),
+    )
     spacesLoaded.value = true
 
     // postCount導入前に作成されたスペースは実際の件数で自己修復する（非同期・非ブロッキング）
