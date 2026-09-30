@@ -26,7 +26,7 @@ const submitMinutes = async () => {
   if (!minutesDraft.value.trim() || minutesSubmitting.value) return
   minutesSubmitting.value = true
   try {
-    await addMinutes(minutesDraft.value)
+    await addMinutes(minutesDraft.value, targetDateStr.value)
     minutesDraft.value = ''
   } finally {
     minutesSubmitting.value = false
@@ -55,7 +55,9 @@ const targetDateLabel = computed(() => {
   const [y, m, d] = targetDateStr.value.split('-').map(Number)
   return new Date(y, m - 1, d).toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' })
 })
-const minutesForDate = computed(() => minutes.value.filter(m => toDateStr(m.createdAt) === targetDateStr.value))
+const minutesForDate = computed(() =>
+  minutes.value.filter(m => (m.date ?? toDateStr(m.createdAt)) === targetDateStr.value),
+)
 
 // 投稿者本人のみ編集可能
 const editingMinutesId = ref<string | null>(null)
