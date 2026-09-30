@@ -30,15 +30,9 @@ const navItems = computed(() => [
     ? [{ label: 'チーム', icon: 'heroicons:chart-bar', to: '/team' }]
     : []),
   { label: 'メンバー一覧',     icon: 'heroicons:users',                  to: '/team/members' },
+  { label: '業務ツールアプリ', icon: 'heroicons:wrench-screwdriver',     to: '/tools' },
   { label: '申請',             icon: 'heroicons:document-check',         to: '/requests' },
 ])
-
-// 業務ツールアプリ（問い合わせ管理・動画配信・ファイル管理）
-const businessToolItems = [
-  { label: '問い合わせ管理', icon: 'heroicons:chat-bubble-left-ellipsis', to: '/tools/inquiries' },
-  { label: '動画配信',       icon: 'heroicons:play-circle',               to: '/tools/videos' },
-  { label: 'ファイル管理',   icon: 'heroicons:folder',                    to: '/tools/files' },
-]
 
 // SPボトムナビ用（項目数を絞り、短いラベルで表示崩れを防ぐ）
 const mobileNavItems = [
@@ -80,23 +74,6 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
       <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
         <NuxtLink
           v-for="item in navItems"
-          :key="item.to"
-          :to="item.to"
-          class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
-          :class="isActive(item.to)
-            ? 'bg-primary-50 text-primary-700'
-            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'"
-        >
-          <Icon :name="item.icon" class="h-5 w-5 shrink-0" />
-          {{ item.label }}
-        </NuxtLink>
-
-        <!-- 業務ツールアプリ -->
-        <div class="pt-3 pb-1">
-          <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">業務ツールアプリ</p>
-        </div>
-        <NuxtLink
-          v-for="item in businessToolItems"
           :key="item.to"
           :to="item.to"
           class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
@@ -370,20 +347,14 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
                   <Icon name="heroicons:users" class="h-5 w-5 shrink-0" />
                   メンバー一覧
                 </NuxtLink>
-
-                <div class="pt-3 pb-1">
-                  <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">業務ツールアプリ</p>
-                </div>
                 <NuxtLink
-                  v-for="item in businessToolItems"
-                  :key="item.to"
-                  :to="item.to"
+                  to="/tools"
                   class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
-                  :class="isActive(item.to) ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100'"
+                  :class="isActive('/tools') ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100'"
                   @click="isMobileMenuOpen = false"
                 >
-                  <Icon :name="item.icon" class="h-5 w-5 shrink-0" />
-                  {{ item.label }}
+                  <Icon name="heroicons:wrench-screwdriver" class="h-5 w-5 shrink-0" />
+                  業務ツールアプリ
                 </NuxtLink>
 
                 <NuxtLink

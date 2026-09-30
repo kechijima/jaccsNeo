@@ -65,10 +65,15 @@ const fmt = (ts: any) => ts?.toDate?.().toLocaleDateString('ja-JP', { year: 'num
 <template>
   <div class="p-4 md:p-6 max-w-4xl mx-auto space-y-5">
 
+    <div class="flex items-center gap-2 text-sm text-gray-400">
+      <NuxtLink to="/tools">業務ツールアプリ</NuxtLink>
+      <Icon name="heroicons:chevron-right" class="h-3 w-3" />
+      <span class="text-gray-600">ファイル管理</span>
+    </div>
+
     <div class="flex items-start justify-between gap-3">
       <div>
         <h1 class="text-xl font-bold text-gray-900">ファイル管理</h1>
-        <p class="text-sm text-gray-500 mt-0.5">業務ツールアプリ</p>
       </div>
       <template v-if="isSystemAdmin">
         <input ref="fileInput" type="file" class="hidden" @change="handleFileChange" />
