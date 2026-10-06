@@ -1,7 +1,7 @@
 import type { Timestamp } from 'firebase/firestore'
 import type { GroupId, UserRole } from './user'
 
-export type SpaceType = 'group' | 'kumiai' | 'special' | 'all' | 'event'
+export type SpaceType = 'report' | 'board' | 'kumiai' | 'event' | 'group'
 
 export interface Space {
   id: string

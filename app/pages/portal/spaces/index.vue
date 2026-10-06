@@ -19,11 +19,11 @@ const { isFavoriteSpace, toggleFavoriteSpace, ensureLoaded: ensureFavoritesLoade
 ensureFavoritesLoaded()
 
 const typeLabelMap: Record<string, string> = {
-  all:     '全体スペース',
-  group:   'グループ',
-  kumiai:  '組合',
-  special: '専門チーム',
-  event:   'イベント',
+  report: '報告・連絡',
+  board:  '理事会',
+  kumiai: '組合',
+  event:  'イベント',
+  group:  'グループ',
 }
 
 // HTMLタグを除去する（説明はリッチエディター由来のHTML）
@@ -45,7 +45,7 @@ const spaceGroups = computed(() => {
     })
   }
 
-  const typeOrder = ['all', 'group', 'kumiai', 'event', 'special']
+  const typeOrder = ['report', 'board', 'kumiai', 'event', 'group']
   const groups: { label: string; spaces: any[] }[] = []
   for (const type of typeOrder) {
     if (groupMap.has(type)) {

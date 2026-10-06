@@ -11,11 +11,11 @@ import { meetsMinTitle } from '~/types/user'
 const stripHtml = (html: string) => html.replace(/<[^>]*>/g, '').trim()
 
 const spaceColorMap: Record<string, string> = {
-  all:     'bg-green-100 text-green-700',
-  group:   'bg-indigo-100 text-indigo-700',
-  kumiai:  'bg-purple-100 text-purple-700',
-  special: 'bg-amber-100 text-amber-700',
-  event:   'bg-sky-100 text-sky-700',
+  report: 'bg-green-100 text-green-700',
+  board:  'bg-rose-100 text-rose-700',
+  kumiai: 'bg-purple-100 text-purple-700',
+  event:  'bg-sky-100 text-sky-700',
+  group:  'bg-indigo-100 text-indigo-700',
 }
 
 export interface CommentView {

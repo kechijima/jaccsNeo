@@ -205,13 +205,11 @@ const handleSave = async () => {
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">スペース種別</label>
           <select v-model="form.type" class="input-field">
-            <option value="all">全体スペース</option>
-            <option value="group">グループスペース</option>
-            <option value="board">理事会スペース</option>
-            <option value="kumiai">組合スペース</option>
-            <option value="meeting">数字会議スペース</option>
-            <option value="specialist">専門チームスペース</option>
-            <option value="position">役職スペース</option>
+            <option value="report">報告・連絡</option>
+            <option value="board">理事会</option>
+            <option value="kumiai">組合</option>
+            <option value="event">イベント</option>
+            <option value="group">グループ</option>
           </select>
         </div>
 

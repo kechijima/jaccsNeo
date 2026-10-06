@@ -75,12 +75,12 @@ export const MOCK_NOTIFICATIONS = [
 
 // ─── スペース ─────────────────────────────────────────────────────────────────
 export const MOCK_SPACES = [
-  { id: 's001', name: '全体スペース',           type: 'all',     description: '全メンバーへの共有・連絡',  memberCount: 24, admins: ['user-001', 'mock-user-123'], isPinned: true,  isArchived: false, headerImage: '' },
+  { id: 's001', name: '全体スペース',           type: 'report',  description: '全メンバーへの共有・連絡',  memberCount: 24, admins: ['user-001', 'mock-user-123'], isPinned: true,  isArchived: false, headerImage: '' },
   { id: 's002', name: 'Reteraceグループ活動報告', type: 'group',   description: 'Reteraceグループ専用スペース', memberCount: 8,  admins: ['user-001'],                   isPinned: true,  isArchived: false, headerImage: '/images/reterace-header.jpg' },
   { id: 's003', name: 'Miraitoグループ活動報告',  type: 'group',   description: 'Miraitoグループ専用スペース', memberCount: 7,  admins: ['user-003'],                   isPinned: false, isArchived: false, headerImage: '' },
   { id: 's004', name: 'Assetグループ活動報告',    type: 'group',   description: 'Assetグループ専用スペース',  memberCount: 6,  admins: ['user-004'],                   isPinned: false, isArchived: false, headerImage: '' },
   { id: 's005', name: '第1組合',                 type: 'kumiai',  description: '第1組合のスペース',          memberCount: 12, admins: ['user-002'],                   isPinned: false, isArchived: false, headerImage: '' },
-  { id: 's006', name: 'FP研修スペース',          type: 'special', description: '研修・勉強会の情報共有',     memberCount: 24, admins: ['user-001'],                   isPinned: false, isArchived: false, headerImage: '' },
+  { id: 's006', name: '理事会スペース',          type: 'board',   description: '理事会メンバー向けの情報共有', memberCount: 24, admins: ['user-001'],                   isPinned: false, isArchived: false, headerImage: '' },
 ]
 
 // ─── イベント ─────────────────────────────────────────────────────────────────

@@ -7,21 +7,19 @@ definePageMeta({ middleware: ['auth', 'admin'] })
 const { fetchAllSpaces, archiveSpace } = useSpaces()
 
 const typeLabelMap: Record<string, string> = {
-  all:     '全体',
-  group:   'グループ',
-  board:   '理事会',
-  kumiai:  '組合',
-  meeting: '数字会議',
-  special: '専門チーム',
+  report: '報告・連絡',
+  board:  '理事会',
+  kumiai: '組合',
+  event:  'イベント',
+  group:  'グループ',
 }
 
 const typeColors: Record<string, string> = {
-  all:     'bg-green-100 text-green-700',
-  group:   'bg-indigo-100 text-indigo-700',
-  board:   'bg-purple-100 text-purple-700',
-  kumiai:  'bg-sky-100 text-sky-700',
-  meeting: 'bg-amber-100 text-amber-700',
-  special: 'bg-rose-100 text-rose-700',
+  report: 'bg-green-100 text-green-700',
+  board:  'bg-purple-100 text-purple-700',
+  kumiai: 'bg-sky-100 text-sky-700',
+  event:  'bg-amber-100 text-amber-700',
+  group:  'bg-indigo-100 text-indigo-700',
 }
 
 const allSpaces = ref<Space[]>([])
