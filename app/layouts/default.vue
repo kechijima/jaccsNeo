@@ -47,6 +47,25 @@ const isActive = (to: string) => route.path.startsWith(to)
 
 const isMobileMenuOpen = ref(false)
 
+// PCサイドバーの開閉状態（アイコンのみの折りたたみ表示）。次回アクセス時も保持する
+const SIDEBAR_COLLAPSED_KEY = 'jaccsneo:sidebarCollapsed'
+const sidebarCollapsed = ref(false)
+onMounted(() => {
+  try {
+    sidebarCollapsed.value = localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1'
+  } catch {
+    // プライベートブラウジング等でlocalStorageが使えない場合は展開状態のまま
+  }
+})
+const toggleSidebar = () => {
+  sidebarCollapsed.value = !sidebarCollapsed.value
+  try {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed.value ? '1' : '0')
+  } catch {
+    // 保存できなくても画面上の開閉動作には影響しない
+  }
+}
+
 // 通知未読数（リアルタイム）
 const notificationCount = ref(0)
 let unsubscribeNotifCount: (() => void) | null = null
@@ -62,13 +81,28 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
   <div class="flex h-screen overflow-hidden bg-gray-50">
 
     <!-- ========== PCサイドバー ========== -->
-    <aside class="hidden md:flex md:flex-col md:w-60 md:shrink-0 bg-white border-r border-gray-200">
+    <aside
+      class="hidden md:flex md:flex-col md:shrink-0 bg-white border-r border-gray-200 transition-all duration-200"
+      :class="sidebarCollapsed ? 'md:w-16' : 'md:w-60'"
+    >
 
       <!-- ロゴ -->
-      <div class="flex items-center gap-2.5 px-5 py-4 border-b border-gray-200">
+      <div class="flex items-center gap-2.5 px-5 py-4 border-b border-gray-200" :class="sidebarCollapsed ? 'justify-center px-0' : ''">
         <img src="/logo.png" alt="" class="w-8 h-8 object-contain shrink-0" />
-        <span class="text-base font-bold text-gray-900">JACCS Neo</span>
+        <span v-if="!sidebarCollapsed" class="text-base font-bold text-gray-900 truncate">JACCS Neo</span>
       </div>
+
+      <!-- 開閉トグル -->
+      <button
+        type="button"
+        class="flex items-center gap-2 px-3 py-2 text-xs text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition border-b border-gray-200"
+        :class="sidebarCollapsed ? 'justify-center' : ''"
+        :title="sidebarCollapsed ? 'メニューを開く' : 'メニューを閉じる'"
+        @click="toggleSidebar"
+      >
+        <Icon :name="sidebarCollapsed ? 'heroicons:chevron-double-right' : 'heroicons:chevron-double-left'" class="h-4 w-4 shrink-0" />
+        <span v-if="!sidebarCollapsed">メニューを閉じる</span>
+      </button>
 
       <!-- ナビゲーション -->
       <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
@@ -77,33 +111,39 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
           :key="item.to"
           :to="item.to"
           class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
-          :class="isActive(item.to)
-            ? 'bg-primary-50 text-primary-700'
-            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'"
+          :class="[
+            isActive(item.to) ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+            sidebarCollapsed ? 'justify-center px-0' : '',
+          ]"
+          :title="sidebarCollapsed ? item.label : undefined"
         >
           <Icon :name="item.icon" class="h-5 w-5 shrink-0" />
-          {{ item.label }}
+          <span v-if="!sidebarCollapsed" class="truncate">{{ item.label }}</span>
         </NuxtLink>
 
         <!-- マイページ -->
         <NuxtLink
           to="/mypage"
           class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
-          :class="isActive('/mypage')
-            ? 'bg-primary-50 text-primary-700'
-            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'"
+          :class="[
+            isActive('/mypage') ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+            sidebarCollapsed ? 'justify-center px-0' : '',
+          ]"
+          :title="sidebarCollapsed ? 'マイページ' : undefined"
         >
           <Icon name="heroicons:user-circle" class="h-5 w-5 shrink-0" />
-          マイページ
+          <span v-if="!sidebarCollapsed">マイページ</span>
         </NuxtLink>
 
         <!-- 通知 -->
         <NuxtLink
           to="/notifications"
           class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
-          :class="isActive('/notifications')
-            ? 'bg-primary-50 text-primary-700'
-            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'"
+          :class="[
+            isActive('/notifications') ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+            sidebarCollapsed ? 'justify-center px-0' : '',
+          ]"
+          :title="sidebarCollapsed ? '通知' : undefined"
         >
           <div class="relative">
             <Icon name="heroicons:bell" class="h-5 w-5 shrink-0" />
@@ -114,43 +154,53 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
               {{ notificationCount > 9 ? '9+' : notificationCount }}
             </span>
           </div>
-          通知
+          <span v-if="!sidebarCollapsed">通知</span>
         </NuxtLink>
 
         <!-- 検索 -->
         <NuxtLink
           to="/search"
           class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
-          :class="isActive('/search')
-            ? 'bg-primary-50 text-primary-700'
-            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'"
+          :class="[
+            isActive('/search') ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+            sidebarCollapsed ? 'justify-center px-0' : '',
+          ]"
+          :title="sidebarCollapsed ? '検索' : undefined"
         >
           <Icon name="heroicons:magnifying-glass" class="h-5 w-5 shrink-0" />
-          検索
+          <span v-if="!sidebarCollapsed">検索</span>
         </NuxtLink>
 
         <!-- 管理者メニュー（system_adminのみ） -->
         <template v-if="authStore.isSystemAdmin">
           <div class="pt-3 pb-1">
-            <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">管理者</p>
+            <p v-if="!sidebarCollapsed" class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">管理者</p>
+            <hr v-else class="border-gray-200" />
           </div>
           <NuxtLink
             to="/admin"
             class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
-            :class="isActive('/admin')
-              ? 'bg-primary-50 text-primary-700'
-              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'"
+            :class="[
+              isActive('/admin') ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+              sidebarCollapsed ? 'justify-center px-0' : '',
+            ]"
+            :title="sidebarCollapsed ? '管理者設定' : undefined"
           >
             <Icon name="heroicons:cog-6-tooth" class="h-5 w-5 shrink-0" />
-            管理者設定
+            <span v-if="!sidebarCollapsed">管理者設定</span>
           </NuxtLink>
         </template>
       </nav>
 
       <!-- ユーザー情報 -->
       <div class="border-t border-gray-200 p-4">
-        <div class="flex items-center gap-3">
-          <NuxtLink to="/settings" class="flex items-center gap-3 min-w-0 flex-1 group" title="設定">
+        <div class="flex items-center gap-3" :class="sidebarCollapsed ? 'flex-col' : ''">
+          <NuxtLink
+            to="/settings"
+            class="flex items-center gap-3 min-w-0 group"
+            :class="sidebarCollapsed ? '' : 'flex-1'"
+            title="設定"
+          >
             <UserAvatar
               :avatar-url="user?.avatarUrl"
               :display-name="displayName"
@@ -158,7 +208,7 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
               size="md"
               class="transition group-hover:ring-2 group-hover:ring-offset-1 group-hover:ring-primary-300"
             />
-            <div class="min-w-0 flex-1">
+            <div v-if="!sidebarCollapsed" class="min-w-0 flex-1">
               <p class="truncate text-sm font-medium text-gray-900 group-hover:text-primary-700 transition">{{ user ? formatDisplayName(user) : displayName }}</p>
             </div>
           </NuxtLink>
