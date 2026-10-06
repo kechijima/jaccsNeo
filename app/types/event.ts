@@ -73,9 +73,6 @@ export interface EventMinutes {
   authorUid: string
   authorName: string
   createdAt: Date
-  // どの開催日（カレンダー上の日付）の議事録かを表すYYYY-MM-DD。
-  // 実際の投稿日時（createdAt）とは異なる場合がある（例: 過去の日付を開いて後から入力するケース）
-  date?: string
 }
 
 export interface EventForm {

@@ -67,6 +67,14 @@ const linkedEvent = ref<Event | null>(null)
 const { minutes: linkedMinutes, loading: linkedMinutesLoading, fetchMinutes: fetchLinkedMinutes } =
   linkedEventId.value ? useEventMinutes(linkedEventId.value) : { minutes: ref([]), loading: ref(false), fetchMinutes: async () => {} }
 const minutesFmt = (d: Date) => d.toLocaleString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+
+// 件数が多くなると画面が重くなるため、5件ずつ表示し「もっと見る」で追加表示する
+const MINUTES_PAGE_SIZE = 5
+const visibleMinutesCount = ref(MINUTES_PAGE_SIZE)
+const visibleLinkedMinutes = computed(() => linkedMinutes.value.slice(0, visibleMinutesCount.value))
+const hasMoreLinkedMinutes = computed(() => linkedMinutes.value.length > visibleMinutesCount.value)
+const loadMoreLinkedMinutes = () => { visibleMinutesCount.value += MINUTES_PAGE_SIZE }
+
 onMounted(async () => {
   if (!linkedEventId.value) return
   linkedEvent.value = await fetchEvent(linkedEventId.value).catch(() => null)
@@ -361,12 +369,17 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
           <div v-if="linkedMinutesLoading" class="text-center text-xs text-gray-400 py-4">読み込み中...</div>
           <div v-else-if="linkedMinutes.length === 0" class="text-center text-xs text-gray-400 py-4">議事録はまだありません</div>
           <div v-else class="space-y-3">
-            <div v-for="m in linkedMinutes" :key="m.id" class="rounded-lg bg-gray-50 p-3">
+            <div v-for="m in visibleLinkedMinutes" :key="m.id" class="rounded-lg bg-gray-50 p-3">
               <div class="flex items-center justify-between mb-1.5">
                 <p class="text-xs font-semibold text-gray-700">{{ m.authorName || '不明' }}</p>
                 <p class="text-[10px] text-gray-400">{{ minutesFmt(m.createdAt) }}</p>
               </div>
               <div class="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" v-html="m.content" @click="handleMentionClick" />
+            </div>
+            <div v-if="hasMoreLinkedMinutes" class="text-center">
+              <button type="button" class="text-xs text-primary-600 hover:underline" @click="loadMoreLinkedMinutes">
+                もっと見る（残り{{ linkedMinutes.length - visibleMinutesCount }}件）
+              </button>
             </div>
           </div>
         </div>

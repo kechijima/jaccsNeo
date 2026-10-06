@@ -26,7 +26,7 @@ const submitMinutes = async () => {
   if (!minutesDraft.value.trim() || minutesSubmitting.value) return
   minutesSubmitting.value = true
   try {
-    await addMinutes(minutesDraft.value, targetDateStr.value)
+    await addMinutes(minutesDraft.value)
     minutesDraft.value = ''
   } finally {
     minutesSubmitting.value = false
@@ -35,29 +35,13 @@ const submitMinutes = async () => {
 
 const minutesFmt = (d: Date) => d.toLocaleString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 
-// カレンダーの日付単位で議事録を絞り込む。
-// ・カレンダーから開いた場合はその日の日付（?date=）を使う
-// ・?dateが無い場合は常に「今日」をデフォルトにする
-//   （過去の議事録を見るにはカレンダーで過去の日付を開いてもらう想定）
-const toDateStr = (d: Date) => {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
-const targetDateStr = computed(() => {
-  const q = route.query.date
-  if (typeof q === 'string' && q) return q
-  return toDateStr(new Date())
-})
-const isTodayTarget = computed(() => targetDateStr.value === toDateStr(new Date()))
-const targetDateLabel = computed(() => {
-  const [y, m, d] = targetDateStr.value.split('-').map(Number)
-  return new Date(y, m - 1, d).toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' })
-})
-const minutesForDate = computed(() =>
-  minutes.value.filter(m => (m.date ?? toDateStr(m.createdAt)) === targetDateStr.value),
-)
+// 議事録は過去分もすべて表示する（スペース連動時の表示と統一）。
+// 件数が多くなると画面が重くなるため、5件ずつ表示し「もっと見る」で追加表示する
+const MINUTES_PAGE_SIZE = 5
+const visibleMinutesCount = ref(MINUTES_PAGE_SIZE)
+const visibleMinutes = computed(() => minutes.value.slice(0, visibleMinutesCount.value))
+const hasMoreMinutes = computed(() => minutes.value.length > visibleMinutesCount.value)
+const loadMoreMinutes = () => { visibleMinutesCount.value += MINUTES_PAGE_SIZE }
 
 // 投稿者本人のみ編集可能
 const editingMinutesId = ref<string | null>(null)
@@ -313,15 +297,7 @@ const statusLabel = (status: string) => {
           <h2 class="font-semibold text-gray-900 flex items-center gap-2">
             <Icon name="heroicons:document-text" class="h-5 w-5 text-primary-600" />
             議事録
-            <span class="text-xs font-normal text-gray-400">（{{ targetDateLabel }}）</span>
           </h2>
-          <NuxtLink
-            v-if="!isTodayTarget"
-            :to="`/events/${eventId}`"
-            class="text-xs text-primary-600 hover:underline"
-          >
-            今日の議事録を見る
-          </NuxtLink>
         </div>
 
         <!-- 新規投稿 -->
@@ -340,11 +316,11 @@ const statusLabel = (status: string) => {
           </div>
         </div>
 
-        <!-- 一覧（新着順、表示中の日付の分のみ） -->
+        <!-- 一覧（新着順、過去分も含めすべて表示） -->
         <div v-if="minutesLoading" class="text-center text-xs text-gray-400 py-4">読み込み中...</div>
-        <div v-else-if="minutesForDate.length === 0" class="text-center text-xs text-gray-400 py-4">この日の議事録はまだありません</div>
+        <div v-else-if="minutes.length === 0" class="text-center text-xs text-gray-400 py-4">議事録はまだありません</div>
         <div v-else class="space-y-3 border-t border-gray-100 pt-4">
-          <div v-for="m in minutesForDate" :key="m.id" class="rounded-lg bg-gray-50 p-3">
+          <div v-for="m in visibleMinutes" :key="m.id" class="rounded-lg bg-gray-50 p-3">
             <div class="flex items-center justify-between mb-1.5">
               <p class="text-xs font-semibold text-gray-700">{{ m.authorName || '不明' }}</p>
               <div class="flex items-center gap-2">
@@ -376,6 +352,11 @@ const statusLabel = (status: string) => {
               </div>
             </template>
             <div v-else class="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" v-html="m.content" @click="handleMentionClick" />
+          </div>
+          <div v-if="hasMoreMinutes" class="text-center">
+            <button type="button" class="text-xs text-primary-600 hover:underline" @click="loadMoreMinutes">
+              もっと見る（残り{{ minutes.length - visibleMinutesCount }}件）
+            </button>
           </div>
         </div>
       </div>

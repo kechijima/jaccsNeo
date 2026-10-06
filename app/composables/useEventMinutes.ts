@@ -17,7 +17,6 @@ const toMinutes = (id: string, data: DocumentData): EventMinutes => ({
   authorUid:  data.authorUid ?? '',
   authorName: data.authorName ?? '',
   createdAt:  toDate(data.createdAt),
-  date:       data.date,
 })
 
 export const useEventMinutes = (eventId: string) => {
@@ -43,21 +42,16 @@ export const useEventMinutes = (eventId: string) => {
     }
   }
 
-  // date: どの開催日の議事録として保存するか（カレンダーで開いている日付）。
-  // 省略時のみ、実際の投稿日時からその場で補完する
-  const addMinutes = async (content: string, date?: string): Promise<void> => {
+  const addMinutes = async (content: string): Promise<void> => {
     const authorUid = authStore.user?.uid ?? ''
     const authorName = authStore.user?.displayName ?? ''
-    const now = new Date()
-    const resolvedDate = date ?? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
     const ref = await addDoc(minutesCol(), {
       content,
       authorUid,
       authorName,
-      date: resolvedDate,
       createdAt: serverTimestamp(),
     })
-    minutes.value = [{ id: ref.id, content, authorUid, authorName, date: resolvedDate, createdAt: now }, ...minutes.value]
+    minutes.value = [{ id: ref.id, content, authorUid, authorName, createdAt: new Date() }, ...minutes.value]
   }
 
   const updateMinutes = async (minutesId: string, content: string): Promise<void> => {
