@@ -210,6 +210,8 @@ const handleSave = async () => {
             <option value="kumiai">組合</option>
             <option value="event">イベント</option>
             <option value="group">グループ</option>
+            <option value="meeting">数字会議</option>
+            <option value="other">その他</option>
           </select>
         </div>
 
