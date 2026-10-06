@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useAppDefs } from '~/composables/useAppDefs'
 import { useUsers } from '~/composables/useUsers'
-import { APP_CATEGORY_LIST } from '~/types/service'
+import { APP_CATEGORY_LIST, APP_CATEGORY_DEFS } from '~/types/service'
 import type { AppUser } from '~/types/user'
 
 definePageMeta({ middleware: ['auth', 'admin'] })
@@ -195,7 +195,14 @@ const submitCreate = async () => {
                 class="badge text-[10px] shrink-0"
                 :class="app.isPublished ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
               >{{ app.isPublished ? '公開中' : '下書き' }}</span>
-              <span v-if="app.category" class="badge text-[10px] shrink-0 bg-primary-50 text-primary-600">{{ app.category }}</span>
+              <span
+                v-if="app.category"
+                class="badge text-[10px] shrink-0 flex items-center gap-1"
+                :class="APP_CATEGORY_DEFS[app.category]?.badgeColor ?? 'bg-primary-50 text-primary-600'"
+              >
+                <Icon v-if="APP_CATEGORY_DEFS[app.category]" :name="APP_CATEGORY_DEFS[app.category].icon" class="h-3 w-3" />
+                {{ app.category }}
+              </span>
             </div>
             <p class="text-xs text-gray-400 mt-0.5">{{ app.fields.length }}項目</p>
           </div>
