@@ -9,7 +9,8 @@ definePageMeta({ middleware: ['auth'] })
 
 const store = usePortalStore()
 const { fetchUsers } = useUsers()
-await store.fetchSpaces()
+// 閲覧条件（minTitleLevel）の変更を確実に反映するため、常に最新状態を取得する
+await store.fetchSpaces(true)
 const allUsers = ref<AppUser[]>([])
 onMounted(async () => {
   allUsers.value = await fetchUsers().catch(() => [])

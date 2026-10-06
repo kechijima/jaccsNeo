@@ -27,8 +27,9 @@ const { isFavoriteSpace, toggleFavoriteSpace, ensureLoaded: ensureFavoritesLoade
 ensureFavoritesLoaded()
 
 // タイトル閲覧条件等でstore.spaces（閲覧可能なスペースのみ）に含まれない場合は
-// 投稿内容を一切取得せず、権限がない旨だけを表示する
-await store.fetchSpaces()
+// 投稿内容を一切取得せず、権限がない旨だけを表示する。
+// アクセス制御のチェックなので、同一タブ内の古いキャッシュに惑わされないよう必ず最新状態を取得する
+await store.fetchSpaces(true)
 const spaceRawPre = store.spaces.value.find(sp => sp.id === spaceId.value)
 const accessDenied = !spaceRawPre
 if (!accessDenied) await store.fetchPostsForSpace(spaceId.value)

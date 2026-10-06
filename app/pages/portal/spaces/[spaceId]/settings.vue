@@ -1,13 +1,10 @@
 <script setup lang="ts">
 import type { SpaceForm } from '~/types/portal'
-import type { AppUser } from '~/types/user'
 import type { EventSummary } from '~/types/event'
-import { useSpaces, resolveSpaceMembers } from '~/composables/useSpaces'
-import { useUsers } from '~/composables/useUsers'
+import { useSpaces } from '~/composables/useSpaces'
 import { useStorage } from '~/composables/useStorage'
 import { useGroupLabels } from '~/composables/useGroupLabels'
 import { useEvents } from '~/composables/useEvents'
-import type { AudienceSelection } from '~/components/UserGroupPicker.vue'
 import { TITLE_OPTIONS } from '~/types/user'
 
 definePageMeta({ middleware: ['auth'] })
@@ -15,9 +12,8 @@ definePageMeta({ middleware: ['auth'] })
 const route = useRoute()
 const spaceId = computed(() => route.params.spaceId as string)
 const { fetchSpace, updateSpace, fetchPost, createPost, updatePost, pinPost } = useSpaces()
-const { fetchUsers } = useUsers()
 const { uploadFile } = useStorage()
-const { getGroupLabel, ensureLoaded: ensureGroupLabelsLoaded } = useGroupLabels()
+const { ensureLoaded: ensureGroupLabelsLoaded } = useGroupLabels()
 const { fetchEvents } = useEvents()
 
 const loading = ref(true)
@@ -38,28 +34,6 @@ const form = ref({
 const meetingEvents = ref<EventSummary[]>([])
 const isLinkedToEvent = ref(false)
 watch(isLinkedToEvent, (on) => { if (!on) form.value.linkedEventId = '' })
-
-const audience = ref<AudienceSelection>({ uids: [], groupIds: [], roles: [] })
-const allUsers = ref<AppUser[]>([])
-const showPicker = ref(false)
-
-const ROLE_LABELS: Record<string, string> = {
-  system_admin: 'システム管理者',
-  board:        '理事会',
-  em2_above:    'EM2以上',
-  general:      '一般',
-}
-const audienceChips = computed(() => [
-  ...audience.value.roles.map(r => ({ key: `role:${r}`, label: ROLE_LABELS[r] ?? r, remove: () => { audience.value.roles = audience.value.roles.filter(v => v !== r) } })),
-  ...audience.value.groupIds.map(g => ({ key: `group:${g}`, label: `${getGroupLabel(g)}グループ`, remove: () => { audience.value.groupIds = audience.value.groupIds.filter(v => v !== g) } })),
-  ...audience.value.uids.map(uid => ({ key: `uid:${uid}`, label: allUsers.value.find(u => u.uid === uid)?.displayName ?? uid, remove: () => { audience.value.uids = audience.value.uids.filter(v => v !== uid) } })),
-])
-
-const resolvedMemberCount = computed(() => resolveSpaceMembers({
-  memberUids:     audience.value.uids,
-  targetGroupIds: audience.value.groupIds,
-  targetRoles:    audience.value.roles,
-} as any, allUsers.value).length)
 
 // ── 画像アップロード（ヘッダー画像 = アイコン画像として使用） ──────────
 const imageInputRef = ref<HTMLInputElement>()
@@ -113,11 +87,10 @@ const handleSaveThumbnail = async () => {
 
 onMounted(async () => {
   try {
-    const [s, users, , events] = await Promise.all([
-      fetchSpace(spaceId.value), fetchUsers().catch(() => []), ensureGroupLabelsLoaded(),
+    const [s, , events] = await Promise.all([
+      fetchSpace(spaceId.value), ensureGroupLabelsLoaded(),
       fetchEvents().catch(() => [] as EventSummary[]),
     ])
-    allUsers.value = users
     meetingEvents.value = events.filter(e => e.category === 'meeting')
     if (s) {
       form.value = {
@@ -129,11 +102,6 @@ onMounted(async () => {
         linkedEventId: s.linkedEventId ?? '',
       }
       isLinkedToEvent.value = !!s.linkedEventId
-      audience.value = {
-        uids:     s.memberUids ?? [],
-        groupIds: s.targetGroupIds ?? [],
-        roles:    s.targetRoles ?? [],
-      }
       if (s.pinnedPostId) {
         pinnedPostId.value = s.pinnedPostId
         const post = await fetchPost(spaceId.value, s.pinnedPostId)
@@ -152,17 +120,14 @@ const handleSave = async () => {
   error.value = ''
   saved.value = false
   try {
+    // stripUndefinedはundefinedのみ除外するため、解除時も確実に上書きできるよう空文字を送る
     await updateSpace(spaceId.value, {
-      name:           form.value.name,
-      description:    form.value.description,
-      type:           form.value.type as SpaceForm['type'],
-      headerImage:    form.value.headerImage,
-      minTitleLevel:  form.value.minTitleLevel || undefined,
-      // stripUndefinedはundefinedのみ除外するため、連動解除時も確実に上書きできるよう空文字を送る
-      linkedEventId:  form.value.type === 'meeting' && isLinkedToEvent.value ? (form.value.linkedEventId || '') : '',
-      memberUids:     audience.value.uids,
-      targetGroupIds: audience.value.groupIds,
-      targetRoles:    audience.value.roles,
+      name:          form.value.name,
+      description:   form.value.description,
+      type:          form.value.type as SpaceForm['type'],
+      headerImage:   form.value.headerImage,
+      minTitleLevel: form.value.minTitleLevel || '',
+      linkedEventId: form.value.type === 'meeting' && isLinkedToEvent.value ? (form.value.linkedEventId || '') : '',
     })
     saved.value = true
     setTimeout(() => { saved.value = false }, 3000)
@@ -298,46 +263,6 @@ const handleSave = async () => {
         </div>
       </form>
 
-      <!-- メンバー管理 -->
-      <div class="card p-6 space-y-4">
-        <div class="flex items-center justify-between">
-          <div>
-            <h2 class="font-semibold text-gray-900">メンバー管理</h2>
-            <p class="text-xs text-gray-400 mt-0.5">
-              権限やグループ、個別ユーザーで対象者を指定します（現在 {{ resolvedMemberCount }}名が対象）。
-              メンバー自身によるフォロー解除はできません。
-            </p>
-          </div>
-          <button type="button" class="btn-secondary text-sm flex items-center gap-1.5 shrink-0" @click="showPicker = true">
-            <Icon name="heroicons:user-plus" class="h-4 w-4" />
-            追加
-          </button>
-        </div>
-
-        <div v-if="audienceChips.length === 0" class="text-sm text-gray-300 py-4 text-center border border-dashed border-gray-200 rounded-lg">
-          対象者が設定されていません
-        </div>
-        <div v-else class="flex flex-wrap gap-1.5">
-          <span
-            v-for="chip in audienceChips"
-            :key="chip.key"
-            class="inline-flex items-center gap-1 rounded-full bg-primary-50 text-primary-700 text-xs font-medium px-2.5 py-1"
-          >
-            {{ chip.label }}
-            <button type="button" class="hover:text-primary-900" @click="chip.remove">
-              <Icon name="heroicons:x-mark" class="h-3 w-3" />
-            </button>
-          </span>
-        </div>
-
-        <div class="flex justify-end">
-          <button type="button" class="btn-primary" :disabled="saving" @click="handleSave">
-            <Icon v-if="saving" name="heroicons:arrow-path" class="h-4 w-4 animate-spin mr-1" />
-            メンバー設定を保存する
-          </button>
-        </div>
-      </div>
-
       <!-- サムネイル（ピン留め投稿） -->
       <div class="card p-6 space-y-4">
         <div>
@@ -369,8 +294,6 @@ const handleSave = async () => {
         </div>
       </div>
     </template>
-
-    <UserGroupPicker v-model:open="showPicker" v-model="audience" />
 
   </div>
 </template>
