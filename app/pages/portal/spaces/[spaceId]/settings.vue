@@ -113,7 +113,7 @@ const handleSaveThumbnail = async () => {
 
 onMounted(async () => {
   try {
-    const [s, users, events] = await Promise.all([
+    const [s, users, , events] = await Promise.all([
       fetchSpace(spaceId.value), fetchUsers().catch(() => []), ensureGroupLabelsLoaded(),
       fetchEvents().catch(() => [] as EventSummary[]),
     ])
