@@ -32,6 +32,17 @@ export default defineNuxtConfig({
     clientBundle: {
       scan: true,
       includeCustomCollections: false,
+      // scan:trueの静的スキャンは .vue テンプレート内の name="..." 等の
+      // リテラル文字列しか拾えず、types/service.ts の APP_CATEGORY_DEFS のように
+      // オブジェクトの値として定義し :name="cat.meta.icon" のように動的に
+      // 参照しているだけのアイコンは検出されずバンドルから漏れてしまう
+      // （実際に「法務案件」「自動車関連」カテゴリのアイコンが本番で空表示になった）。
+      // カテゴリアイコンは明示的に列挙してバンドルに含める
+      icons: [
+        'heroicons:scale', 'heroicons:truck', 'heroicons:briefcase', 'heroicons:sparkles',
+        'heroicons:bolt', 'heroicons:home', 'heroicons:shield-check', 'heroicons:globe-alt',
+        'heroicons:squares-2x2', 'heroicons:wifi', 'heroicons:building-office', 'heroicons:shopping-bag',
+      ],
     },
   },
 
