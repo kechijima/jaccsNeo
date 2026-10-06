@@ -13,6 +13,10 @@ export interface AppFieldDef {
   lookupFieldKey?: string            // 参照先アプリのフィールドキー（'builtin:status' または カスタムフィールドID）
   // ── 関連レコード一覧設定（type: 'related_records'） ──
   relatedAppId?: string              // 一覧表示するAppDefのID（同一顧客の案件を表示）
+  // ── 初期値設定（新規登録フォームでのみ適用。編集時には適用しない） ──
+  defaultValue?: string              // text / textarea / radio 用の初期値
+  defaultValues?: string[]           // checkbox / multi_select 用の初期値（複数選択）
+  useTodayAsDefault?: boolean        // date 用。trueの場合、新規登録フォームを開いた日の日付を初期値にする
 }
 
 // アプリ管理（フォームビルダー）で作成・管理するアプリ定義

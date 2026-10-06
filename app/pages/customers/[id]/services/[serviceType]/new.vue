@@ -60,9 +60,32 @@ const { getPublishedByServiceType } = useAppDefs()
 const appDef = ref<AppDef | null>(null)
 const customFieldValues = ref<Record<string, string | string[]>>({})
 
+// 新規登録時のみ、アプリ管理で設定した初期値をフィールドビルダー項目に反映する
+// （編集画面には適用しない。既に値が入っている項目は上書きしない）
+const todayStr = () => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+const applyFieldDefaults = () => {
+  if (!appDef.value) return
+  const next = { ...customFieldValues.value }
+  for (const f of appDef.value.fields) {
+    if (next[f.id] !== undefined) continue
+    if (f.type === 'date' && f.useTodayAsDefault) {
+      next[f.id] = todayStr()
+    } else if ((f.type === 'checkbox' || f.type === 'multi_select') && f.defaultValues?.length) {
+      next[f.id] = [...f.defaultValues]
+    } else if (f.defaultValue) {
+      next[f.id] = f.defaultValue
+    }
+  }
+  customFieldValues.value = next
+}
+
 onMounted(async () => {
   if (!isLifeInsurance.value) {
     appDef.value = await getPublishedByServiceType(serviceType.value).catch(() => null)
+    applyFieldDefaults()
   }
 })
 

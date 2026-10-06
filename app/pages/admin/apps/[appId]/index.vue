@@ -69,7 +69,7 @@ onMounted(async () => {
       staleAlertStatuses.value = [...(app.staleAlertStatuses ?? ['consulting', 'considering'])]
       linkedAppIds.value = [...(app.linkedAppIds ?? [])]
       isPublished.value = app.isPublished
-      fields.value = app.fields.map(f => ({ ...f, options: [...f.options] }))
+      fields.value = app.fields.map(f => ({ ...f, options: [...f.options], defaultValues: f.defaultValues ? [...f.defaultValues] : undefined }))
     }
   } catch (e: any) {
     loadError.value = e.message ?? 'アプリの取得に失敗しました'
@@ -196,6 +196,9 @@ interface CanvasField {
   lookupAppId?: string
   lookupFieldKey?: string
   relatedAppId?: string
+  defaultValue?: string
+  defaultValues?: string[]
+  useTodayAsDefault?: boolean
 }
 
 // ── 状態 ──────────────────────────────────────────────────────
@@ -300,9 +303,10 @@ const duplicateField = (id: string) => {
   const source = fields.value[index]
   const copy: CanvasField = {
     ...source,
-    id:      `f-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    label:   source.type === 'label' ? source.label : `${source.label}のコピー`,
-    options: [...source.options],
+    id:            `f-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    label:         source.type === 'label' ? source.label : `${source.label}のコピー`,
+    options:       [...source.options],
+    defaultValues: source.defaultValues ? [...source.defaultValues] : undefined,
   }
   fields.value.splice(index + 1, 0, copy)
   selectedId.value = copy.id
@@ -395,7 +399,26 @@ const applyCsvGuessedFields = () => {
 }
 
 const addOption    = (f: CanvasField) => f.options.push(`選択肢${f.options.length + 1}`)
-const removeOption = (f: CanvasField, i: number) => f.options.splice(i, 1)
+const removeOption = (f: CanvasField, i: number) => {
+  const removed = f.options[i]
+  f.options.splice(i, 1)
+  // 削除した選択肢が初期値に設定されていた場合は初期値からも取り除く
+  if (f.defaultValue === removed) f.defaultValue = undefined
+  if (f.defaultValues) f.defaultValues = f.defaultValues.filter(v => v !== removed)
+}
+
+// ── 初期値設定（新規登録フォームでのみ適用） ──────────────────────
+const TODAY_DEFAULT_TYPES = ['date']
+const SINGLE_DEFAULT_TYPES = ['text', 'textarea', 'radio']
+const MULTI_DEFAULT_TYPES = ['checkbox', 'multi_select']
+
+const setRadioDefault = (f: CanvasField, opt: string) => {
+  f.defaultValue = f.defaultValue === opt ? undefined : opt
+}
+const toggleMultiDefault = (f: CanvasField, opt: string) => {
+  const curr = f.defaultValues ?? []
+  f.defaultValues = curr.includes(opt) ? curr.filter(v => v !== opt) : [...curr, opt]
+}
 
 // ── ドラッグ&ドロップ ─────────────────────────────────────────
 const onPaletteDragStart = (e: DragEvent, type: string) => {
@@ -1049,6 +1072,68 @@ const handleDeleteApp = async () => {
             >
               <Icon name="heroicons:plus" class="h-3.5 w-3.5" />選択肢を追加
             </button>
+          </div>
+
+          <!-- 初期値（文字列・日付） -->
+          <div v-if="SINGLE_DEFAULT_TYPES.includes(selectedField.type) && selectedField.type !== 'radio'" class="space-y-1">
+            <label class="block text-xs font-medium text-gray-600">初期値（新規登録時のみ）</label>
+            <textarea
+              v-if="selectedField.type === 'textarea'"
+              v-model="selectedField.defaultValue"
+              rows="2"
+              class="input-field text-sm resize-none"
+              placeholder="初期値を入力（空欄なら未入力）"
+            />
+            <input
+              v-else
+              v-model="selectedField.defaultValue"
+              type="text"
+              class="input-field text-sm"
+              placeholder="初期値を入力（空欄なら未入力）"
+            />
+          </div>
+
+          <!-- 初期値（当日日付） -->
+          <div v-if="TODAY_DEFAULT_TYPES.includes(selectedField.type)" class="flex items-center justify-between py-1">
+            <span class="text-xs font-medium text-gray-600">当日の日付を初期値にする</span>
+            <button
+              class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors"
+              :class="selectedField.useTodayAsDefault ? 'bg-primary-500' : 'bg-gray-200'"
+              @click="selectedField.useTodayAsDefault = !selectedField.useTodayAsDefault"
+            >
+              <span
+                class="inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform"
+                :class="selectedField.useTodayAsDefault ? 'translate-x-4' : 'translate-x-1'"
+              />
+            </button>
+          </div>
+
+          <!-- 初期値（ラジオ：選択肢から1つ） -->
+          <div v-if="selectedField.type === 'radio'" class="space-y-2">
+            <label class="block text-xs font-medium text-gray-600">初期値（新規登録時のみ・任意）</label>
+            <div class="flex flex-wrap gap-1.5">
+              <button
+                v-for="opt in selectedField.options" :key="opt"
+                type="button"
+                class="rounded-lg border px-2.5 py-1 text-xs transition"
+                :class="selectedField.defaultValue === opt ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'"
+                @click="setRadioDefault(selectedField, opt)"
+              >{{ opt }}</button>
+            </div>
+          </div>
+
+          <!-- 初期値（チェックボックス・複数選択：選択肢から複数） -->
+          <div v-if="MULTI_DEFAULT_TYPES.includes(selectedField.type)" class="space-y-2">
+            <label class="block text-xs font-medium text-gray-600">初期値（新規登録時のみ・任意）</label>
+            <div class="flex flex-wrap gap-1.5">
+              <button
+                v-for="opt in selectedField.options" :key="opt"
+                type="button"
+                class="rounded-lg border px-2.5 py-1 text-xs transition"
+                :class="(selectedField.defaultValues ?? []).includes(opt) ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'"
+                @click="toggleMultiDefault(selectedField, opt)"
+              >{{ opt }}</button>
+            </div>
           </div>
 
           <!-- ルックアップ設定 -->
