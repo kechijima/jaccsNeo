@@ -220,6 +220,11 @@ const hasOptions   = (t: string) => ['radio', 'dropdown', 'checkbox', 'multi_sel
 const isAutoField  = (t: string) => ['record_number', 'space'].includes(t)
 const isRelation   = (t: string) => ['lookup', 'related_records'].includes(t)
 
+// 既存項目の種別を後から変更できる項目（単純な入力値を持つもの同士に限定。
+// ファイル添付・担当者・ルックアップ・関連レコード・レイアウト系は構成が大きく
+// 異なるため対象外とし、従来通り削除して追加し直してもらう）
+const CHANGEABLE_TYPES = ['text', 'textarea', 'date', 'time', 'datetime', 'radio', 'dropdown', 'checkbox', 'multi_select', 'yes_no']
+
 // ── ルックアップ・関連レコード一覧の参照先候補 ──────────────────────
 const CUSTOMER_LOOKUP_FIELDS = [
   { key: 'name',           label: '氏名' },
@@ -269,6 +274,20 @@ const addField = (type: string, atIndex?: number) => {
   if (atIndex !== undefined) fields.value.splice(atIndex, 0, f)
   else fields.value.push(f)
   selectedId.value = f.id
+}
+
+// 既存項目の種別を変更する（項目ID・項目名・必須設定はそのまま維持する）。
+// 選択肢を持つ項目同士（ラジオ⇔ドロップダウン等）は選択肢を引き継ぎ、それ以外は
+// リセットする。初期値は種別ごとに形式が異なるため、変更時は必ずリセットする
+const changeFieldType = (f: CanvasField, newType: string) => {
+  if (f.type === newType) return
+  f.type = newType
+  f.options = hasOptions(newType)
+    ? (f.options.length > 0 ? f.options : ['選択肢1', '選択肢2', '選択肢3'])
+    : []
+  f.defaultValue = undefined
+  f.defaultValues = undefined
+  f.useTodayAsDefault = undefined
 }
 
 // ── モバイル用: 項目追加ボトムシート ──────────────────────────
@@ -1013,8 +1032,21 @@ const handleDeleteApp = async () => {
             </button>
           </div>
 
-          <!-- 種別バッジ -->
-          <div class="flex items-center gap-1.5">
+          <!-- 種別（単純な入力項目同士は後から変更できる） -->
+          <div v-if="CHANGEABLE_TYPES.includes(selectedField.type)" class="space-y-1">
+            <label class="block text-xs font-medium text-gray-600">種別</label>
+            <select
+              class="input-field text-sm"
+              :value="selectedField.type"
+              @change="changeFieldType(selectedField, ($event.target as HTMLSelectElement).value)"
+            >
+              <option v-for="t in CHANGEABLE_TYPES" :key="t" :value="t">{{ getFieldDef(t)?.label }}</option>
+            </select>
+            <p class="text-[11px] text-gray-400 leading-relaxed">
+              種別を変更すると初期値はリセットされます（選択肢のある項目同士は選択肢を引き継ぎます）。項目名・必須設定はそのまま維持されます。
+            </p>
+          </div>
+          <div v-else class="flex items-center gap-1.5">
             <span class="inline-flex items-center gap-1 text-xs font-medium bg-gray-100 text-gray-600 rounded-full px-2.5 py-1">
               <Icon :name="FIELD_ICON[selectedField.type]" class="h-3 w-3" />
               {{ getFieldDef(selectedField.type)?.label }}
