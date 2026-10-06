@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onBeforeRouteLeave } from 'vue-router'
 import { useAppDefs } from '~/composables/useAppDefs'
 import { useUsers } from '~/composables/useUsers'
 import { SERVICE_LABELS, STATUS_LABELS, APP_CATEGORY_LIST } from '~/types/service'
@@ -74,7 +75,31 @@ onMounted(async () => {
     loadError.value = e.message ?? 'アプリの取得に失敗しました'
   } finally {
     loading.value = false
+    // 初期値の代入自体を変更扱いしないよう、読み込み完了後に監視を開始する
+    watch(
+      [fields, appName, appDescription, ownerUids, staffUids, sourceServiceType, category,
+       staleAlertDaysInput, staleAlertStatuses, linkedAppIds, isPublished],
+      () => { isDirty.value = true },
+      { deep: true },
+    )
   }
+})
+
+// ── 未保存の変更がある場合に離脱確認を出す ────────────────────────
+const isDirty = ref(false)
+const UNSAVED_MESSAGE = '保存されていない変更があります。このページを離れますか？'
+
+const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+  if (!isDirty.value) return
+  e.preventDefault()
+  e.returnValue = ''
+}
+onMounted(() => window.addEventListener('beforeunload', handleBeforeUnload))
+onBeforeUnmount(() => window.removeEventListener('beforeunload', handleBeforeUnload))
+
+onBeforeRouteLeave(() => {
+  if (!isDirty.value) return true
+  return confirm(UNSAVED_MESSAGE)
 })
 
 // ── フィールド定義 ─────────────────────────────────────────────
@@ -268,6 +293,21 @@ const removeField = (id: string) => {
   if (selectedId.value === id) selectedId.value = null
 }
 
+// 既存項目の設定（type・required・options等）を複製し、元の項目の直後に挿入する
+const duplicateField = (id: string) => {
+  const index = fields.value.findIndex(f => f.id === id)
+  if (index < 0) return
+  const source = fields.value[index]
+  const copy: CanvasField = {
+    ...source,
+    id:      `f-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    label:   source.type === 'label' ? source.label : `${source.label}のコピー`,
+    options: [...source.options],
+  }
+  fields.value.splice(index + 1, 0, copy)
+  selectedId.value = copy.id
+}
+
 // ドラッグ&ドロップに加え、クリックだけでも並び替えできるようにする
 const moveField = (index: number, direction: -1 | 1) => {
   const target = index + direction
@@ -412,6 +452,7 @@ const handleSave = async () => {
       fields: fields.value.map(f => ({ ...f })),
     })
     saved.value = true
+    isDirty.value = false
     setTimeout(() => { saved.value = false }, 3000)
   } catch (e: any) {
     saveError.value = e.message ?? '保存に失敗しました'
@@ -471,6 +512,7 @@ const submitSettings = async () => {
       linkedAppIds: linkedAppIds.value,
       isPublished: isPublished.value,
     })
+    isDirty.value = false
     showSettings.value = false
   } catch (e: any) {
     settingsError.value = e.message ?? '保存に失敗しました'
@@ -487,6 +529,7 @@ const handleDeleteApp = async () => {
   settingsError.value = ''
   try {
     await remove(appId.value)
+    isDirty.value = false
     await navigateTo('/admin/apps')
   } catch (e: any) {
     settingsError.value = e.message ?? '削除に失敗しました'
@@ -886,6 +929,13 @@ const handleDeleteApp = async () => {
                   </button>
                 </div>
                 <button
+                  class="p-1 rounded-lg text-gray-300 hover:text-primary-600 hover:bg-primary-50 transition shrink-0"
+                  title="項目を複製"
+                  @click.stop="duplicateField(field.id)"
+                >
+                  <Icon name="heroicons:document-duplicate" class="h-4 w-4" />
+                </button>
+                <button
                   class="p-1 rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-50 transition shrink-0"
                   @click.stop="removeField(field.id)"
                 >
@@ -1052,8 +1102,15 @@ const handleDeleteApp = async () => {
             このフィールドはシステムが自動で管理します。設定の変更はできません。
           </div>
 
-          <!-- 削除 -->
-          <div class="pt-2 border-t border-gray-100">
+          <!-- 複製・削除 -->
+          <div class="pt-2 border-t border-gray-100 space-y-1.5">
+            <button
+              class="w-full text-sm text-primary-600 hover:bg-primary-50 rounded-lg py-2 transition flex items-center justify-center gap-1.5"
+              @click="duplicateField(selectedField.id)"
+            >
+              <Icon name="heroicons:document-duplicate" class="h-4 w-4" />
+              フィールドを複製
+            </button>
             <button
               class="w-full text-sm text-red-500 hover:bg-red-50 rounded-lg py-2 transition flex items-center justify-center gap-1.5"
               @click="removeField(selectedField.id)"
