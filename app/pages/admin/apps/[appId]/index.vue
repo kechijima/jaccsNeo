@@ -95,7 +95,7 @@ const handleBeforeUnload = (e: BeforeUnloadEvent) => {
   e.returnValue = ''
 }
 onMounted(() => window.addEventListener('beforeunload', handleBeforeUnload))
-onBeforeUnmount(() => window.removeEventListener('beforeunload', handleBeforeUnload))
+onBeforeUnmount(() => { window.removeEventListener('beforeunload', handleBeforeUnload); stopAutoScroll() })
 
 onBeforeRouteLeave(() => {
   if (!isDirty.value) return true
@@ -469,6 +469,7 @@ const onDropSlot = (e: DragEvent, toIndex: number) => {
   }
   dragData = null
   dragOverIndex.value = null
+  stopAutoScroll()
 }
 
 const onDropCanvas = (e: DragEvent) => {
@@ -476,9 +477,50 @@ const onDropCanvas = (e: DragEvent) => {
   if (!dragData || dragData.source !== 'palette') return
   addField(dragData.fieldType)
   dragData = null
+  stopAutoScroll()
 }
 
-const onDragEnd = () => { dragData = null; dragOverIndex.value = null }
+const onDragEnd = () => { dragData = null; dragOverIndex.value = null; stopAutoScroll() }
+
+// ── ドラッグ中にキャンバス端まで来たら自動スクロールする ──────────────
+// 項目数が多く一画面に収まらない場合、ドラッグ中はマウスが動かせる範囲が
+// 画面内に限られ、表示されていない位置へは並び替えできなかったため
+const canvasScrollEl = ref<HTMLElement | null>(null)
+const autoScrollDir = ref<0 | 1 | -1>(0)
+let autoScrollRaf: number | null = null
+const AUTO_SCROLL_EDGE = 72   // この範囲(px)にカーソルが入ったらスクロール開始
+const AUTO_SCROLL_SPEED = 14  // 1フレームあたりのスクロール量(px)
+
+const runAutoScroll = () => {
+  if (autoScrollDir.value !== 0 && canvasScrollEl.value) {
+    canvasScrollEl.value.scrollTop += autoScrollDir.value * AUTO_SCROLL_SPEED
+    autoScrollRaf = requestAnimationFrame(runAutoScroll)
+  } else {
+    autoScrollRaf = null
+  }
+}
+
+const handleCanvasDragOver = (e: DragEvent) => {
+  const el = canvasScrollEl.value
+  if (!el) return
+  const rect = el.getBoundingClientRect()
+  const y = e.clientY
+  if (y - rect.top < AUTO_SCROLL_EDGE) autoScrollDir.value = -1
+  else if (rect.bottom - y < AUTO_SCROLL_EDGE) autoScrollDir.value = 1
+  else autoScrollDir.value = 0
+
+  if (autoScrollDir.value !== 0 && autoScrollRaf === null) {
+    autoScrollRaf = requestAnimationFrame(runAutoScroll)
+  }
+}
+
+const stopAutoScroll = () => {
+  autoScrollDir.value = 0
+  if (autoScrollRaf !== null) {
+    cancelAnimationFrame(autoScrollRaf)
+    autoScrollRaf = null
+  }
+}
 
 // ── 保存 ──────────────────────────────────────────────────────
 const saving = ref(false)
@@ -906,8 +948,9 @@ const handleDeleteApp = async () => {
 
       <!-- 中央: キャンバス -->
       <div
+        ref="canvasScrollEl"
         class="flex-1 overflow-y-auto bg-gray-50 p-5"
-        @dragover.prevent
+        @dragover.prevent="handleCanvasDragOver"
         @drop="onDropCanvas"
       >
         <div class="max-w-2xl mx-auto">
