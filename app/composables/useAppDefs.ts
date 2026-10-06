@@ -1,6 +1,6 @@
 import {
   collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc,
-  serverTimestamp, type DocumentData,
+  serverTimestamp, Timestamp, type DocumentData,
 } from 'firebase/firestore'
 import type { AppDef, AppDefInput, AppFieldDef } from '~/types/appDef'
 import { useAuthStore } from '~/stores/auth'
@@ -9,13 +9,23 @@ const COLLECTION = 'appDefs'
 
 const toDate = (val: any): Date => val?.toDate?.() ?? (val instanceof Date ? val : new Date())
 
-// Firestoreはフィールド値にundefinedを許可せずエラーになるため、送信前に取り除く
-const stripUndefined = <T extends Record<string, any>>(obj: T): T => {
-  const result = {} as T
-  for (const key of Object.keys(obj) as (keyof T)[]) {
-    if (obj[key] !== undefined) result[key] = obj[key]
+// Firestoreはフィールド値にundefinedを許可せずエラーになるため、送信前に取り除く。
+// fields（AppFieldDef[]）のように配列の中にundefinedを含むオブジェクトが
+// 入れ子になっているケースがあるため、配列・ネストしたオブジェクトも再帰的に処理する
+const stripUndefined = <T>(value: T): T => {
+  if (value === null || value === undefined) return value
+  if (value instanceof Timestamp) return value
+  if (Array.isArray(value)) return value.map(v => stripUndefined(v)) as unknown as T
+  if (typeof value === 'object') {
+    const result = {} as T
+    for (const key of Object.keys(value) as (keyof T)[]) {
+      const v = value[key]
+      if (v === undefined) continue
+      result[key] = stripUndefined(v)
+    }
+    return result
   }
-  return result
+  return value
 }
 
 const toAppDef = (id: string, data: DocumentData): AppDef => ({

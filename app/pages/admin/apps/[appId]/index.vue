@@ -69,7 +69,11 @@ onMounted(async () => {
       staleAlertStatuses.value = [...(app.staleAlertStatuses ?? ['consulting', 'considering'])]
       linkedAppIds.value = [...(app.linkedAppIds ?? [])]
       isPublished.value = app.isPublished
-      fields.value = app.fields.map(f => ({ ...f, options: [...f.options], defaultValues: f.defaultValues ? [...f.defaultValues] : undefined }))
+      fields.value = app.fields.map((f) => {
+        const copy: CanvasField = { ...f, options: [...f.options] }
+        if (f.defaultValues) copy.defaultValues = [...f.defaultValues]
+        return copy
+      })
     }
   } catch (e: any) {
     loadError.value = e.message ?? 'アプリの取得に失敗しました'
@@ -285,9 +289,9 @@ const changeFieldType = (f: CanvasField, newType: string) => {
   f.options = hasOptions(newType)
     ? (f.options.length > 0 ? f.options : ['選択肢1', '選択肢2', '選択肢3'])
     : []
-  f.defaultValue = undefined
-  f.defaultValues = undefined
-  f.useTodayAsDefault = undefined
+  delete f.defaultValue
+  delete f.defaultValues
+  delete f.useTodayAsDefault
 }
 
 // ── モバイル用: 項目追加ボトムシート ──────────────────────────
@@ -322,11 +326,11 @@ const duplicateField = (id: string) => {
   const source = fields.value[index]
   const copy: CanvasField = {
     ...source,
-    id:            `f-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    label:         source.type === 'label' ? source.label : `${source.label}のコピー`,
-    options:       [...source.options],
-    defaultValues: source.defaultValues ? [...source.defaultValues] : undefined,
+    id:      `f-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    label:   source.type === 'label' ? source.label : `${source.label}のコピー`,
+    options: [...source.options],
   }
+  if (source.defaultValues) copy.defaultValues = [...source.defaultValues]
   fields.value.splice(index + 1, 0, copy)
   selectedId.value = copy.id
 }
@@ -422,7 +426,7 @@ const removeOption = (f: CanvasField, i: number) => {
   const removed = f.options[i]
   f.options.splice(i, 1)
   // 削除した選択肢が初期値に設定されていた場合は初期値からも取り除く
-  if (f.defaultValue === removed) f.defaultValue = undefined
+  if (f.defaultValue === removed) delete f.defaultValue
   if (f.defaultValues) f.defaultValues = f.defaultValues.filter(v => v !== removed)
 }
 
