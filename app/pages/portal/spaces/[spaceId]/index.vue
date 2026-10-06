@@ -7,7 +7,10 @@ import { useMentionClick } from '~/composables/useMentionClick'
 import { useSpaces, resolveSpaceMembers } from '~/composables/useSpaces'
 import { useGroupLabels } from '~/composables/useGroupLabels'
 import { useFavorites } from '~/composables/useFavorites'
+import { useEvents } from '~/composables/useEvents'
+import { useEventMinutes } from '~/composables/useEventMinutes'
 import type { AppUser } from '~/types/user'
+import type { Event } from '~/types/event'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -54,6 +57,20 @@ const space = computed(() => {
     type:        s.type,
     headerImage: s.headerImage ?? '',
   }
+})
+
+// ── 連動する会議の議事録（種別「数字会議」でカレンダー連動を設定している場合のみ） ──
+// 過去分も含めすべて表示する（カレンダー側のように開催日で絞り込まない）
+const { fetchEvent } = useEvents()
+const linkedEventId = computed(() => spaceRaw.value?.linkedEventId ?? '')
+const linkedEvent = ref<Event | null>(null)
+const { minutes: linkedMinutes, loading: linkedMinutesLoading, fetchMinutes: fetchLinkedMinutes } =
+  linkedEventId.value ? useEventMinutes(linkedEventId.value) : { minutes: ref([]), loading: ref(false), fetchMinutes: async () => {} }
+const minutesFmt = (d: Date) => d.toLocaleString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+onMounted(async () => {
+  if (!linkedEventId.value) return
+  linkedEvent.value = await fetchEvent(linkedEventId.value).catch(() => null)
+  await fetchLinkedMinutes()
 })
 
 // ── 投稿一覧（このスペース） ──────────────────────────────────────────
@@ -327,6 +344,31 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
             <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mt-3 mb-2">スペースについて</p>
             <div class="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" v-html="space.description" @click="handleMentionClick" />
           </template>
+        </div>
+
+        <!-- 連動する会議の議事録（種別「数字会議」でカレンダー連動している場合のみ） -->
+        <div v-if="linkedEventId" class="bg-white border border-gray-200 rounded-lg p-4">
+          <div class="flex items-center justify-between gap-2 mb-3">
+            <h2 class="font-semibold text-gray-900 flex items-center gap-2">
+              <Icon name="heroicons:document-text" class="h-5 w-5 text-primary-600" />
+              議事録
+              <span v-if="linkedEvent" class="text-xs font-normal text-gray-400">（{{ linkedEvent.title }}）</span>
+            </h2>
+            <NuxtLink :to="`/events/${linkedEventId}`" class="text-xs text-primary-600 hover:underline shrink-0">
+              カレンダーで見る
+            </NuxtLink>
+          </div>
+          <div v-if="linkedMinutesLoading" class="text-center text-xs text-gray-400 py-4">読み込み中...</div>
+          <div v-else-if="linkedMinutes.length === 0" class="text-center text-xs text-gray-400 py-4">議事録はまだありません</div>
+          <div v-else class="space-y-3">
+            <div v-for="m in linkedMinutes" :key="m.id" class="rounded-lg bg-gray-50 p-3">
+              <div class="flex items-center justify-between mb-1.5">
+                <p class="text-xs font-semibold text-gray-700">{{ m.authorName || '不明' }}</p>
+                <p class="text-[10px] text-gray-400">{{ minutesFmt(m.createdAt) }}</p>
+              </div>
+              <div class="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" v-html="m.content" @click="handleMentionClick" />
+            </div>
+          </div>
         </div>
 
         <!-- ピン留め投稿 -->

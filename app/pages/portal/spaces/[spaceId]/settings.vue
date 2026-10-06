@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import type { SpaceForm } from '~/types/portal'
 import type { AppUser } from '~/types/user'
+import type { EventSummary } from '~/types/event'
 import { useSpaces, resolveSpaceMembers } from '~/composables/useSpaces'
 import { useUsers } from '~/composables/useUsers'
 import { useStorage } from '~/composables/useStorage'
 import { useGroupLabels } from '~/composables/useGroupLabels'
+import { useEvents } from '~/composables/useEvents'
 import type { AudienceSelection } from '~/components/UserGroupPicker.vue'
 import { TITLE_OPTIONS } from '~/types/user'
 
@@ -16,6 +18,7 @@ const { fetchSpace, updateSpace, fetchPost, createPost, updatePost, pinPost } = 
 const { fetchUsers } = useUsers()
 const { uploadFile } = useStorage()
 const { getGroupLabel, ensureLoaded: ensureGroupLabelsLoaded } = useGroupLabels()
+const { fetchEvents } = useEvents()
 
 const loading = ref(true)
 const error = ref('')
@@ -28,7 +31,13 @@ const form = ref({
   type:          'kumiai',
   headerImage:   '',
   minTitleLevel: '',
+  linkedEventId: '',
 })
+
+// ── カレンダーの会議との連動（種別「数字会議」のスペースのみ） ──────────
+const meetingEvents = ref<EventSummary[]>([])
+const isLinkedToEvent = ref(false)
+watch(isLinkedToEvent, (on) => { if (!on) form.value.linkedEventId = '' })
 
 const audience = ref<AudienceSelection>({ uids: [], groupIds: [], roles: [] })
 const allUsers = ref<AppUser[]>([])
@@ -104,8 +113,12 @@ const handleSaveThumbnail = async () => {
 
 onMounted(async () => {
   try {
-    const [s, users] = await Promise.all([fetchSpace(spaceId.value), fetchUsers().catch(() => []), ensureGroupLabelsLoaded()])
+    const [s, users, events] = await Promise.all([
+      fetchSpace(spaceId.value), fetchUsers().catch(() => []), ensureGroupLabelsLoaded(),
+      fetchEvents().catch(() => [] as EventSummary[]),
+    ])
     allUsers.value = users
+    meetingEvents.value = events.filter(e => e.category === 'meeting')
     if (s) {
       form.value = {
         name:          s.name,
@@ -113,7 +126,9 @@ onMounted(async () => {
         type:          s.type,
         headerImage:   s.headerImage ?? '',
         minTitleLevel: s.minTitleLevel ?? '',
+        linkedEventId: s.linkedEventId ?? '',
       }
+      isLinkedToEvent.value = !!s.linkedEventId
       audience.value = {
         uids:     s.memberUids ?? [],
         groupIds: s.targetGroupIds ?? [],
@@ -143,6 +158,8 @@ const handleSave = async () => {
       type:           form.value.type as SpaceForm['type'],
       headerImage:    form.value.headerImage,
       minTitleLevel:  form.value.minTitleLevel || undefined,
+      // stripUndefinedはundefinedのみ除外するため、連動解除時も確実に上書きできるよう空文字を送る
+      linkedEventId:  form.value.type === 'meeting' && isLinkedToEvent.value ? (form.value.linkedEventId || '') : '',
       memberUids:     audience.value.uids,
       targetGroupIds: audience.value.groupIds,
       targetRoles:    audience.value.roles,
@@ -213,6 +230,27 @@ const handleSave = async () => {
             <option value="meeting">数字会議</option>
             <option value="other">その他</option>
           </select>
+        </div>
+
+        <!-- カレンダー連動（種別「数字会議」のみ） -->
+        <div v-if="form.type === 'meeting'" class="rounded-lg border border-gray-200 p-4 space-y-3">
+          <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
+            <input v-model="isLinkedToEvent" type="checkbox" class="h-4 w-4 rounded text-primary-600" />
+            カレンダーの会議と連動する
+          </label>
+          <p class="text-xs text-gray-400">
+            連動すると、このスペースで対象の会議の議事録（過去分すべて）を閲覧できるようになります。
+          </p>
+          <div v-if="isLinkedToEvent">
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">連動する会議</label>
+            <select v-model="form.linkedEventId" class="input-field">
+              <option value="">選択してください</option>
+              <option v-for="ev in meetingEvents" :key="ev.id" :value="ev.id">{{ ev.title }}</option>
+            </select>
+            <p v-if="meetingEvents.length === 0" class="text-xs text-gray-400 mt-1.5">
+              種別「会議」のイベントがまだありません。カレンダーで作成してください。
+            </p>
+          </div>
         </div>
 
         <div>
