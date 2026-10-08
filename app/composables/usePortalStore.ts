@@ -121,6 +121,13 @@ export const usePortalStore = () => {
     if (loadedSpaceIds.value.includes(spaceId) && !force) return
     await fetchSpaces()
     const space = spaces.value.find(s => s.id === spaceId)
+    // 閲覧条件（minTitleLevel）を満たさない・アーカイブ済み・存在しないスペースは
+    // 投稿を取得しない（個別投稿ページ等、呼び出し元ごとにガードを実装しなくても
+    // ここで一括して漏れを防ぐ）。万一キャッシュに残っていれば除去する
+    if (!space) {
+      posts.value = posts.value.filter(p => p.spaceId !== spaceId)
+      return
+    }
     const authStore = useAuthStore()
     const myUid = authStore.user?.uid
     // 下書きは投稿者本人にのみ見える（他のメンバーの一覧には出さない）
