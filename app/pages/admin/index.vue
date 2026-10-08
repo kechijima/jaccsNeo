@@ -45,6 +45,13 @@ const adminMenus = [
     color: 'text-emerald-600 bg-emerald-50',
   },
   {
+    to: '/admin/operation-logs',
+    icon: 'heroicons:document-text',
+    label: '操作ログ',
+    description: 'ログイン・削除・承認・権限変更・CSV出力などの重要操作の履歴',
+    color: 'text-gray-600 bg-gray-100',
+  },
+  {
     to: '/admin/restricted',
     icon: 'heroicons:lock-closed',
     label: '制限コンテンツ（JACCS等）',

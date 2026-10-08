@@ -4,7 +4,9 @@ import { useGroups } from '~/composables/useGroups'
 import { useUsers } from '~/composables/useUsers'
 import { useNotifications } from '~/composables/useNotifications'
 import { useDirectorIndex } from '~/composables/useDirectorIndex'
+import { useOperationLog } from '~/composables/useOperationLog'
 import { REQUEST_TYPE_LABELS, REQUEST_STATUS_LABELS } from '~/types/request'
+import { requestPayloadSummary } from '~/utils/requestSummary'
 import type { AppRequest } from '~/types/request'
 
 definePageMeta({ middleware: ['auth', 'board-or-above'] })
@@ -15,6 +17,7 @@ const { createAuthUser, updateUser, fetchUser } = useUsers()
 const { sendPasswordReset } = useAuth()
 const { sendNotification } = useNotifications()
 const { upsertDirectorAssignment, removeMemberFromIndex } = useDirectorIndex()
+const { log: logOperation } = useOperationLog()
 
 await fetchAll()
 
@@ -172,6 +175,7 @@ const handleApprove = async (r: AppRequest) => {
   try {
     await applyRequest(r)
     await markReviewed(r.id, 'approved')
+    logOperation('request_approve', `${REQUEST_TYPE_LABELS[r.type]} / ${requestPayloadSummary(r)}`).catch(() => {})
     await sendNotification(r.requestedBy, {
       type: 'system',
       title: '申請が承認されました',
@@ -198,6 +202,7 @@ const handleReject = async (r: AppRequest) => {
   actionError.value = ''
   try {
     await markReviewed(r.id, 'rejected', reason || undefined)
+    logOperation('request_reject', `${REQUEST_TYPE_LABELS[r.type]} / ${requestPayloadSummary(r)}${reason ? ' / 理由: ' + reason : ''}`).catch(() => {})
     await sendNotification(r.requestedBy, {
       type: 'system',
       title: '申請が却下されました',

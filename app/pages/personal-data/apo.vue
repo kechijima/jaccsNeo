@@ -2,6 +2,7 @@
 import { exportApoToCsv, downloadCsv } from '~/utils/csvCustomer'
 import { useCustomerStore } from '~/composables/useCustomerStore'
 import { useDataScope } from '~/composables/useDataScope'
+import { useOperationLog } from '~/composables/useOperationLog'
 import { useAuthStore } from '~/stores/auth'
 import type { Customer } from '~/types/customer'
 
@@ -179,6 +180,7 @@ const handleExport = () => {
   const csv = exportApoToCsv(filteredList.value)
   const label = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '')
   downloadCsv(csv, `apo_report_${label}.csv`)
+  useOperationLog().log('csv_export', `アポ確認CSV（${filteredList.value.length}件）`).catch(() => {})
 }
 
 // ── 表示ヘルパー ──────────────────────────────────────────────────────────────

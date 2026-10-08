@@ -2,6 +2,7 @@
 import { useCustomerStore } from '~/composables/useCustomerStore'
 import { useSavedSearchStore } from '~/composables/useSavedSearchStore'
 import { useDataScope } from '~/composables/useDataScope'
+import { useOperationLog } from '~/composables/useOperationLog'
 import { exportApoToCsv, downloadCsv } from '~/utils/csvCustomer'
 import type { Customer } from '~/types/customer'
 import type { FilterOperator, FilterCondition, SavedSearch } from '~/types/savedSearch'
@@ -247,6 +248,7 @@ const handleExportApo = () => {
   const csv = exportApoToCsv(filtered.value)
   const label = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '')
   downloadCsv(csv, `apo_report_${label}.csv`)
+  useOperationLog().log('csv_export', `アポ確認CSV（${filtered.value.length}件）`).catch(() => {})
 }
 
 // ── CSV インポートモーダル ─────────────────────────────────────────────────

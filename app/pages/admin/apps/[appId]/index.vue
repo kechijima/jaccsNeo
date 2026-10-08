@@ -2,6 +2,7 @@
 import { onBeforeRouteLeave } from 'vue-router'
 import { useAppDefs } from '~/composables/useAppDefs'
 import { useUsers } from '~/composables/useUsers'
+import { useOperationLog } from '~/composables/useOperationLog'
 import { SERVICE_LABELS, STATUS_LABELS, APP_CATEGORY_LIST } from '~/types/service'
 import { readCsvFile, parseCsv, guessFieldType } from '~/utils/csv'
 import type { AppUser } from '~/types/user'
@@ -618,6 +619,7 @@ const handleDeleteApp = async () => {
   try {
     await remove(appId.value)
     isDirty.value = false
+    useOperationLog().log('app_delete', appName.value).catch(() => {})
     await navigateTo('/admin/apps')
   } catch (e: any) {
     settingsError.value = e.message ?? '削除に失敗しました'

@@ -13,6 +13,7 @@ import {
 import type { Group, Kumiai } from '~/types/group'
 import type { GroupId } from '~/types/user'
 import { useAuthStore } from '~/stores/auth'
+import { useOperationLog } from '~/composables/useOperationLog'
 
 // 従来から使用している3グループ。Firestoreにドキュメントがまだ無くても
 // 一覧から消えないよう、見つからない場合はデフォルト名で補う
@@ -74,6 +75,7 @@ export const useGroups = () => {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     })
+    useOperationLog().log('group_create', name).catch(() => {})
     return ref.id
   }
 
@@ -109,6 +111,7 @@ export const useGroups = () => {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     })
+    useOperationLog().log('kumiai_create', data.name).catch(() => {})
     return ref.id
   }
 
@@ -124,6 +127,9 @@ export const useGroups = () => {
       ...(data.isDissolved ? { dissolvedAt: serverTimestamp() } : {}),
       updatedAt: serverTimestamp(),
     })
+    if (data.isDissolved) {
+      useOperationLog().log('kumiai_dissolve', `${groupId}/${kumiaiId}`).catch(() => {})
+    }
   }
 
   // ===== 組合削除 =====

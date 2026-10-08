@@ -9,6 +9,7 @@ import { doc, getDoc } from 'firebase/firestore'
 import { useAuthStore } from '~/stores/auth'
 import type { AppUser } from '~/types/user'
 import { toAppUser } from '~/utils/userMapper'
+import { useOperationLog } from '~/composables/useOperationLog'
 
 export const useAuth = () => {
   const authStore = useAuthStore()
@@ -110,6 +111,7 @@ export const useAuth = () => {
       }
       authStore.setUser(user)
       authStore.setConfirmed(true)
+      useOperationLog().log('login').catch(() => {})
       const redirect = route.query.redirect
       const target = typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//')
         ? redirect
@@ -123,6 +125,7 @@ export const useAuth = () => {
   // ログアウト
   const logout = async () => {
     const { $auth } = useNuxtApp()
+    await useOperationLog().log('logout').catch(() => {})
     await signOut($auth)
     authStore.setUser(null)
     await router.push('/login')

@@ -4,6 +4,7 @@ import type { Group } from '~/types/group'
 import type { SpecialTeamDef } from '~/types/specialTeam'
 import { useGroups } from '~/composables/useGroups'
 import { useSpecialTeams } from '~/composables/useSpecialTeams'
+import { useOperationLog } from '~/composables/useOperationLog'
 
 definePageMeta({ middleware: ['auth', 'admin'] })
 
@@ -47,6 +48,9 @@ const kumiaiOptions = computed(() =>
   allKumiai.value.map(k => ({ id: k.id, label: k.name, sublabel: k.groupName }))
 )
 
+const originalRole = ref<UserRole | null>(null)
+const originalName = ref('')
+
 onMounted(async () => {
   loading.value = true
   try {
@@ -58,6 +62,8 @@ onMounted(async () => {
     groups.value = fetchedGroups
     specialTeams.value = fetchedTeams
     if (user) {
+      originalRole.value = user.role
+      originalName.value = user.displayName
       form.value = {
         name:         user.displayName,
         email:        user.email,
@@ -96,6 +102,9 @@ const handleSubmit = async () => {
       mainSupporterUid: form.value.mainSupporterUid || null,
       subSupporterUid:  form.value.subSupporterUid || null,
     })
+    if (originalRole.value && originalRole.value !== form.value.role) {
+      useOperationLog().log('user_role_change', `${originalName.value || form.value.name}: ${originalRole.value} → ${form.value.role}`).catch(() => {})
+    }
     await navigateTo('/admin/users')
   } catch (e: any) {
     error.value = e.message ?? '保存に失敗しました'
