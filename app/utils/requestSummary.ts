@@ -10,6 +10,8 @@ export const requestStatusBadge = (status: string) => {
 export const requestPayloadSummary = (r: AppRequest): string => {
   const p = r.payload ?? {}
   if (r.type === 'kumiai_create') return `${p.groupName ?? ''} / ${p.name ?? ''}`
+  if (r.type === 'kumiai_preparatory_create') return `${p.groupName ?? ''} / ${p.name ?? ''}（準備室）`
+  if (r.type === 'kumiai_promote') return `${p.groupName ?? ''} / ${p.kumiaiName ?? ''} を組合へ昇格`
   if (r.type === 'group_create') return p.name ?? ''
   if (r.type === 'kumiai_member_create') return `${p.displayName ?? ''}（${p.email ?? ''}）`
   if (r.type === 'plan_change') return `${p.targetName ?? ''} → ${p.newPlan ?? ''}`

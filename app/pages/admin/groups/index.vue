@@ -322,6 +322,7 @@ const deleteKumiai = async (g: Group, kumiaiId: string) => {
           <div>
             <div class="flex items-center gap-1.5 flex-wrap">
               <p class="text-sm font-medium text-gray-900">{{ k.name }}</p>
+              <span v-if="k.status === 'preparatory'" class="badge text-xs bg-amber-100 text-amber-700">準備室</span>
               <span v-if="k.isDissolved" class="badge text-xs bg-red-100 text-red-600">解体済み</span>
             </div>
             <p class="text-xs text-gray-400 mt-0.5">

@@ -46,6 +46,19 @@ const payloadRows = (r: AppRequest): { label: string; value: string }[] => {
       { label: '組合管理者名', value: p.adminName || '（なし）' },
     ]
   }
+  if (r.type === 'kumiai_preparatory_create') {
+    return [
+      { label: '所属グループ', value: p.groupName ?? p.groupId ?? '' },
+      { label: '準備室名', value: p.name ?? '' },
+      { label: '組合管理者名', value: p.adminName || '（なし）' },
+    ]
+  }
+  if (r.type === 'kumiai_promote') {
+    return [
+      { label: '所属グループ', value: p.groupName ?? p.groupId ?? '' },
+      { label: '昇格する準備室', value: p.kumiaiName ?? '' },
+    ]
+  }
   if (r.type === 'group_create') {
     return [{ label: 'グループ名', value: p.name ?? '' }]
   }
@@ -90,6 +103,10 @@ const applyRequest = async (r: AppRequest): Promise<void> => {
   const p = r.payload ?? {}
   if (r.type === 'kumiai_create') {
     await createKumiai(p.groupId, { name: p.name, adminName: p.adminName })
+  } else if (r.type === 'kumiai_preparatory_create') {
+    await createKumiai(p.groupId, { name: p.name, adminName: p.adminName, status: 'preparatory' })
+  } else if (r.type === 'kumiai_promote') {
+    await updateKumiai(p.groupId, p.kumiaiId, { status: 'active' })
   } else if (r.type === 'group_create') {
     await createGroup(p.name)
   } else if (r.type === 'kumiai_member_create') {

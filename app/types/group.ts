@@ -8,6 +8,9 @@ export interface Kumiai {
   adminName?: string
   memberCount: number
   displayOrder: number
+  // 組合登録前の「準備室」ステータス。申請承認で'preparatory'として作成され、
+  // 「準備室→組合」昇格申請の承認で'active'に変わる。未設定は'active'扱い（既存データとの後方互換）
+  status?: 'preparatory' | 'active'
   // 組合の解体（申請承認で設定される）。データは残したまま、選択肢からのみ除外する
   isDissolved?: boolean
   dissolvedAt?: Timestamp

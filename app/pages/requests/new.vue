@@ -94,6 +94,18 @@ const done = ref(false)
 // ── 組合の登録 ──────────────────────────────────────────────────────────
 const kumiaiCreateForm = reactive({ groupId: '', name: '', adminName: '' })
 
+// ── 準備室の登録（組合登録前段階。項目は組合の登録と同じ） ──────────────────
+const kumiaiPreparatoryCreateForm = reactive({ groupId: '', name: '', adminName: '' })
+
+// ── 準備室から組合への昇格 ──────────────────────────────────────────────
+const kumiaiPromoteForm = reactive({ groupId: '', kumiaiId: '' })
+const preparatoryKumiaiOptions = computed(() =>
+  (groups.value.find(g => g.id === kumiaiPromoteForm.groupId)?.kumiai ?? [])
+    .filter(k => k.status === 'preparatory')
+    .map(k => ({ id: k.id, label: k.name })),
+)
+watch(() => kumiaiPromoteForm.groupId, () => { kumiaiPromoteForm.kumiaiId = '' })
+
 // ── グループの登録 ──────────────────────────────────────────────────────
 const groupCreateForm = reactive({ name: '' })
 
@@ -133,6 +145,8 @@ const adminNameSuggestions = computed(() => users.value.map(u => u.displayName).
 
 const resetForms = () => {
   Object.assign(kumiaiCreateForm, { groupId: '', name: '', adminName: '' })
+  Object.assign(kumiaiPreparatoryCreateForm, { groupId: '', name: '', adminName: '' })
+  Object.assign(kumiaiPromoteForm, { groupId: '', kumiaiId: '' })
   Object.assign(groupCreateForm, { name: '' })
   Object.assign(memberCreateForm, { displayName: '', email: '', groupId: '', kumiaiId: '', position: '', mainSupporterUid: '', subSupporterUid: '' })
   Object.assign(planChangeForm, { targetUid: '', newPlan: MEMBERSHIP_PLAN_OPTIONS[0] })
@@ -145,13 +159,15 @@ const resetForms = () => {
 
 // 却下された申請の「コピーして再申請」で渡された内容をフォームへ反映する
 const FORMS_BY_TYPE: Record<RequestType, Record<string, any>> = {
-  kumiai_create:          kumiaiCreateForm,
-  group_create:           groupCreateForm,
-  kumiai_member_create:   memberCreateForm,
-  plan_change:            planChangeForm,
-  supporter_change:       supporterChangeForm,
-  kumiai_member_withdraw: memberWithdrawForm,
-  kumiai_dissolve:        kumiaiDissolveForm,
+  kumiai_create:             kumiaiCreateForm,
+  kumiai_preparatory_create: kumiaiPreparatoryCreateForm,
+  kumiai_promote:            kumiaiPromoteForm,
+  group_create:              groupCreateForm,
+  kumiai_member_create:      memberCreateForm,
+  plan_change:               planChangeForm,
+  supporter_change:          supporterChangeForm,
+  kumiai_member_withdraw:    memberWithdrawForm,
+  kumiai_dissolve:           kumiaiDissolveForm,
 }
 // groupId変更で連動して選択組合(kumiaiId)がリセットされるフォームがあるため、
 // groupIdを先に反映してwatchによるリセットを済ませてからkumiaiIdを反映する
@@ -202,6 +218,8 @@ const cancelEditing = () => {
 
 const isValid = computed(() => {
   if (type.value === 'kumiai_create') return !!kumiaiCreateForm.groupId && !!kumiaiCreateForm.name.trim()
+  if (type.value === 'kumiai_preparatory_create') return !!kumiaiPreparatoryCreateForm.groupId && !!kumiaiPreparatoryCreateForm.name.trim()
+  if (type.value === 'kumiai_promote') return !!kumiaiPromoteForm.groupId && !!kumiaiPromoteForm.kumiaiId
   if (type.value === 'group_create') return !!groupCreateForm.name.trim()
   if (type.value === 'kumiai_member_create') return !!memberCreateForm.displayName.trim() && !!memberCreateForm.email.trim()
   if (type.value === 'plan_change') return !!planChangeForm.targetUid && !!planChangeForm.newPlan.trim()
@@ -231,6 +249,21 @@ const doSubmit = async () => {
         groupName: groups.value.find(g => g.id === kumiaiCreateForm.groupId)?.name,
         name: kumiaiCreateForm.name.trim(),
         adminName: kumiaiCreateForm.adminName.trim() || undefined,
+      }
+    } else if (type.value === 'kumiai_preparatory_create') {
+      payload = {
+        groupId: kumiaiPreparatoryCreateForm.groupId,
+        groupName: groups.value.find(g => g.id === kumiaiPreparatoryCreateForm.groupId)?.name,
+        name: kumiaiPreparatoryCreateForm.name.trim(),
+        adminName: kumiaiPreparatoryCreateForm.adminName.trim() || undefined,
+      }
+    } else if (type.value === 'kumiai_promote') {
+      const group = groups.value.find(g => g.id === kumiaiPromoteForm.groupId)
+      payload = {
+        groupId: kumiaiPromoteForm.groupId,
+        groupName: group?.name,
+        kumiaiId: kumiaiPromoteForm.kumiaiId,
+        kumiaiName: group?.kumiai.find(k => k.id === kumiaiPromoteForm.kumiaiId)?.name ?? '',
       }
     } else if (type.value === 'group_create') {
       payload = { name: groupCreateForm.name.trim() }
@@ -372,6 +405,43 @@ const doSubmit = async () => {
           <label class="block text-sm font-medium text-gray-700 mb-1.5">組合管理者名（任意）</label>
           <ComboBox v-model="kumiaiCreateForm.adminName" :items="adminNameSuggestions" placeholder="例: 山田 一郎" />
         </div>
+      </template>
+
+      <!-- 準備室の登録 -->
+      <template v-else-if="type === 'kumiai_preparatory_create'">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">所属グループ <span class="text-red-500">*</span></label>
+          <select v-model="kumiaiPreparatoryCreateForm.groupId" class="input-field">
+            <option value="">選択してください</option>
+            <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">準備室名 <span class="text-red-500">*</span></label>
+          <input v-model="kumiaiPreparatoryCreateForm.name" type="text" placeholder="例: りらくす組合準備室" class="input-field" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">組合管理者名（任意）</label>
+          <ComboBox v-model="kumiaiPreparatoryCreateForm.adminName" :items="adminNameSuggestions" placeholder="例: 山田 一郎" />
+        </div>
+        <p class="text-xs text-gray-400">承認されると「準備室」ステータスで組合として登録されます。正式な組合への移行は別途「準備室から組合への昇格」を申請してください。</p>
+      </template>
+
+      <!-- 準備室から組合への昇格 -->
+      <template v-else-if="type === 'kumiai_promote'">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">所属グループ <span class="text-red-500">*</span></label>
+          <select v-model="kumiaiPromoteForm.groupId" class="input-field">
+            <option value="">選択してください</option>
+            <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">昇格する準備室 <span class="text-red-500">*</span></label>
+          <SearchableSelect v-model="kumiaiPromoteForm.kumiaiId" :items="preparatoryKumiaiOptions" placeholder="準備室を選択..." search-placeholder="準備室名で検索..." />
+          <p v-if="kumiaiPromoteForm.groupId && preparatoryKumiaiOptions.length === 0" class="mt-1 text-xs text-gray-400">このグループに準備室はありません</p>
+        </div>
+        <p class="text-xs text-gray-400">承認されると、準備室ステータスが解除され正式な組合として扱われます。</p>
       </template>
 
       <!-- グループの登録 -->

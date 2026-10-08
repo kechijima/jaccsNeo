@@ -3,6 +3,8 @@ import type { Timestamp } from 'firebase/firestore'
 // 申請→理事会承認フロー。承認されると各payloadの内容が実データへ反映される
 export type RequestType =
   | 'kumiai_create'         // 組合の登録
+  | 'kumiai_preparatory_create' // 準備室の登録（組合登録前の段階）
+  | 'kumiai_promote'        // 準備室から組合への昇格
   | 'group_create'          // グループの登録
   | 'kumiai_member_create'  // 組合員の登録
   | 'plan_change'           // 組合員のプラン変更
@@ -13,13 +15,15 @@ export type RequestType =
 export type RequestStatus = 'pending' | 'approved' | 'rejected'
 
 export const REQUEST_TYPE_LABELS: Record<RequestType, string> = {
-  kumiai_create:          '組合の登録',
-  group_create:           'グループの登録',
-  kumiai_member_create:   '組合員の登録',
-  plan_change:            '組合員のプラン変更',
-  supporter_change:       'サポート者の変更',
-  kumiai_member_withdraw: '組合員の脱退',
-  kumiai_dissolve:        '組合の解体',
+  kumiai_create:             '組合の登録',
+  kumiai_preparatory_create: '準備室の登録',
+  kumiai_promote:            '準備室から組合への昇格',
+  group_create:              'グループの登録',
+  kumiai_member_create:      '組合員の登録',
+  plan_change:               '組合員のプラン変更',
+  supporter_change:          'サポート者の変更',
+  kumiai_member_withdraw:    '組合員の脱退',
+  kumiai_dissolve:           '組合の解体',
 }
 
 export const REQUEST_STATUS_LABELS: Record<RequestStatus, string> = {
@@ -81,8 +85,20 @@ export interface KumiaiDissolvePayload {
   kumiaiName: string
 }
 
+// 準備室の登録はkumiai_createと同じ項目（承認時にstatus:'preparatory'で組合を作成する）
+export type KumiaiPreparatoryCreatePayload = KumiaiCreatePayload
+
+export interface KumiaiPromotePayload {
+  groupId: string
+  groupName?: string
+  kumiaiId: string
+  kumiaiName: string
+}
+
 export type RequestPayload =
   | KumiaiCreatePayload
+  | KumiaiPreparatoryCreatePayload
+  | KumiaiPromotePayload
   | GroupCreatePayload
   | KumiaiMemberCreatePayload
   | PlanChangePayload
