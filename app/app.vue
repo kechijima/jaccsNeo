@@ -1,6 +1,8 @@
 <script setup lang="ts">
 const { initAuth } = useAuth()
 const { initialized } = useCurrentUser()
+const { pageKey, isRefreshing } = useSoftRefresh()
+const route = useRoute()
 
 // SPA mode: Firebase plugin is always available on client
 // ここでawaitすると解決するまでスプラッシュ含め何も描画されなくなり、初回表示が
@@ -19,7 +21,12 @@ const showSplash = computed(() => !initialized.value)
   <div>
     <NuxtRouteAnnouncer />
     <NuxtLayout>
-      <NuxtPage />
+      <!-- pageKeyはヘッダーの更新ボタン用。route.fullPathと組み合わせることで、
+           通常のページ遷移では不要な再マウントを起こさず、更新ボタン押下時
+           （pageKeyの増加）だけ現在のページを強制的に再マウントしてデータを
+           再取得する（ブラウザ自体はリロードしないため、F5等と違いFirebase
+           Authの再初期化レースが発生しない） -->
+      <NuxtPage :page-key="`${route.fullPath}:${pageKey}`" />
     </NuxtLayout>
     <AppToast />
     <AuthorProfileModal />
@@ -40,6 +47,18 @@ const showSplash = computed(() => !initialized.value)
         <!-- 回線状況によっては起動に時間がかかることがあるため、待っている間に
              マニュアルを見られるようにする -->
         <BootManualPreview />
+      </div>
+    </Transition>
+
+    <!-- ヘッダーの更新ボタン押下時：ブラウザのリロードではなく現在のページだけ
+         再マウントするため、スプラッシュとは別に専用のローディング画面を表示する -->
+    <Transition name="fade">
+      <div v-if="isRefreshing" class="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-white">
+        <img src="/logo.png" alt="" class="w-16 h-16 object-contain" />
+        <div class="flex items-center gap-2 text-sm text-gray-500">
+          <Icon name="heroicons:arrow-path" class="h-4 w-4 animate-spin" />
+          更新中...
+        </div>
       </div>
     </Transition>
   </div>

@@ -5,9 +5,11 @@ import { useGroupLabels } from '~/composables/useGroupLabels'
 import { useThemeColor } from '~/composables/useThemeColor'
 import { useHelpDrawer } from '~/composables/useHelpDrawer'
 import { useDisplayName } from '~/composables/useDisplayName'
+import { useSoftRefresh } from '~/composables/useSoftRefresh'
 
 const { logout } = useAuth()
 const { open: openHelp } = useHelpDrawer()
+const { isRefreshing, refresh } = useSoftRefresh()
 const { displayName, user } = useCurrentUser()
 const authStore = useAuthStore()
 const route = useRoute()
@@ -239,6 +241,16 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
           </div>
           <button
             type="button"
+            class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 transition disabled:opacity-50"
+            aria-label="最新の情報に更新"
+            title="最新の情報に更新"
+            :disabled="isRefreshing"
+            @click="refresh"
+          >
+            <Icon name="heroicons:arrow-path" class="h-5 w-5" :class="{ 'animate-spin': isRefreshing }" />
+          </button>
+          <button
+            type="button"
             class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 transition"
             aria-label="マニュアル"
             @click="openHelp"
@@ -255,6 +267,15 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
           <span class="text-sm font-bold text-gray-900">JACCS Neo</span>
         </div>
         <div class="flex items-center gap-1">
+          <button
+            type="button"
+            class="rounded-lg p-2 text-gray-500 hover:bg-gray-100 disabled:opacity-50"
+            aria-label="最新の情報に更新"
+            :disabled="isRefreshing"
+            @click="refresh"
+          >
+            <Icon name="heroicons:arrow-path" class="h-5 w-5" :class="{ 'animate-spin': isRefreshing }" />
+          </button>
           <NuxtLink to="/search" class="rounded-lg p-2 text-gray-500 hover:bg-gray-100" aria-label="検索">
             <Icon name="heroicons:magnifying-glass" class="h-5 w-5" />
           </NuxtLink>
@@ -284,7 +305,7 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
       </header>
 
       <!-- コンテンツエリア -->
-      <main class="flex-1 overflow-y-auto pb-20 md:pb-0">
+      <main class="flex-1 overflow-y-auto overscroll-contain pb-20 md:pb-0">
         <slot />
       </main>
     </div>

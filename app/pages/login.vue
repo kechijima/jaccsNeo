@@ -23,6 +23,12 @@ const email    = ref('')
 const password = ref('')
 const error    = ref('')
 const loading  = ref(false)
+// 回線状況・Firestoreの応答待ち等でログイン処理が長引く場合、ボタン自体は
+// 既にローディング表示（アイコン回転＋テキスト変化）になっているが、変化に
+// 気付きにくく「押せているか不安」との声があったため、数秒経っても完了しない
+// 場合は追加の案内文を表示する
+const loadingLong = ref(false)
+let loadingLongTimer: ReturnType<typeof setTimeout> | null = null
 
 // パスワードリセットモード
 const isResetMode   = ref(false)
@@ -57,13 +63,17 @@ const handleLogin = async () => {
     return
   }
   loading.value = true
+  loadingLong.value = false
   error.value = ''
+  loadingLongTimer = setTimeout(() => { loadingLong.value = true }, 5000)
   try {
     await login(email.value, password.value)
   } catch (e: any) {
     error.value = errorMessages[e.code] ?? 'ログインに失敗しました。もう一度お試しください'
   } finally {
     loading.value = false
+    loadingLong.value = false
+    if (loadingLongTimer) { clearTimeout(loadingLongTimer); loadingLongTimer = null }
   }
 }
 
@@ -174,6 +184,10 @@ const handleDobReset = async () => {
             <Icon v-if="loading" name="heroicons:arrow-path" class="h-4 w-4 animate-spin" />
             {{ loading ? 'ログイン中...' : 'ログイン' }}
           </button>
+
+          <p v-if="loadingLong" class="text-center text-xs text-gray-400">
+            通信状況により時間がかかっています。画面を閉じずそのままお待ちください...
+          </p>
         </form>
 
         <!-- パスワードリセットリンク -->

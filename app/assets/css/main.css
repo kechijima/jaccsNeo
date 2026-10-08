@@ -5,10 +5,17 @@
 @layer base {
   html {
     @apply text-gray-900 antialiased;
+    /* スマホブラウザの「下に引っ張って更新」ジェスチャーを無効化する。
+       このジェスチャーによるブラウザのネイティブリロードは、F5キーでの
+       リロードと同じくFirebase Authの再初期化待ちレース状態を引き起こし、
+       ログイン画面へ飛ばされる不具合の原因になっていたため、ジェスチャー自体を
+       発生させないようにする（代わりにヘッダーの更新ボタンでアプリ内更新を行う） */
+    overscroll-behavior-y: none;
   }
 
   body {
     @apply bg-gray-50;
+    overscroll-behavior-y: none;
   }
 
   /* テーマカラー（青系/黄色系）。ユーザー設定に応じて<html>のdata-themeを
