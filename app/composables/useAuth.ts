@@ -56,15 +56,30 @@ export const useAuth = () => {
       }
 
       // Firebaseからの応答が遅い/届かない場合でもスプラッシュ画面で固まらないよう
-      // タイムアウトを設ける
-      const timeout = setTimeout(() => {
-        authStore.setConfirmed(true)
+      // タイムアウトを設ける。ただしここでconfirmedまでtrueにしてしまうと、
+      // 復元に4秒以上かかっているだけの正常なセッション（低速回線・Firestoreの
+      // 初回応答待ち等）が「確定的にログアウト」と誤判定され、authミドルウェアで
+      // ログイン画面へ飛ばされてしまう（F5等の通常リロードで時々ログアウトする
+      // 不具合の原因だった）。スプラッシュの解除（initialized）だけ行い、confirmed
+      // は実際にonAuthStateChangedから応答が来るまで保留する（遅れて発火した際に
+      // 下のfinallyで正しく確定させる）
+      const splashTimeout = setTimeout(() => {
         authStore.setInitialized(true)
         resolve()
       }, 4000)
 
+      // 万一onAuthStateChangedが本当に一度も発火しない場合に備え、confirmedも
+      // 含めて確定させる最終手段のタイムアウト（無期限ハングの防止）。
+      // 4秒のタイムアウトより十分長く取り、復元に時間がかかっているだけの
+      // 正常なセッションを誤って未ログイン確定させないようにする
+      const hardTimeout = setTimeout(() => {
+        authStore.setConfirmed(true)
+        authStore.setInitialized(true)
+      }, 20000)
+
       onAuthStateChanged($auth, async (firebaseUser) => {
-        clearTimeout(timeout)
+        clearTimeout(splashTimeout)
+        clearTimeout(hardTimeout)
         // fetchUserDocが失敗した場合でも(ネットワーク不調・一時的なFirestoreエラー等)
         // 必ずinitialized/resolveに到達させる。ここが漏れると認証確認を待つ画面
         // （authミドルウェア経由の全ページ）が永久に固まってしまうため
