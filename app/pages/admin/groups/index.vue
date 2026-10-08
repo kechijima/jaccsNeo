@@ -2,18 +2,22 @@
 import { useGroups } from '~/composables/useGroups'
 import { useGroupLabels } from '~/composables/useGroupLabels'
 import { useUsers } from '~/composables/useUsers'
+import { useSpecialTeams } from '~/composables/useSpecialTeams'
 import type { Group, Kumiai } from '~/types/group'
 import type { GroupId } from '~/types/user'
 import type { AppUser } from '~/types/user'
+import type { SpecialTeamDef } from '~/types/specialTeam'
 
 definePageMeta({ middleware: ['auth', 'admin'] })
 
 const { fetchGroups, createGroup, updateGroup, createKumiai, updateKumiai, deleteKumiai: removeKumiai } = useGroups()
 const { getGroupColor, ensureLoaded: ensureGroupLabelsLoaded } = useGroupLabels()
 const { fetchUsers } = useUsers()
+const { fetchAll: fetchSpecialTeams, createTeam, updateTeam, deleteTeam } = useSpecialTeams()
 
 const groups = ref<Group[]>([])
 const users  = ref<AppUser[]>([])
+const specialTeams = ref<SpecialTeamDef[]>([])
 const loading = ref(true)
 const loadError = ref('')
 
@@ -21,9 +25,10 @@ const loadGroups = async () => {
   loading.value = true
   loadError.value = ''
   try {
-    const [g, u] = await Promise.all([fetchGroups(), fetchUsers()])
+    const [g, u, t] = await Promise.all([fetchGroups(), fetchUsers(), fetchSpecialTeams()])
     groups.value = g
     users.value = u
+    specialTeams.value = t
     await ensureGroupLabelsLoaded(true)
   } catch (e: any) {
     loadError.value = e.message ?? 'グループ情報の取得に失敗しました'
@@ -39,6 +44,60 @@ const getColor = (id: string) => getGroupColor(id)
 // 実際に割り当てられているユーザー数から算出する（手入力ではなく常に最新の実数）
 const groupMemberCount = (groupId: string) => users.value.filter(u => u.groupId === groupId).length
 const kumiaiMemberCount = (kumiaiId: string) => users.value.filter(u => u.kumiaiId === kumiaiId).length
+const specialTeamMemberCount = (teamId: string) => users.value.filter(u => u.specialTeams?.includes(teamId)).length
+
+// ── 専門チーム 追加・編集モーダル（同じフォームを共用） ──────────────────
+const editingTeam = ref<SpecialTeamDef | null>(null)   // nullなら新規追加
+const showTeamModal = ref(false)
+const teamForm = ref({ name: '', description: '' })
+const teamSaving = ref(false)
+const teamError = ref('')
+
+const openAddTeam = () => {
+  editingTeam.value = null
+  teamForm.value = { name: '', description: '' }
+  teamError.value = ''
+  showTeamModal.value = true
+}
+const openEditTeam = (t: SpecialTeamDef) => {
+  editingTeam.value = t
+  teamForm.value = { name: t.name, description: t.description ?? '' }
+  teamError.value = ''
+  showTeamModal.value = true
+}
+const closeTeamModal = () => { showTeamModal.value = false; editingTeam.value = null }
+
+const submitTeam = async () => {
+  if (!teamForm.value.name.trim()) { teamError.value = 'チーム名を入力してください'; return }
+  teamSaving.value = true
+  teamError.value = ''
+  try {
+    const form = { name: teamForm.value.name.trim(), description: teamForm.value.description.trim() || undefined }
+    if (editingTeam.value) {
+      await updateTeam(editingTeam.value.id, form)
+      editingTeam.value.name = form.name
+      editingTeam.value.description = form.description
+    } else {
+      const id = await createTeam(form)
+      specialTeams.value.push({ id, name: form.name, description: form.description, createdAt: null as any, updatedAt: null as any })
+    }
+    closeTeamModal()
+  } catch (e: any) {
+    teamError.value = e.message ?? '保存に失敗しました'
+  } finally {
+    teamSaving.value = false
+  }
+}
+
+const removeTeam = async (t: SpecialTeamDef) => {
+  if (!confirm(`「${t.name}」を削除します。既にこのチームに所属しているユーザーの設定は残りますが、チーム名が参照できなくなります。よろしいですか？`)) return
+  try {
+    await deleteTeam(t.id)
+    specialTeams.value = specialTeams.value.filter(x => x.id !== t.id)
+  } catch (e: any) {
+    alert(e.message ?? '削除に失敗しました')
+  }
+}
 
 // 組合の管理者名入力（コンボボックス）の候補。既存ユーザーの氏名を候補として出しつつ、
 // 管理者は必ずしもアプリのユーザーとは限らないため自由入力も許可する
@@ -283,24 +342,25 @@ const deleteKumiai = async (g: Group, kumiaiId: string) => {
     <div class="card overflow-hidden">
       <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-gray-50">
         <h2 class="font-semibold text-gray-900">専門チーム（グループ横断）</h2>
-        <button class="text-xs text-primary-600 hover:underline flex items-center gap-0.5">
+        <button class="text-xs text-primary-600 hover:underline flex items-center gap-0.5" @click="openAddTeam">
           <Icon name="heroicons:plus" class="h-3 w-3" />チームを追加
         </button>
       </div>
-      <div class="divide-y divide-gray-50">
-        <div class="flex items-center justify-between px-5 py-3.5">
+      <div v-if="specialTeams.length === 0" class="px-5 py-6 text-center text-xs text-gray-400">
+        専門チームはまだありません
+      </div>
+      <div v-else class="divide-y divide-gray-50">
+        <div v-for="t in specialTeams" :key="t.id" class="flex items-center justify-between px-5 py-3.5">
           <div>
-            <p class="text-sm font-medium text-gray-900">不動産チーム（未来設計ハウジング）</p>
-            <p class="text-xs text-gray-400">グループ横断 · 32名</p>
+            <p class="text-sm font-medium text-gray-900">{{ t.name }}</p>
+            <p class="text-xs text-gray-400">グループ横断 · {{ specialTeamMemberCount(t.id) }}名</p>
           </div>
-          <button class="text-xs text-primary-600 hover:underline">編集</button>
-        </div>
-        <div class="flex items-center justify-between px-5 py-3.5">
-          <div>
-            <p class="text-sm font-medium text-gray-900">損保チーム</p>
-            <p class="text-xs text-gray-400">グループ横断 · 28名</p>
+          <div class="flex items-center gap-3 shrink-0">
+            <button class="text-xs text-primary-600 hover:underline" @click="openEditTeam(t)">編集</button>
+            <button class="text-xs text-gray-300 hover:text-red-500 transition" @click="removeTeam(t)">
+              <Icon name="heroicons:trash" class="h-3.5 w-3.5" />
+            </button>
           </div>
-          <button class="text-xs text-primary-600 hover:underline">編集</button>
         </div>
       </div>
     </div>
@@ -358,6 +418,38 @@ const deleteKumiai = async (g: Group, kumiaiId: string) => {
             <button class="flex-1 btn-primary" :disabled="editGroupSaving" @click="submitEditGroup">
               <Icon v-if="editGroupSaving" name="heroicons:arrow-path" class="h-4 w-4 animate-spin mr-1" />
               保存する
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 専門チーム追加・編集 -->
+      <div
+        v-if="showTeamModal"
+        class="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40"
+        @click.self="closeTeamModal"
+      >
+        <div class="bg-white w-full md:max-w-md rounded-t-2xl md:rounded-2xl p-6 space-y-4 shadow-xl max-h-[85vh] overflow-y-auto">
+          <div class="flex items-center justify-between">
+            <h3 class="font-bold text-gray-900">{{ editingTeam ? '専門チーム編集' : '専門チームを追加' }}</h3>
+            <button class="p-1.5 hover:bg-gray-100 rounded-lg" @click="closeTeamModal">
+              <Icon name="heroicons:x-mark" class="h-5 w-5 text-gray-500" />
+            </button>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">チーム名 <span class="text-red-500">*</span></label>
+            <input v-model="teamForm.name" type="text" placeholder="例: 不動産チーム" class="input-field" @keydown.enter="submitTeam" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">説明（任意）</label>
+            <textarea v-model="teamForm.description" rows="2" class="input-field" placeholder="このチームの役割・対象業務など" />
+          </div>
+          <p v-if="teamError" class="text-xs text-red-500">{{ teamError }}</p>
+          <div class="flex gap-3 pt-2">
+            <button class="flex-1 btn-secondary" @click="closeTeamModal">キャンセル</button>
+            <button class="flex-1 btn-primary" :disabled="teamSaving" @click="submitTeam">
+              <Icon v-if="teamSaving" name="heroicons:arrow-path" class="h-4 w-4 animate-spin mr-1" />
+              {{ editingTeam ? '保存する' : '追加する' }}
             </button>
           </div>
         </div>

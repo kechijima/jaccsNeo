@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { TITLE_OPTIONS, type UserRole, type SpecialTeam, type GroupId } from '~/types/user'
 import type { Group } from '~/types/group'
+import type { SpecialTeamDef } from '~/types/specialTeam'
 import { useGroups } from '~/composables/useGroups'
+import { useSpecialTeams } from '~/composables/useSpecialTeams'
 
 definePageMeta({ middleware: ['auth', 'admin'] })
 
 const { createAuthUser, updateUser, fetchUsers } = useUsers()
 const { fetchGroups } = useGroups()
+const { fetchAll: fetchSpecialTeams } = useSpecialTeams()
 const { sendPasswordReset } = useAuth()
 
 const genTempPassword = () =>
@@ -28,9 +31,11 @@ const form = ref({
 
 const existingUsers = ref<Array<{ uid: string; displayName: string }>>([])
 const groups = ref<Group[]>([])
+const specialTeams = ref<SpecialTeamDef[]>([])
 onMounted(async () => {
   existingUsers.value = (await fetchUsers().catch(() => [])).filter(u => !u.isWithdrawn)
   groups.value = await fetchGroups().catch(() => [])
+  specialTeams.value = await fetchSpecialTeams().catch(() => [])
 })
 
 // 所属組合は所属グループとは独立して選択できる（別グループの組合に所属するケースがあるため）
@@ -202,24 +207,16 @@ const toggleSpecialTeam = (team: string) => {
       <!-- 専門チーム -->
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-2">専門チーム（追加付与）</label>
-        <div class="flex gap-3">
-          <label class="flex items-center gap-2 cursor-pointer">
+        <div v-if="specialTeams.length === 0" class="text-xs text-gray-400">専門チームが登録されていません（「グループ・組合マスタ」画面から追加できます）</div>
+        <div v-else class="flex flex-wrap gap-3">
+          <label v-for="t in specialTeams" :key="t.id" class="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
-              :checked="form.specialTeams.includes('real_estate')"
+              :checked="form.specialTeams.includes(t.id)"
               class="h-4 w-4 rounded text-primary-600"
-              @change="toggleSpecialTeam('real_estate')"
+              @change="toggleSpecialTeam(t.id)"
             />
-            <span class="text-sm text-gray-700">不動産チーム</span>
-          </label>
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              :checked="form.specialTeams.includes('non_life_insurance')"
-              class="h-4 w-4 rounded text-primary-600"
-              @change="toggleSpecialTeam('non_life_insurance')"
-            />
-            <span class="text-sm text-gray-700">損保チーム</span>
+            <span class="text-sm text-gray-700">{{ t.name }}</span>
           </label>
         </div>
       </div>

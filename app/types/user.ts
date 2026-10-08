@@ -2,7 +2,9 @@ import type { NotificationPrefs } from './notification'
 
 export type UserRole = 'system_admin' | 'board' | 'em2_above' | 'general'
 
-export type SpecialTeam = 'real_estate' | 'non_life_insurance'
+// 専門チームID。以前は固定の2値だったが、専門チームをDB管理化したため
+// 任意の文字列（specialTeamsコレクションのドキュメントID）を許容する
+export type SpecialTeam = string
 
 // タイトル（旧: 役職）の選択肢（下から上の順。スペースの閲覧条件等の判定にも利用する）
 export const TITLE_OPTIONS = [
