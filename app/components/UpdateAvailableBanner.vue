@@ -10,15 +10,18 @@ const handleUpdate = async () => {
   updating.value = true
   try {
     await $pwa?.updateServiceWorker(true)
+    // updateServiceWorker(true)は本来、新しいService Workerへの切り替え完了
+    // （controllerchangeイベント）をきっかけに自動的に画面を再読み込みする。
+    // 以前はここで即座にもう一度window.location.reload()を呼んでいたが、
+    // 自動再読み込みとタイミングが重なると二重にページ遷移が発生し、認証状態
+    // （Firebaseのログインセッション復元）の途中で割り込まれてログイン画面に
+    // 戻されてしまう不具合の原因になっていた。環境によっては自動再読み込みが
+    // 発火しないこともあるため、数秒待っても画面が遷移していなければフォール
+    // バックとして再読み込みする（すでに遷移済みならこのタイマー自体実行されない）
+    setTimeout(() => { window.location.reload() }, 3000)
   } catch (e) {
     console.error('Service Workerの更新に失敗しました', e)
-  } finally {
-    // updateServiceWorker(true)は本来、新しいService Workerへの切り替え完了
-    // （controllerchangeイベント）を検知して自動的に画面を再読み込みするが、
-    // 環境によってはこのイベントが発火せず、ボタンを押しても何も起きない
-    // ように見えることがあった。確実に反映させるため、ここでも明示的に
-    // 再読み込みする（すでにSW側の処理で再読み込みが始まっていた場合、
-    // ここが実行される頃にはページは離脱中のため、実質何も起こらない）
+    updating.value = false
     window.location.reload()
   }
 }
