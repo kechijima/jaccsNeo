@@ -16,11 +16,29 @@ export const useAuth = () => {
   const router = useRouter()
   const route = useRoute()
 
-  // Firestoreからユーザー情報を取得
+  // Firestoreからユーザー情報を取得。
+  // F5等でのリロード直後はFirestoreのネットワーク接続がまだ確立していない
+  // ことがあり、getDocが一時的に失敗する（client is offline等）ことがある。
+  // IndexedDBを無効化しているためオフラインキャッシュへのフォールバックも
+  // 効かず、ここで即座にエラーとして諦めるとFirebase Auth自体は復元できて
+  // いても「ログアウトした」扱いになってしまっていた（F5更新で時々ログアウト
+  // する不具合の一因）。少し待って数回リトライすることでこれを回避する
+  const FETCH_USER_RETRY_DELAYS = [500, 1500, 3000]
   const fetchUserDoc = async (firebaseUser: FirebaseUser): Promise<AppUser | null> => {
     const { $db } = useNuxtApp()
     const ref = doc($db, 'users', firebaseUser.uid)
-    const snap = await getDoc(ref)
+
+    let snap
+    for (let attempt = 0; ; attempt++) {
+      try {
+        snap = await getDoc(ref)
+        break
+      } catch (e) {
+        if (attempt >= FETCH_USER_RETRY_DELAYS.length) throw e
+        console.warn(`ユーザー情報の取得に失敗したためリトライします（${attempt + 1}回目）`, e)
+        await new Promise(resolve => setTimeout(resolve, FETCH_USER_RETRY_DELAYS[attempt]))
+      }
+    }
     if (!snap.exists()) return null
 
     const data = snap.data()
