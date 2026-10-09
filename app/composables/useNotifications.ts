@@ -56,25 +56,52 @@ export const useNotifications = () => {
     return collection($db, 'notifications', uid, 'items')
   }
 
-  // ===== 通知一覧（リアルタイム） =====
-  const subscribeNotifications = (callback: (notifs: Notification[]) => void, onError?: (e: unknown) => void): Unsubscribe => {
-    const q = query(notifCol(), orderBy('createdAt', 'desc'), limit(50))
-    return onSnapshot(
-      q,
-      (snap) => callback(snap.docs.map(d => toNotif(d.id, d.data()))),
-      (e) => { console.error('通知の取得に失敗しました', e); onError?.(e) },
-    )
+  // F5更新直後等、認証確認（authStore.user）がまだ完了していないタイミングで
+  // ページのonMountedから呼ばれることがある。notifCol()はuid未確定だと例外を
+  // 投げるため、ここで即座に呼ばず、uidが確定してから購読を開始するよう
+  // 共通化する（呼び出し側で個別にガードを書き忘れると、ページ全体が
+  // エラー画面に遷移してしまっていた）
+  const subscribeWhenReady = (
+    start: (uid: string) => Unsubscribe,
+  ): Unsubscribe => {
+    let inner: Unsubscribe | null = null
+    let stopWatch: (() => void) | null = null
+    let stopped = false
+
+    const uid = authStore.user?.uid
+    if (uid) {
+      inner = start(uid)
+    } else {
+      stopWatch = watch(() => authStore.user?.uid, (newUid) => {
+        if (newUid && !stopped) {
+          stopWatch?.()
+          inner = start(newUid)
+        }
+      })
+    }
+
+    return () => {
+      stopped = true
+      stopWatch?.()
+      inner?.()
+    }
   }
 
+  // ===== 通知一覧（リアルタイム） =====
+  const subscribeNotifications = (callback: (notifs: Notification[]) => void, onError?: (e: unknown) => void): Unsubscribe =>
+    subscribeWhenReady(uid => onSnapshot(
+      query(collection($db, 'notifications', uid, 'items'), orderBy('createdAt', 'desc'), limit(50)),
+      (snap) => callback(snap.docs.map(d => toNotif(d.id, d.data()))),
+      (e) => { console.error('通知の取得に失敗しました', e); onError?.(e) },
+    ))
+
   // ===== 未読件数（リアルタイム） =====
-  const subscribeUnreadCount = (callback: (count: number) => void, onError?: (e: unknown) => void): Unsubscribe => {
-    const q = query(notifCol(), where('isRead', '==', false))
-    return onSnapshot(
-      q,
+  const subscribeUnreadCount = (callback: (count: number) => void, onError?: (e: unknown) => void): Unsubscribe =>
+    subscribeWhenReady(uid => onSnapshot(
+      query(collection($db, 'notifications', uid, 'items'), where('isRead', '==', false)),
       (snap) => callback(snap.size),
       (e) => { console.error('未読通知数の取得に失敗しました', e); onError?.(e) },
-    )
-  }
+    ))
 
   // ===== 既読にする =====
   const markAsRead = async (notifId: string): Promise<void> => {

@@ -88,11 +88,11 @@ const toggleSidebar = () => {
   }
 }
 
-// 通知未読数（リアルタイム）
+// 通知未読数（リアルタイム）。subscribeUnreadCount自体が認証確定前の呼び出しに
+// 対応している（確定を待ってから購読開始する）ため、ここでガードする必要はない
 const notificationCount = ref(0)
 let unsubscribeNotifCount: (() => void) | null = null
 onMounted(() => {
-  if (!authStore.user?.uid) return
   unsubscribeNotifCount = subscribeUnreadCount((count) => { notificationCount.value = count })
 })
 onBeforeUnmount(() => unsubscribeNotifCount?.())
