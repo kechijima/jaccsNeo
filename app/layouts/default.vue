@@ -19,6 +19,26 @@ const { format: formatDisplayName } = useDisplayName()
 const { ensureLoaded: ensureThemeColorLoaded } = useThemeColor()
 onMounted(() => { ensureGroupLabelsLoaded(); ensureThemeColorLoaded() })
 
+// F5・Ctrl+R等での誤ったページ更新や、ブラウザを閉じてしまうことへの注意喚起。
+// ページ側のJavaScriptでリロード自体を禁止することはブラウザの仕様上できない
+// ため（主要ブラウザは意図的にこれを許していない）、ブラウザ標準の確認
+// ダイアログ（文言はブラウザ依存で固定・カスタマイズ不可）を表示するに留める。
+// ダイアログで続行（OK）を選んだ場合は、ブラウザが現在のURLをそのまま
+// 再読み込みするため、ログイン画面ではなく元いた画面に戻る（ログイン状態も
+// 維持される。F5更新時の誤ログアウトは別途ミドルウェア側で修正済み）。
+// このリスナーは認証済み画面（defaultレイアウト）でのみ有効にし、ログイン
+// 画面等（authレイアウト）では表示しない
+const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+  e.preventDefault()
+  e.returnValue = ''
+}
+onMounted(() => {
+  window.addEventListener('beforeunload', handleBeforeUnload)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', handleBeforeUnload)
+})
+
 // 「チーム」メニュー（実績等の統計）は一般ロールには表示しない。
 // 「メンバー一覧」はロールに関わらず全員に表示する
 const navItems = computed(() => [
