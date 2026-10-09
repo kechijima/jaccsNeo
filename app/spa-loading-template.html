@@ -1,23 +1,25 @@
-<!-- ログインは毎回必須（セッションを永続化していない）ため、Vue起動前の
-     この静的画面が実際に表示される状況では、遷移先はほぼ必ずログイン画面になる。
-     従来は汎用的な「読み込み中...」スピナーを表示していたが、待たされている
-     印象・不安感を与えていたため、ログイン画面そのものの見た目（静的な複製）を
-     ここに直接描画する。Vue起動後、実際のログイン画面（app/pages/login.vue）に
-     瞬時に置き換わるため、利用者には「開いたら最初からログイン画面だった」ように見える。
+<!-- Vue起動前（JS読み込み中）に表示する静的なプレースホルダー。
+     未ログインの場合はログイン画面そっくりの見た目（静的な複製）を描画し、
+     待たされている印象・不安感を減らす。Vue起動後、実際のログイン画面
+     （app/pages/login.vue）に瞬時に置き換わるため、利用者には「開いたら
+     最初からログイン画面だった」ように見える。
+     一方、ログイン済みセッションがある場合にまでこの偽ログイン画面を出すと、
+     F5直後にこれを見たユーザーが「ログアウトさせられた」と誤解してしまう
+     （実際にはこの直後に元の画面へ瞬時に置き換わるだけ）。そのため、前回
+     ログイン済みだったことを示す目印（jaccsneo:wasLoggedIn、useAuth.tsが
+     ログイン成功時に設定・ログアウト時に削除）がlocalStorageにある場合は、
+     下部のスクリプトでこちらではなく単純な「読み込み中」表示
+     （#jaccsneo-boot-plain-loading）に差し替える。
      ここで使っているクラス（input-field/btn-primary/card等）はlogin.vue・
      layouts/auth.vueで実際に使われているものと同じで、Tailwindの content scan
      （tailwind.config.tsのcontent、*.vueのみ対象）はそちらを経由して拾われるため、
      このファイル自体がscan対象でなくてもスタイルは問題なく含まれる -->
 <div id="jaccsneo-boot-splash" class="min-h-screen bg-gradient-to-br from-primary-50 via-white to-primary-100 flex items-center justify-center p-4">
-  <div class="w-full max-w-md">
+  <div id="jaccsneo-boot-fake-login" class="w-full max-w-md">
     <div class="text-center mb-8">
       <img src="/logo.png" alt="" class="w-16 h-16 object-contain mx-auto mb-4" />
       <h1 class="text-2xl font-bold text-gray-900">JACCS Neo</h1>
       <p class="mt-1 text-sm text-gray-500">FP業務管理システム</p>
-      <!-- このカード自体はVue起動前の静的な複製（下部のコメント参照）で、ログイン済み
-           セッションがある場合はこのすぐ後に実際のダッシュボード等へ瞬時に置き換わる。
-           F5直後にこの画面を見て「ログアウトさせられた」と誤解されないよう、
-           読み込み中であることが一目で分かる表示を添える -->
       <div class="mt-2 flex items-center justify-center gap-1.5 text-xs text-gray-400">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-3.5 w-3.5 animate-spin">
           <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
@@ -55,7 +57,29 @@
          プレーンなテキストのみで案内する） -->
     <div id="jaccsneo-boot-tip" style="display:none;" class="mt-4 text-center text-xs text-gray-400"></div>
   </div>
+
+  <!-- 前回ログイン済みだった場合に表示する、ログイン画面とは似ていない単純な
+       読み込み中表示（下部のスクリプトでjaccsneo-boot-fake-loginと差し替える） -->
+  <div id="jaccsneo-boot-plain-loading" style="display:none;" class="flex flex-col items-center gap-3">
+    <img src="/logo.png" alt="" class="w-16 h-16 object-contain" />
+    <div class="flex items-center gap-2 text-sm text-gray-500">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4 animate-spin">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+      </svg>
+      読み込み中...
+    </div>
+  </div>
 </div>
+<script>
+(function () {
+  try {
+    if (localStorage.getItem('jaccsneo:wasLoggedIn') === '1') {
+      document.getElementById('jaccsneo-boot-fake-login').style.display = 'none';
+      document.getElementById('jaccsneo-boot-plain-loading').style.display = 'flex';
+    }
+  } catch (e) {}
+})();
+</script>
 <script>
 (function () {
   try {

@@ -10,6 +10,7 @@ import { useAuthStore } from '~/stores/auth'
 import type { AppUser } from '~/types/user'
 import { toAppUser } from '~/utils/userMapper'
 import { useOperationLog } from '~/composables/useOperationLog'
+import { markWasLoggedIn } from '~/utils/wasLoggedIn'
 
 export const useAuth = () => {
   const authStore = useAuthStore()
@@ -115,11 +116,14 @@ export const useAuth = () => {
               // ログアウトさせる（組合員の脱退申請が承認された場合など）
               await signOut($auth)
               authStore.setUser(null)
+              markWasLoggedIn(false)
             } else {
               authStore.setUser(user)
+              markWasLoggedIn(!!user)
             }
           } else {
             authStore.setUser(null)
+            markWasLoggedIn(false)
           }
         } catch (e) {
           console.error('[authDiag] ユーザー情報の取得に失敗しました', e)
@@ -151,6 +155,7 @@ export const useAuth = () => {
       }
       authStore.setUser(user)
       authStore.setConfirmed(true)
+      markWasLoggedIn(true)
       useOperationLog().log('login').catch(() => {})
       const redirect = route.query.redirect
       const target = typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//')
@@ -168,6 +173,7 @@ export const useAuth = () => {
     await useOperationLog().log('logout').catch(() => {})
     await signOut($auth)
     authStore.setUser(null)
+    markWasLoggedIn(false)
     await router.push('/login')
   }
 
