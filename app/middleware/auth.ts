@@ -13,6 +13,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   if (!authStore.confirmed) return
 
   if (!authStore.isLoggedIn) {
+    console.info('[authDiag] authミドルウェア: 未ログインと判定しログイン画面へ', { to: to.fullPath, confirmed: authStore.confirmed, initialized: authStore.initialized })
     return navigateTo({ path: '/login', query: { redirect: to.fullPath } })
   }
 })

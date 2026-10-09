@@ -58,6 +58,10 @@ export const useAuth = () => {
   // 不要（Firebase自身の永続化に任せる）
   const initAuth = () => {
     const { $auth } = useNuxtApp()
+    // F5等でのリロード時にログイン状態が復元されない不具合の原因調査用の
+    // 一時的な診断ログ。再現時にブラウザの開発者ツール（F12）のConsoleタブに
+    // 表示される内容で、実際にどの段階で何が起きているかを特定するために使う
+    console.info('[authDiag] initAuth開始', { hasAuth: !!$auth, currentUser: $auth?.currentUser?.uid ?? null, path: window.location.pathname })
 
     return new Promise<void>((resolve) => {
       // firebase.client.tsのプラグインが何らかの理由で$authを提供できなかった場合
@@ -98,12 +102,14 @@ export const useAuth = () => {
       onAuthStateChanged($auth, async (firebaseUser) => {
         clearTimeout(splashTimeout)
         clearTimeout(hardTimeout)
+        console.info('[authDiag] onAuthStateChanged発火', { firebaseUserUid: firebaseUser?.uid ?? null })
         // fetchUserDocが失敗した場合でも(ネットワーク不調・一時的なFirestoreエラー等)
         // 必ずinitialized/resolveに到達させる。ここが漏れると認証確認を待つ画面
         // （authミドルウェア経由の全ページ）が永久に固まってしまうため
         try {
           if (firebaseUser) {
             const user = await fetchUserDoc(firebaseUser)
+            console.info('[authDiag] fetchUserDoc結果', { found: !!user, isWithdrawn: user?.isWithdrawn ?? null })
             if (user?.isWithdrawn) {
               // 脱退フラグが立ったユーザーは、既存セッションが残っていても強制的に
               // ログアウトさせる（組合員の脱退申請が承認された場合など）
@@ -116,9 +122,10 @@ export const useAuth = () => {
             authStore.setUser(null)
           }
         } catch (e) {
-          console.error('ユーザー情報の取得に失敗しました', e)
+          console.error('[authDiag] ユーザー情報の取得に失敗しました', e)
           authStore.setUser(null)
         } finally {
+          console.info('[authDiag] 確定', { isLoggedIn: !!authStore.user, uid: authStore.user?.uid ?? null })
           authStore.setConfirmed(true)
           authStore.setInitialized(true)
           resolve()

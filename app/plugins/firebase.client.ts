@@ -82,6 +82,9 @@ export default defineNuxtPlugin(() => {
   }
   // パスワードリセット等のFirebase Auth既定メールテンプレートを日本語で送信する
   auth.languageCode = 'ja'
+  // F5等でのリロード時にログイン状態が復元されない不具合の原因調査用の
+  // 一時的な診断ログ
+  console.info('[authDiag] firebase.client.ts初期化', { authDomain: resolvedAuthDomain, hostname: window.location.hostname })
   const db = getFirestore(app)
 
   return {
