@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { PWA_UPDATING_KEY } from '~/utils/pwaUpdating'
+
 // 新しいデプロイが検知された（$pwa.needRefresh）際に、内容を破棄して即座に
 // 再読み込みするのではなく、ユーザーが好きなタイミングで更新できるようバナーで案内する。
 // nuxt.config.tsのpwa.registerType: 'prompt'設定と対になっている
@@ -8,6 +10,14 @@ const updating = ref(false)
 
 const handleUpdate = async () => {
   updating.value = true
+  // リロード後、認証状態が確定するまでapp.vue側で専用のローディング画面を
+  // 表示し続けるための目印。sessionStorageに書いておくことで、ページの
+  // リロードをまたいでも読み取れる（通常のVueの状態はリロードで消えるため）
+  try {
+    sessionStorage.setItem(PWA_UPDATING_KEY, '1')
+  } catch {
+    // プライベートブラウジング等で使えない場合でも更新自体は続行する
+  }
   try {
     await $pwa?.updateServiceWorker(true)
     // updateServiceWorker(true)は本来、新しいService Workerへの切り替え完了
