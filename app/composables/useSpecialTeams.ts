@@ -45,7 +45,7 @@ export const useSpecialTeams = () => {
     if (!authStore.isBoard) throw new Error('権限がありません')
     const ref = await addDoc(teamsCol(), {
       name:        form.name,
-      description: form.description || undefined,
+      description: form.description || '',
       createdAt:   serverTimestamp(),
       updatedAt:   serverTimestamp(),
     })
