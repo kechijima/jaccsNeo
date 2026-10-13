@@ -5,6 +5,7 @@ import { useUsers } from '~/composables/useUsers'
 import { useNotifications } from '~/composables/useNotifications'
 import { useDirectorIndex } from '~/composables/useDirectorIndex'
 import { useOperationLog } from '~/composables/useOperationLog'
+import { useAppDefs } from '~/composables/useAppDefs'
 import { REQUEST_TYPE_LABELS, REQUEST_STATUS_LABELS } from '~/types/request'
 import { requestPayloadSummary } from '~/utils/requestSummary'
 import type { AppRequest } from '~/types/request'
@@ -18,6 +19,7 @@ const { sendPasswordReset } = useAuth()
 const { sendNotification } = useNotifications()
 const { upsertDirectorAssignment, removeMemberFromIndex } = useDirectorIndex()
 const { log: logOperation } = useOperationLog()
+const { fetchOne: fetchAppDef, update: updateAppDef } = useAppDefs()
 
 await fetchAll()
 
@@ -98,6 +100,9 @@ const payloadRows = (r: AppRequest): { label: string; value: string }[] => {
       { label: '組合名', value: p.kumiaiName ?? '' },
     ]
   }
+  if (r.type === 'app_staff_add') {
+    return [{ label: '対象アプリ', value: (p.appNames ?? []).join('、') || '（なし）' }]
+  }
   return []
 }
 
@@ -150,6 +155,16 @@ const applyRequest = async (r: AppRequest): Promise<void> => {
   } else if (r.type === 'kumiai_dissolve') {
     // 組合データは残したまま解体フラグのみ設定する。以後、各種選択肢には表示されなくなる
     await updateKumiai(p.groupId, p.kumiaiId, { isDissolved: true })
+  } else if (r.type === 'app_staff_add') {
+    // 承認時点の最新のstaffUidsに申請者を追加する（他の変更と競合しないよう、
+    // 申請時点ではなく承認時点でアプリを個別に取得し直す）
+    const appIds: string[] = p.appIds ?? []
+    for (const appId of appIds) {
+      const app = await fetchAppDef(appId).catch(() => null)
+      if (!app) continue
+      if (app.staffUids.includes(r.requestedBy)) continue
+      await updateAppDef(appId, { staffUids: [...app.staffUids, r.requestedBy] })
+    }
   }
 }
 

@@ -18,5 +18,6 @@ export const requestPayloadSummary = (r: AppRequest): string => {
   if (r.type === 'supporter_change') return `${p.targetName ?? ''} のサポート者変更`
   if (r.type === 'kumiai_member_withdraw') return `${p.targetName ?? ''} の脱退`
   if (r.type === 'kumiai_dissolve') return `${p.groupName ?? ''} / ${p.kumiaiName ?? ''} の解体`
+  if (r.type === 'app_staff_add') return `${(p.appNames ?? []).join('、')} の担当者に追加`
   return ''
 }

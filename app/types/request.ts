@@ -11,6 +11,7 @@ export type RequestType =
   | 'supporter_change'      // サポート者の変更
   | 'kumiai_member_withdraw' // 組合員の脱退
   | 'kumiai_dissolve'        // 組合の解体
+  | 'app_staff_add'          // プロダクトアプリ担当者への追加
 
 export type RequestStatus = 'pending' | 'approved' | 'rejected'
 
@@ -24,6 +25,7 @@ export const REQUEST_TYPE_LABELS: Record<RequestType, string> = {
   supporter_change:          'サポート者の変更',
   kumiai_member_withdraw:    '組合員の脱退',
   kumiai_dissolve:           '組合の解体',
+  app_staff_add:             'プロダクトアプリ担当者への追加',
 }
 
 export const REQUEST_STATUS_LABELS: Record<RequestStatus, string> = {
@@ -85,6 +87,13 @@ export interface KumiaiDissolvePayload {
   kumiaiName: string
 }
 
+// プロダクトアプリ担当者への追加申請。承認されると、申請者自身が各アプリの
+// 担当者（AppDef.staffUids）に追加される。1申請で複数アプリへ同時に追加できる
+export interface AppStaffAddPayload {
+  appIds: string[]
+  appNames: string[]  // 表示用（承認キュー一覧でアプリを再取得しなくて済むように保持）
+}
+
 // 準備室の登録はkumiai_createと同じ項目（承認時にstatus:'preparatory'で組合を作成する）
 export type KumiaiPreparatoryCreatePayload = KumiaiCreatePayload
 
@@ -105,6 +114,7 @@ export type RequestPayload =
   | SupporterChangePayload
   | KumiaiMemberWithdrawPayload
   | KumiaiDissolvePayload
+  | AppStaffAddPayload
 
 export interface AppRequest {
   id: string
