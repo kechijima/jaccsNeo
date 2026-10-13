@@ -14,14 +14,16 @@ const customerId = computed(() => route.params.id as string)
 const serviceType = computed(() => route.params.serviceType as string)
 const { canEditCustomer } = usePermission()
 
-// SERVICE_LABELSにない場合は、連携されたAppDefの名前を表示名として使う
-// （アプリ管理で新規作成した、固定18アプリに含まれないアプリ向け）
+// アプリ管理（フォームビルダー）でこのserviceTypeに連携されたAppDefがあれば、
+// その表示名を優先する（アプリ管理はデータ保存先の連携設定だが、表示名を
+// 変更したい場合はそちらの設定を優先的に反映する）。連携が無い場合は
+// SERVICE_LABELSの固定名にフォールバックする
 const { appDefs, fetchAll: fetchAppDefs } = useAppDefs()
 await fetchAppDefs()
 const appDef = computed(() => appDefs.value.find(a => a.sourceServiceType === serviceType.value))
 const serviceLabel = computed(() =>
-  SERVICE_LABELS[serviceType.value]
-  ?? appDef.value?.name
+  appDef.value?.name
+  ?? SERVICE_LABELS[serviceType.value]
   ?? serviceType.value,
 )
 const isLifeInsurance = computed(() => serviceType.value === 'lifeInsurance')

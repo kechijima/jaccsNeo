@@ -23,7 +23,7 @@ const { getPublishedByServiceType } = useAppDefs()
 const appDef = ref<AppDef | null>(null)
 const customFieldValues = ref<Record<string, string | string[]>>({})
 
-const serviceLabel = computed(() => SERVICE_LABELS[serviceType.value] ?? appDef.value?.name ?? serviceType.value)
+const serviceLabel = computed(() => appDef.value?.name ?? SERVICE_LABELS[serviceType.value] ?? serviceType.value)
 const customerName = ref('')
 const loading = ref(true)
 const notFound = ref(false)

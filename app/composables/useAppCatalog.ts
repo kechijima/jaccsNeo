@@ -12,7 +12,10 @@ export interface AppCatalogEntry {
 // 固定サービス種別（生命保険＋既存18アプリ）と、アプリ管理（AppDef）で作成された
 // アプリを統合した「アプリ」一覧を組み立てる。
 // - 固定サービス種別に連携（sourceServiceType一致）しているAppDefがあれば、その
-//   カテゴリ設定を優先する（未設定時はSERVICE_CATEGORY_MAPの既定カテゴリにフォールバック）
+//   表示名・カテゴリ設定を優先する（未設定時はSERVICE_LABELS・SERVICE_CATEGORY_MAPの
+//   既定値にフォールバック。アプリ管理はあくまでデータ保存先の連携設定だが、
+//   表示名を変更したい場合はそちらで設定したものを「プロダクトアプリ」「アプリ連携」
+//   画面の両方に反映する）
 // - 固定サービス種別と一致しないsourceServiceType（新規作成時に自動設定される自分自身の
 //   ID）を持つAppDefは、新規アプリとして一覧に追加する
 export const useAppCatalog = () => {
@@ -27,7 +30,7 @@ export const useAppCatalog = () => {
       const linkedDef = appDefs.value.find(a => a.isPublished && a.sourceServiceType === key)
       return {
         key,
-        label,
+        label: linkedDef?.name || label,
         category: linkedDef?.category || SERVICE_CATEGORY_MAP[key] || 'その他',
         appDefId: linkedDef?.id,
         isCustom: false,

@@ -112,7 +112,7 @@ const loading = ref(false)
 const submittingReport = ref(false)
 const newReportContent = ref('')
 const attachedFiles = ref<File[]>([])
-const serviceLabel = computed(() => SERVICE_LABELS[serviceType.value] ?? appDef.value?.name ?? serviceType.value)
+const serviceLabel = computed(() => appDef.value?.name ?? SERVICE_LABELS[serviceType.value] ?? serviceType.value)
 
 const dbCase = ref<any>(null)
 // 作成日・更新日を時刻込みで表示する（例: 2026/09/21 14:35）
