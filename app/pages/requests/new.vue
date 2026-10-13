@@ -5,8 +5,10 @@ import { useRequests } from '~/composables/useRequests'
 import { useGroups } from '~/composables/useGroups'
 import { useUsers } from '~/composables/useUsers'
 import { useAppDefs } from '~/composables/useAppDefs'
+import { useAppCatalog } from '~/composables/useAppCatalog'
+import type { AppCatalogEntry } from '~/composables/useAppCatalog'
+import { APP_CATEGORY_DEFS, APP_CATEGORY_LIST } from '~/types/service'
 import type { Group } from '~/types/group'
-import type { AppDef } from '~/types/appDef'
 import { TITLE_OPTIONS, type AppUser } from '~/types/user'
 import { requestStatusBadge, requestPayloadSummary } from '~/utils/requestSummary'
 
@@ -15,7 +17,8 @@ definePageMeta({ middleware: ['auth'] })
 const { submit, updateMyRequest, consumeResubmitDraft, fetchMine } = useRequests()
 const { fetchGroups } = useGroups()
 const { fetchUsers } = useUsers()
-const { appDefs, fetchAll: fetchAppDefs } = useAppDefs()
+const { appDefs } = useAppDefs()
+const { catalog: appCatalog, ensureLoaded: ensureAppCatalogLoaded } = useAppCatalog()
 const { user: currentUser } = useCurrentUser()
 const route = useRoute()
 const router = useRouter()
@@ -46,7 +49,7 @@ const editSaved  = ref(false)
 const editError  = ref('')
 
 onMounted(async () => {
-  const [g, u] = await Promise.all([fetchGroups().catch(() => []), fetchUsers().catch(() => []), fetchAppDefs().catch(() => {})])
+  const [g, u] = await Promise.all([fetchGroups().catch(() => []), fetchUsers().catch(() => []), ensureAppCatalogLoaded().catch(() => {})])
   groups.value = g
   users.value = u
   await applyResubmitDraft()
@@ -143,18 +146,47 @@ const dissolveKumiaiOptions = computed(() =>
 watch(() => kumiaiDissolveForm.groupId, () => { kumiaiDissolveForm.kumiaiId = '' })
 
 // ── プロダクトアプリ担当者への追加（自分自身を複数アプリの担当者へ追加申請） ──
+// アプリ数が多く一覧がフラットだと選びにくいため、「アプリ」一覧（services/index.vue）
+// と同じカテゴリ分類で絞り込んでから選択する
 const appStaffAddForm = reactive({ appIds: [] as string[] })
-// 既に自分が担当者になっているアプリは選択肢から除く（重複申請の防止）
-const appStaffAddOptions = computed(() =>
-  appDefs.value
-    .filter(a => a.isPublished && !a.staffUids.includes(currentUser.value?.uid ?? ''))
-    .sort((a, b) => a.name.localeCompare(b.name, 'ja')),
+// 既に自分が担当者になっているアプリ・AppDefが無いアプリ（固定アプリで未連携のもの）は
+// 選択肢から除く（重複申請の防止・staffUidsを持たないため追加しようがないもの）
+const appStaffCandidates = computed(() =>
+  appCatalog.value.filter((e) => {
+    if (!e.appDefId) return false
+    const def = appDefs.value.find(a => a.id === e.appDefId)
+    return !!def && def.isPublished && !def.staffUids.includes(currentUser.value?.uid ?? '')
+  }),
 )
-const toggleAppStaffAdd = (appId: string) => {
-  appStaffAddForm.appIds = appStaffAddForm.appIds.includes(appId)
-    ? appStaffAddForm.appIds.filter(id => id !== appId)
-    : [...appStaffAddForm.appIds, appId]
+const appStaffCategories = computed(() => {
+  const byCategory = new Map<string, AppCatalogEntry[]>()
+  for (const entry of appStaffCandidates.value) {
+    if (!byCategory.has(entry.category)) byCategory.set(entry.category, [])
+    byCategory.get(entry.category)!.push(entry)
+  }
+  return APP_CATEGORY_LIST
+    .filter(label => byCategory.has(label))
+    .map(label => ({
+      label,
+      meta: APP_CATEGORY_DEFS[label],
+      entries: byCategory.get(label)!.sort((a, b) => a.label.localeCompare(b.label, 'ja')),
+    }))
+})
+const selectedAppCategory = ref('')
+watch(appStaffCategories, (cats) => {
+  if (!cats.some(c => c.label === selectedAppCategory.value)) {
+    selectedAppCategory.value = cats[0]?.label ?? ''
+  }
+}, { immediate: true })
+const currentAppCategoryEntries = computed(() =>
+  appStaffCategories.value.find(c => c.label === selectedAppCategory.value)?.entries ?? [],
+)
+const toggleAppStaffAdd = (appDefId: string) => {
+  appStaffAddForm.appIds = appStaffAddForm.appIds.includes(appDefId)
+    ? appStaffAddForm.appIds.filter(id => id !== appDefId)
+    : [...appStaffAddForm.appIds, appDefId]
 }
+const appStaffAddLabel = (appDefId: string) => appCatalog.value.find(e => e.appDefId === appDefId)?.label ?? appDefId
 
 const note = ref('')
 
@@ -332,7 +364,7 @@ const doSubmit = async () => {
     } else if (type.value === 'app_staff_add') {
       payload = {
         appIds: [...appStaffAddForm.appIds],
-        appNames: appStaffAddForm.appIds.map(id => appDefs.value.find(a => a.id === id)?.name ?? id),
+        appNames: appStaffAddForm.appIds.map(appStaffAddLabel),
       }
     }
 
@@ -588,19 +620,41 @@ const doSubmit = async () => {
       <!-- プロダクトアプリ担当者への追加 -->
       <template v-else-if="type === 'app_staff_add'">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">担当者に追加してほしいアプリ <span class="text-red-500">*</span></label>
-          <div v-if="appStaffAddOptions.length === 0" class="text-xs text-gray-400">
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">
+            担当者に追加してほしいアプリ <span class="text-red-500">*</span>
+            <span v-if="appStaffAddForm.appIds.length > 0" class="ml-1 text-xs font-normal text-primary-600">（選択中: {{ appStaffAddForm.appIds.length }}件）</span>
+          </label>
+
+          <div v-if="appStaffCategories.length === 0" class="text-xs text-gray-400">
             選択できるアプリがありません（既にすべてのアプリの担当者になっています）
           </div>
-          <div v-else class="flex flex-wrap gap-2">
-            <label
-              v-for="a in appStaffAddOptions" :key="a.id"
-              class="flex items-center gap-1.5 cursor-pointer rounded-lg border px-3 py-2 text-sm transition"
-              :class="appStaffAddForm.appIds.includes(a.id) ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'"
-              @click="toggleAppStaffAdd(a.id)"
-            >{{ a.name }}</label>
-          </div>
-          <p class="mt-1.5 text-xs text-gray-400">複数選択できます。承認されると、選択したアプリの担当者にご自身が追加されます。</p>
+          <template v-else>
+            <!-- カテゴリ選択（アプリ数が多いため、まずカテゴリで絞り込む） -->
+            <div class="flex flex-wrap gap-1.5 mb-3">
+              <button
+                v-for="c in appStaffCategories" :key="c.label"
+                type="button"
+                class="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium transition"
+                :class="selectedAppCategory === c.label ? c.meta.activeColor : `${c.meta.bgColor} ${c.meta.color} hover:opacity-80`"
+                @click="selectedAppCategory = c.label"
+              >
+                <Icon :name="c.meta.icon" class="h-3.5 w-3.5" />
+                {{ c.label }}
+                <span class="opacity-70">({{ c.entries.length }})</span>
+              </button>
+            </div>
+
+            <!-- 選択したカテゴリ内のアプリ -->
+            <div class="flex flex-wrap gap-2">
+              <label
+                v-for="e in currentAppCategoryEntries" :key="e.appDefId"
+                class="flex items-center gap-1.5 cursor-pointer rounded-lg border px-3 py-2 text-sm transition"
+                :class="appStaffAddForm.appIds.includes(e.appDefId!) ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'"
+                @click="toggleAppStaffAdd(e.appDefId!)"
+              >{{ e.label }}</label>
+            </div>
+          </template>
+          <p class="mt-1.5 text-xs text-gray-400">複数のカテゴリ・アプリを選択できます。承認されると、選択したアプリの担当者にご自身が追加されます。</p>
         </div>
       </template>
 
