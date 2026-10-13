@@ -56,7 +56,7 @@ const linkedAppName = (id: string) => allAppDefs.value.find(a => a.id === id)?.n
 
 onMounted(async () => {
   try {
-    const [app, fetchedUsers, fetchedTeams] = await Promise.all([
+    const [app, fetchedUsers, , fetchedTeams] = await Promise.all([
       fetchOne(appId.value),
       fetchUsers().catch(() => []),
       fetchAllAppDefs(),
