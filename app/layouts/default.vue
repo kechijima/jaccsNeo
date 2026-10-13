@@ -256,6 +256,7 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
           <slot name="header" />
         </div>
         <div class="flex items-center gap-3">
+          <QuickActionsMenu />
           <div class="text-sm text-gray-500">
             {{ new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' }) }}
           </div>
