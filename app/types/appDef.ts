@@ -17,6 +17,9 @@ export interface AppFieldDef {
   defaultValue?: string              // text / textarea / radio 用の初期値
   defaultValues?: string[]           // checkbox / multi_select 用の初期値（複数選択）
   useTodayAsDefault?: boolean        // date 用。trueの場合、新規登録フォームを開いた日の日付を初期値にする
+  // ── 前後の単位（type: 'text'） ──
+  unitPrefix?: string                // 入力欄の前に表示する単位・記号（例: "〒"）
+  unitSuffix?: string                // 入力欄の後に表示する単位・記号（例: "円"）
   // ── 表示条件（任意） ──
   // 指定した項目（radio/dropdown/checkbox/multi_select/yes_no）の値が、
   // valuesのいずれかに一致する場合のみこの項目を表示する。未設定の場合は常に表示
@@ -34,6 +37,7 @@ export interface AppDef {
   fields: AppFieldDef[]
   ownerUids?: string[]     // アプリ責任者（複数人指定可。データの登録・編集・削除を通知）
   staffUids: string[]      // アプリ担当者
+  staffSpecialTeamIds?: string[]  // この専門チームに所属するユーザーも担当者として選択できるようにする
   sourceServiceType?: string  // 案件データの保存・連携先キー。未指定の場合は自分自身のIDを使う
   category?: string       // 「アプリ」一覧でのカテゴリ（例: '保険'）。未設定時は自動分類にフォールバック
   staleAlertDays?: number     // 指定日数以上ステータス変更・更新がない場合にアラート通知する。未設定・0以下の場合はアラートなし

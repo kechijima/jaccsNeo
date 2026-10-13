@@ -68,11 +68,13 @@ const submitting = ref(false)
 const { fetchUsers } = useUsers()
 const allUsers = ref<AppUser[]>([])
 
-// 担当者: アプリの責任者・担当者（アプリ管理で設定）から選択。フィールドビルダーで
-// 「担当者」項目が追加されている場合は、そちらを優先しこの固定項目は表示しない
+// 担当者: アプリの責任者・担当者（アプリ管理で設定）、および担当者とする専門チーム
+// のメンバーから選択。フィールドビルダーで「担当者」項目が追加されている場合は、
+// そちらを優先しこの固定項目は表示しない
 const assigneeOptions = computed(() => {
   const uids = new Set([...(appDef.value?.ownerUids ?? []), ...(appDef.value?.staffUids ?? [])].filter(Boolean))
-  return allUsers.value.filter(u => uids.has(u.uid))
+  const teamIds = appDef.value?.staffSpecialTeamIds ?? []
+  return allUsers.value.filter(u => uids.has(u.uid) || u.specialTeams?.some(t => teamIds.includes(t)))
 })
 const builderAssigneeField = computed(() => appDef.value?.fields.find(f => f.type === 'assignee'))
 const plannerOptions = computed(() => allUsers.value)
@@ -253,6 +255,7 @@ const handleDelete = async () => {
           :customer-id="customerId"
           :owner-uids="appDef.ownerUids"
           :staff-uids="appDef.staffUids"
+          :staff-special-team-ids="appDef.staffSpecialTeamIds"
           :assignee-readonly="!canEditProtected"
         />
       </div>

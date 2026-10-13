@@ -26,6 +26,7 @@ const props = defineProps<{
   customerId?: string
   ownerUids?: string[]
   staffUids?: string[]
+  staffSpecialTeamIds?: string[]
   assigneeReadonly?: boolean
 }>()
 
@@ -65,15 +66,16 @@ const { getById: getCustomerById, ensureLoaded: ensureCustomersLoaded } = useCus
 const { appDefs, fetchAll: fetchAppDefs } = useAppDefs()
 const { fetchCases } = useServices()
 
-// ── 担当者（アプリの責任者・担当者から選択） ────────────────────────
+// ── 担当者（アプリの責任者・担当者・担当者とする専門チームのメンバーから選択） ──
 const { fetchUsers } = useUsers()
 const allUsers = ref<AppUser[]>([])
 if (props.fields.some(f => f.type === 'assignee')) {
-  fetchUsers().then((users) => { allUsers.value = users }).catch(() => {})
+  fetchUsers().then((users) => { allUsers.value = users.filter(u => !u.isWithdrawn) }).catch(() => {})
 }
 const assigneeOptions = computed(() => {
   const uids = new Set([...(props.ownerUids ?? []), ...(props.staffUids ?? [])].filter(Boolean))
-  return allUsers.value.filter(u => uids.has(u.uid))
+  const teamIds = props.staffSpecialTeamIds ?? []
+  return allUsers.value.filter(u => uids.has(u.uid) || u.specialTeams?.some(t => teamIds.includes(t)))
 })
 
 // ── ファイル添付（Firebase Storageへアップロードし、ダウンロードURLを値として保存） ──
@@ -263,7 +265,11 @@ const statusClass = (status: string) => {
       <!-- 文字列（1行） -->
       <div v-else-if="f.type === 'text'">
         <label class="block text-sm font-medium text-gray-700 mb-1.5">{{ f.label }}<span v-if="f.required" class="text-red-500 ml-1">*</span></label>
-        <input :value="getStr(f.id)" type="text" class="input-field" @input="setStr(f.id, ($event.target as HTMLInputElement).value)" />
+        <div class="flex items-center gap-1.5">
+          <span v-if="f.unitPrefix" class="text-sm text-gray-500 shrink-0">{{ f.unitPrefix }}</span>
+          <input :value="getStr(f.id)" type="text" class="input-field" @input="setStr(f.id, ($event.target as HTMLInputElement).value)" />
+          <span v-if="f.unitSuffix" class="text-sm text-gray-500 shrink-0">{{ f.unitSuffix }}</span>
+        </div>
       </div>
       <!-- 文字列（複数行） -->
       <div v-else-if="f.type === 'textarea'">

@@ -101,12 +101,13 @@ onMounted(async () => {
   allUsers.value = (await fetchUsers().catch(() => [])).filter(u => !u.isWithdrawn)
 })
 
-// 担当者: アプリの責任者・担当者（アプリ管理で設定）から選択。
-// アプリ管理のフィールドビルダーで「担当者」項目が追加されている場合は、そちらが
-// 優先され、こちらの固定項目は表示しない（重複を避けるため）
+// 担当者: アプリの責任者・担当者（アプリ管理で設定）、および担当者とする専門チーム
+// のメンバーから選択。アプリ管理のフィールドビルダーで「担当者」項目が追加されて
+// いる場合は、そちらが優先され、こちらの固定項目は表示しない（重複を避けるため）
 const assigneeOptions = computed(() => {
   const uids = new Set([...(appDef.value?.ownerUids ?? []), ...(appDef.value?.staffUids ?? [])].filter(Boolean))
-  return allUsers.value.filter(u => uids.has(u.uid))
+  const teamIds = appDef.value?.staffSpecialTeamIds ?? []
+  return allUsers.value.filter(u => uids.has(u.uid) || u.specialTeams?.some(t => teamIds.includes(t)))
 })
 const builderAssigneeField = computed(() => appDef.value?.fields.find(f => f.type === 'assignee'))
 // 担当者も、ログイン中の自分自身が候補に含まれていれば初期値として選択しておく
@@ -581,6 +582,7 @@ const handleLiSubmit = async () => {
           :customer-id="customerId"
           :owner-uids="appDef.ownerUids"
           :staff-uids="appDef.staffUids"
+          :staff-special-team-ids="appDef.staffSpecialTeamIds"
           :assignee-readonly="!canEditProtected"
         />
       </div>

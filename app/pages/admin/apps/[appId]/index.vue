@@ -3,9 +3,11 @@ import { onBeforeRouteLeave } from 'vue-router'
 import { useAppDefs } from '~/composables/useAppDefs'
 import { useUsers } from '~/composables/useUsers'
 import { useOperationLog } from '~/composables/useOperationLog'
+import { useSpecialTeams } from '~/composables/useSpecialTeams'
 import { SERVICE_LABELS, STATUS_LABELS, APP_CATEGORY_LIST } from '~/types/service'
 import { readCsvFile, parseCsv, guessFieldType } from '~/utils/csv'
 import type { AppUser } from '~/types/user'
+import type { SpecialTeamDef } from '~/types/specialTeam'
 
 definePageMeta({ middleware: ['auth', 'admin'] })
 
@@ -18,6 +20,7 @@ const OTHER_SERVICE_TYPE_OPTIONS = Object.entries(SERVICE_LABELS)
 
 const { fetchOne, update, remove, appDefs: allAppDefs, fetchAll: fetchAllAppDefs } = useAppDefs()
 const { fetchUsers } = useUsers()
+const { fetchAll: fetchSpecialTeams } = useSpecialTeams()
 
 const loading = ref(true)
 const loadError = ref('')
@@ -25,6 +28,8 @@ const appName = ref('')
 const appDescription = ref('')
 const ownerUids = ref<string[]>([])
 const staffUids = ref<string[]>([])
+const staffSpecialTeamIds = ref<string[]>([])
+const specialTeams = ref<SpecialTeamDef[]>([])
 const sourceServiceType = ref('')
 const category = ref('その他')
 const staleAlertDaysInput = ref('')
@@ -51,12 +56,14 @@ const linkedAppName = (id: string) => allAppDefs.value.find(a => a.id === id)?.n
 
 onMounted(async () => {
   try {
-    const [app, fetchedUsers] = await Promise.all([
+    const [app, fetchedUsers, fetchedTeams] = await Promise.all([
       fetchOne(appId.value),
       fetchUsers().catch(() => []),
       fetchAllAppDefs(),
+      fetchSpecialTeams().catch(() => []),
     ])
     users.value = fetchedUsers
+    specialTeams.value = fetchedTeams
     if (!app) {
       loadError.value = 'アプリが見つかりませんでした'
     } else {
@@ -64,6 +71,7 @@ onMounted(async () => {
       appDescription.value = app.description ?? ''
       ownerUids.value = [...(app.ownerUids ?? [])]
       staffUids.value = [...app.staffUids]
+      staffSpecialTeamIds.value = [...(app.staffSpecialTeamIds ?? [])]
       sourceServiceType.value = app.sourceServiceType ?? ''
       category.value = app.category && APP_CATEGORY_LIST.includes(app.category) ? app.category : 'その他'
       staleAlertDaysInput.value = app.staleAlertDays ? String(app.staleAlertDays) : ''
@@ -82,7 +90,7 @@ onMounted(async () => {
     loading.value = false
     // 初期値の代入自体を変更扱いしないよう、読み込み完了後に監視を開始する
     watch(
-      [fields, appName, appDescription, ownerUids, staffUids, sourceServiceType, category,
+      [fields, appName, appDescription, ownerUids, staffUids, staffSpecialTeamIds, sourceServiceType, category,
        staleAlertDaysInput, staleAlertStatuses, linkedAppIds, isPublished],
       () => { isDirty.value = true },
       { deep: true },
@@ -204,6 +212,8 @@ interface CanvasField {
   defaultValue?: string
   defaultValues?: string[]
   useTodayAsDefault?: boolean
+  unitPrefix?: string
+  unitSuffix?: string
   visibleWhen?: { fieldId: string; values: string[] }
 }
 
@@ -326,6 +336,10 @@ const changeFieldType = (f: CanvasField, newType: string) => {
   delete f.defaultValue
   delete f.defaultValues
   delete f.useTodayAsDefault
+  if (newType !== 'text') {
+    delete f.unitPrefix
+    delete f.unitSuffix
+  }
   // この項目が他の項目の表示条件の参照先になっていた場合、選択式ではなくなると
   // 参照が無効になるため、依存している項目の表示条件を解除しておく
   if (wasTrigger && !CONDITION_TRIGGER_TYPES.includes(newType)) {
@@ -621,6 +635,19 @@ const removeStaff = (uid: string) => {
 }
 const userName = (uid: string) => users.value.find(u => u.uid === uid)?.displayName ?? uid
 
+// 専門チーム（この専門チームに所属するユーザーも担当者として選択できるようにする）
+const specialTeamPickId = ref('')
+const specialTeamCandidates = computed(() => specialTeams.value.filter(t => !staffSpecialTeamIds.value.includes(t.id)))
+const addStaffSpecialTeam = () => {
+  if (!specialTeamPickId.value) return
+  staffSpecialTeamIds.value.push(specialTeamPickId.value)
+  specialTeamPickId.value = ''
+}
+const removeStaffSpecialTeam = (teamId: string) => {
+  staffSpecialTeamIds.value = staffSpecialTeamIds.value.filter(t => t !== teamId)
+}
+const specialTeamName = (teamId: string) => specialTeams.value.find(t => t.id === teamId)?.name ?? teamId
+
 // ── 放置アラート ──────────────────────────────────────────────
 const toggleStaleAlertStatus = (status: string) => {
   staleAlertStatuses.value = staleAlertStatuses.value.includes(status)
@@ -638,6 +665,7 @@ const submitSettings = async () => {
       description: appDescription.value || undefined,
       ownerUids: ownerUids.value,
       staffUids: staffUids.value,
+      staffSpecialTeamIds: staffSpecialTeamIds.value,
       sourceServiceType: sourceServiceType.value || undefined,
       category: category.value || undefined,
       staleAlertDays,
@@ -772,7 +800,11 @@ const handleDeleteApp = async () => {
           <!-- 文字列（1行） -->
           <div v-if="f.type === 'text'">
             <label class="block text-sm font-medium text-gray-700 mb-1">{{ f.label }}<span v-if="f.required" class="text-red-500 ml-1">*</span></label>
-            <input type="text" class="input-field text-sm" disabled />
+            <div class="flex items-center gap-1.5">
+              <span v-if="f.unitPrefix" class="text-sm text-gray-500 shrink-0">{{ f.unitPrefix }}</span>
+              <input type="text" class="input-field text-sm" disabled />
+              <span v-if="f.unitSuffix" class="text-sm text-gray-500 shrink-0">{{ f.unitSuffix }}</span>
+            </div>
           </div>
           <!-- 文字列（複数行） -->
           <div v-else-if="f.type === 'textarea'">
@@ -1228,6 +1260,26 @@ const handleDeleteApp = async () => {
             />
           </div>
 
+          <!-- 前後の単位（文字列1行のみ） -->
+          <div v-if="selectedField.type === 'text'" class="space-y-1">
+            <label class="block text-xs font-medium text-gray-600">前後の単位（任意）</label>
+            <div class="grid grid-cols-2 gap-2">
+              <input
+                v-model="selectedField.unitPrefix"
+                type="text"
+                class="input-field text-sm"
+                placeholder="前（例: 〒）"
+              />
+              <input
+                v-model="selectedField.unitSuffix"
+                type="text"
+                class="input-field text-sm"
+                placeholder="後（例: 円）"
+              />
+            </div>
+            <p class="text-[11px] text-gray-400 leading-relaxed">入力欄の前後に単位・記号を表示します（保存される値には含まれません）。</p>
+          </div>
+
           <!-- 初期値（当日日付） -->
           <div v-if="TODAY_DEFAULT_TYPES.includes(selectedField.type)" class="flex items-center justify-between py-1">
             <span class="text-xs font-medium text-gray-600">当日の日付を初期値にする</span>
@@ -1533,6 +1585,35 @@ const handleDeleteApp = async () => {
               </div>
               <button type="button" class="btn-secondary text-sm shrink-0" :disabled="!staffPickUid" @click="addStaff">追加</button>
             </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">
+              担当者とする専門チーム
+              <span class="font-normal text-gray-400">（このチームに所属するメンバー全員が担当者として選択できるようになります）</span>
+            </label>
+            <div v-if="staffSpecialTeamIds.length > 0" class="flex flex-wrap gap-1.5 mb-2">
+              <span
+                v-for="teamId in staffSpecialTeamIds"
+                :key="teamId"
+                class="inline-flex items-center gap-1 rounded-full bg-primary-50 text-primary-700 text-xs font-medium px-2.5 py-1"
+              >
+                {{ specialTeamName(teamId) }}
+                <button type="button" class="hover:text-primary-900" @click="removeStaffSpecialTeam(teamId)">
+                  <Icon name="heroicons:x-mark" class="h-3 w-3" />
+                </button>
+              </span>
+            </div>
+            <div class="flex gap-2">
+              <select v-model="specialTeamPickId" class="input-field text-sm flex-1">
+                <option value="">追加する専門チームを選択</option>
+                <option v-for="t in specialTeamCandidates" :key="t.id" :value="t.id">{{ t.name }}</option>
+              </select>
+              <button type="button" class="btn-secondary text-sm shrink-0" :disabled="!specialTeamPickId" @click="addStaffSpecialTeam">追加</button>
+            </div>
+            <p v-if="specialTeams.length === 0" class="mt-1 text-xs text-gray-400">
+              専門チームが登録されていません（「グループ・組合マスタ」画面から追加できます）
+            </p>
           </div>
 
           <div class="rounded-lg border border-gray-200 p-3 space-y-2">
