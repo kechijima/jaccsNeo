@@ -347,6 +347,12 @@ const groupLabel = computed(() => groups.value.find(g => g.id === form.groupId)?
             <input v-model="form.employeeId" type="text" class="input-field text-sm" placeholder="MS-0001" />
           </div>
 
+          <!-- インボイス番号 -->
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">インボイス番号</label>
+            <input v-model="form.invoiceNumber" type="text" class="input-field text-sm" placeholder="T0000000000000" />
+          </div>
+
           <!-- 誕生日 -->
           <div>
             <label class="block text-xs font-medium text-gray-500 mb-1">誕生日</label>
@@ -480,11 +486,6 @@ const groupLabel = computed(() => groups.value.find(g => g.id === form.groupId)?
           <div class="sm:col-span-2">
             <label class="block text-xs font-medium text-gray-500 mb-1">法人SBI口座</label>
             <input v-model="form.corporateSbiAccount" type="text" class="input-field text-sm" placeholder="口座番号" />
-          </div>
-
-          <div class="sm:col-span-2">
-            <label class="block text-xs font-medium text-gray-500 mb-1">インボイス番号</label>
-            <input v-model="form.invoiceNumber" type="text" class="input-field text-sm" placeholder="T0000000000000" />
           </div>
         </div>
       </template>
