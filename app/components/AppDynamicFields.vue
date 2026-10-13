@@ -123,12 +123,14 @@ const CUSTOMER_FIELD_MAP: Record<string, (c: any) => string | undefined> = {
 }
 
 const GENERIC_BUILTIN_FIELD_MAP: Record<string, (c: ServiceCase) => string | undefined> = {
-  'builtin:status':       c => STATUS_LABELS[c.status] ?? c.status,
-  'builtin:company':      c => c.company,
-  'builtin:amount':       c => c.amount,
-  'builtin:notes':        c => c.notes,
-  'builtin:date':         c => c.date,
-  'builtin:contractDate': c => c.contractDate,
+  'builtin:status':          c => STATUS_LABELS[c.status] ?? c.status,
+  'builtin:company':         c => c.company,
+  'builtin:amount':          c => c.amount,
+  'builtin:accountingFee':   c => c.accountingFee,
+  'builtin:accountingMonth': c => c.accountingMonth,
+  'builtin:notes':           c => c.notes,
+  'builtin:date':            c => c.date,
+  'builtin:contractDate':    c => c.contractDate,
 }
 
 const lookupLoading = ref<Record<string, boolean>>({})

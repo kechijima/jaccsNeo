@@ -42,6 +42,8 @@ const form = ref<ServiceCaseForm>({
   status: 'consulting' as ServiceStatus,
   contractDate: '',
   amount: '',
+  accountingFee: '',
+  accountingMonth: '',
   notes: '',
   reminderDate: '',
   reminderNote: '',
@@ -165,6 +167,8 @@ const handleSubmit = async () => {
       form.value.status = 'consulting' as ServiceStatus
       form.value.contractDate = ''
       form.value.amount = ''
+      form.value.accountingFee = ''
+      form.value.accountingMonth = ''
       form.value.notes = ''
       form.value.reminderDate = ''
       form.value.reminderNote = ''
@@ -634,6 +638,18 @@ const handleLiSubmit = async () => {
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">金額・保険料</label>
         <input v-model="form.amount" type="text" placeholder="例: 月額 15,000円" class="input-field disabled:bg-gray-50 disabled:text-gray-400" :disabled="!canEditProtected" />
+      </div>
+
+      <!-- 計上フィー・計上月（全アプリ共通項目） -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">計上フィー</label>
+          <input v-model="form.accountingFee" type="text" placeholder="例: 10,000円" class="input-field disabled:bg-gray-50 disabled:text-gray-400" :disabled="!canEditProtected" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">計上月</label>
+          <input v-model="form.accountingMonth" type="month" class="input-field disabled:bg-gray-50 disabled:text-gray-400" :disabled="!canEditProtected" />
+        </div>
       </div>
 
       <!-- 備考 -->

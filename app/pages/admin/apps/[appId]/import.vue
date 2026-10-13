@@ -84,14 +84,16 @@ const onDrop = (e: DragEvent) => {
 
 // ── Step2: フィールドマッピング ─────────────────────────────────
 // マッピング先: 顧客名（一致用）／汎用項目（対応開始日・成約日・金額・会社名・備考・
-// リマインダー日・リマインダー内容）／このアプリ専用項目（AppDefのfields）
+// 計上フィー・計上月・リマインダー日・リマインダー内容）／このアプリ専用項目（AppDefのfields）
 const CUSTOMER_NAME_TARGET = '__customerName'
 const GENERIC_FIELD_OPTIONS = [
-  { value: 'contractDate', label: '成約日' },
-  { value: 'amount',       label: '金額・保険料' },
-  { value: 'notes',        label: '備考・メモ' },
-  { value: 'reminderDate', label: 'リマインダー日' },
-  { value: 'reminderNote', label: 'リマインダー内容' },
+  { value: 'contractDate',    label: '成約日' },
+  { value: 'amount',          label: '金額・保険料' },
+  { value: 'accountingFee',   label: '計上フィー' },
+  { value: 'accountingMonth', label: '計上月' },
+  { value: 'notes',           label: '備考・メモ' },
+  { value: 'reminderDate',    label: 'リマインダー日' },
+  { value: 'reminderNote',    label: 'リマインダー内容' },
 ]
 
 const fieldOptions = computed(() => [

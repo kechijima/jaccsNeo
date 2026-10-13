@@ -353,6 +353,14 @@ const handleDelete = () => {
             <dt class="text-gray-500">金額・保険料</dt>
             <dd class="font-medium text-gray-900">{{ caseData.amount }}</dd>
           </div>
+          <div v-if="caseData.accountingFee">
+            <dt class="text-gray-500">計上フィー</dt>
+            <dd class="font-medium text-gray-900">{{ caseData.accountingFee }}</dd>
+          </div>
+          <div v-if="caseData.accountingMonth">
+            <dt class="text-gray-500">計上月</dt>
+            <dd class="font-medium text-gray-900">{{ caseData.accountingMonth }}</dd>
+          </div>
           <div v-if="caseData.insuranceType">
             <dt class="text-gray-500">保険種別</dt>
             <dd class="font-medium text-gray-900">{{ caseData.insuranceType }}</dd>

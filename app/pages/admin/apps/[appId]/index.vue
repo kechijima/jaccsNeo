@@ -243,10 +243,12 @@ const CUSTOMER_LOOKUP_FIELDS = [
 ]
 
 const GENERIC_CASE_FIELD_OPTIONS = [
-  { key: 'builtin:status',       label: 'ステータス' },
-  { key: 'builtin:amount',       label: '金額・保険料' },
-  { key: 'builtin:notes',        label: '備考' },
-  { key: 'builtin:contractDate', label: '成約日' },
+  { key: 'builtin:status',          label: 'ステータス' },
+  { key: 'builtin:amount',          label: '金額・保険料' },
+  { key: 'builtin:accountingFee',   label: '計上フィー' },
+  { key: 'builtin:accountingMonth', label: '計上月' },
+  { key: 'builtin:notes',           label: '備考' },
+  { key: 'builtin:contractDate',    label: '成約日' },
 ]
 
 // ルックアップの参照先フィールドとして選べない項目タイプ（値を持たない・循環参照になるもの）
@@ -889,6 +891,16 @@ const handleDeleteApp = async () => {
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">金額・保険料</label>
             <input type="text" class="input-field text-sm" placeholder="例: 月額 15,000円" disabled />
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">計上フィー</label>
+              <input type="text" class="input-field text-sm" placeholder="例: 10,000円" disabled />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">計上月</label>
+              <input type="month" class="input-field text-sm" disabled />
+            </div>
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">備考・メモ</label>

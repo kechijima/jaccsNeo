@@ -118,6 +118,8 @@ export interface ServiceCase {
   amount?: string        // 金額・保険料
   company?: string       // 会社名・保険会社
   notes?: string         // 備考
+  accountingFee?: string    // 計上フィー（全アプリ共通項目）
+  accountingMonth?: string  // 計上月（全アプリ共通項目。YYYY-MM）
   reminderDate?: string  // リマインダー日
   reminderNote?: string  // リマインダー内容
   reminderAudienceUids?: string[]  // リマインダーの通知対象者（未設定時はassigneeUid・plannerUidのみに表示）
@@ -149,6 +151,8 @@ export interface ServiceCaseForm {
   amount?: string
   company?: string
   notes?: string
+  accountingFee?: string
+  accountingMonth?: string
   reminderDate?: string
   reminderNote?: string
   reminderAudienceUids?: string[]

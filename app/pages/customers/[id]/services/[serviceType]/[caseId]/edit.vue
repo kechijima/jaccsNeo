@@ -36,6 +36,8 @@ const originalAssigneeUid = ref('')
 const originalStatus = ref<ServiceStatus>('consulting')
 const originalContractDate = ref('')
 const originalAmount = ref('')
+const originalAccountingFee = ref('')
+const originalAccountingMonth = ref('')
 const originalNotes = ref('')
 const originalReminderDate = ref('')
 const originalReminderNote = ref('')
@@ -49,6 +51,8 @@ const form = ref<ServiceCaseForm>({
   status: 'consulting' as ServiceStatus,
   contractDate: '',
   amount: '',
+  accountingFee: '',
+  accountingMonth: '',
   notes: '',
   reminderDate: '',
   reminderNote: '',
@@ -96,6 +100,8 @@ onMounted(async () => {
       status: raw.status,
       contractDate: raw.contractDate ?? '',
       amount: raw.amount ?? '',
+      accountingFee: raw.accountingFee ?? '',
+      accountingMonth: raw.accountingMonth ?? '',
       notes: raw.notes ?? '',
       reminderDate: raw.reminderDate ?? '',
       reminderNote: raw.reminderNote ?? '',
@@ -108,6 +114,8 @@ onMounted(async () => {
     originalStatus.value = raw.status
     originalContractDate.value = raw.contractDate ?? ''
     originalAmount.value = raw.amount ?? ''
+    originalAccountingFee.value = raw.accountingFee ?? ''
+    originalAccountingMonth.value = raw.accountingMonth ?? ''
     originalNotes.value = raw.notes ?? ''
     originalReminderDate.value = raw.reminderDate ?? ''
     originalReminderNote.value = raw.reminderNote ?? ''
@@ -133,6 +141,8 @@ const handleSubmit = async () => {
       form.value.status = originalStatus.value
       form.value.contractDate = originalContractDate.value
       form.value.amount = originalAmount.value
+      form.value.accountingFee = originalAccountingFee.value
+      form.value.accountingMonth = originalAccountingMonth.value
       form.value.notes = originalNotes.value
       form.value.reminderDate = originalReminderDate.value
       form.value.reminderNote = originalReminderNote.value
@@ -286,6 +296,17 @@ const handleDelete = async () => {
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">金額・保険料（成約報酬）</label>
         <input v-model="form.amount" type="text" class="input-field disabled:bg-gray-50 disabled:text-gray-400" :disabled="!canEditProtected" />
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">計上フィー</label>
+          <input v-model="form.accountingFee" type="text" class="input-field disabled:bg-gray-50 disabled:text-gray-400" :disabled="!canEditProtected" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">計上月</label>
+          <input v-model="form.accountingMonth" type="month" class="input-field disabled:bg-gray-50 disabled:text-gray-400" :disabled="!canEditProtected" />
+        </div>
       </div>
 
       <div>
