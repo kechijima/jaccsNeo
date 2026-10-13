@@ -795,7 +795,7 @@ const handleDeleteApp = async () => {
           <!-- ラベル -->
           <div
             v-else-if="f.type === 'label'"
-            class="bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 text-sm text-gray-700 prose prose-sm max-w-none"
+            class="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 prose prose-sm max-w-none"
             v-html="f.label"
           />
           <!-- スペース -->

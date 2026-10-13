@@ -4,6 +4,9 @@ import { useEditor, EditorContent, VueRenderer } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
 import Underline from '@tiptap/extension-underline'
+import { TextStyle } from '@tiptap/extension-text-style'
+import Color from '@tiptap/extension-color'
+import Highlight from '@tiptap/extension-highlight'
 import Mention from '@tiptap/extension-mention'
 import tippy from 'tippy.js'
 import MentionList from '~/components/MentionList.vue'
@@ -131,6 +134,9 @@ const editor = useEditor({
       },
     }),
     Underline,
+    TextStyle,
+    Color,
+    Highlight.configure({ multicolor: true }),
     FontSize,
     ResizableImage.configure({
       HTMLAttributes: { class: 'rounded-lg max-w-full' },
@@ -216,6 +222,26 @@ const setFontSize = (e: Event) => {
   }
 }
 
+// 文字色・背景色（アプリ管理のラベル項目等、背景色が固定で見づらいという声があり追加。
+// 投稿等の他のリッチエディター利用箇所でも併せて使える）
+const currentTextColor = computed(() => editor.value?.getAttributes('textStyle').color || '')
+const currentHighlight = computed(() => editor.value?.getAttributes('highlight').color || '')
+
+const setTextColor = (e: Event) => {
+  const color = (e.target as HTMLInputElement).value
+  editor.value?.chain().focus().setColor(color).run()
+}
+const unsetTextColor = () => {
+  editor.value?.chain().focus().unsetColor().run()
+}
+const setHighlight = (e: Event) => {
+  const color = (e.target as HTMLInputElement).value
+  editor.value?.chain().focus().setHighlight({ color }).run()
+}
+const unsetHighlight = () => {
+  editor.value?.chain().focus().unsetHighlight().run()
+}
+
 const insertImage = () => {
   imageInputRef.value?.click()
 }
@@ -297,6 +323,44 @@ onBeforeUnmount(() => {
       >
         <option v-for="s in FONT_SIZES" :key="s.value" :value="s.value">{{ s.label }}</option>
       </select>
+
+      <div class="w-px h-4 bg-gray-300 mx-1"></div>
+
+      <!-- 文字色 -->
+      <label
+        class="relative flex items-center justify-center w-7 h-7 rounded hover:bg-gray-200 cursor-pointer transition-colors"
+        title="文字色"
+      >
+        <Icon name="heroicons:pencil" class="h-4 w-4 pointer-events-none" :style="currentTextColor ? { color: currentTextColor } : undefined" :class="!currentTextColor && 'text-gray-500'" />
+        <input type="color" class="absolute inset-0 opacity-0 cursor-pointer" :value="currentTextColor || '#000000'" @input="setTextColor" />
+      </label>
+      <button
+        v-if="currentTextColor"
+        type="button"
+        @click="unsetTextColor"
+        class="p-1.5 rounded hover:bg-gray-200 text-gray-400 transition-colors"
+        title="文字色を解除"
+      >
+        <Icon name="heroicons:x-mark" class="h-3.5 w-3.5" />
+      </button>
+
+      <!-- 背景色（ハイライト） -->
+      <label
+        class="relative flex items-center justify-center w-7 h-7 rounded hover:bg-gray-200 cursor-pointer transition-colors"
+        title="背景色"
+      >
+        <Icon name="heroicons:paint-brush" class="h-4 w-4 text-gray-500 pointer-events-none" />
+        <input type="color" class="absolute inset-0 opacity-0 cursor-pointer" :value="currentHighlight || '#ffff00'" @input="setHighlight" />
+      </label>
+      <button
+        v-if="currentHighlight"
+        type="button"
+        @click="unsetHighlight"
+        class="p-1.5 rounded hover:bg-gray-200 text-gray-400 transition-colors"
+        title="背景色を解除"
+      >
+        <Icon name="heroicons:x-mark" class="h-3.5 w-3.5" />
+      </button>
 
       <div class="w-px h-4 bg-gray-300 mx-1"></div>
 
