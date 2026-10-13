@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { SERVICE_LABELS, STATUS_LABELS } from '~/types/service'
 import { useServices } from '~/composables/useServices'
 import { useNotifications } from '~/composables/useNotifications'
+import { useToast } from '~/composables/useToast'
 import { useStorage } from '~/composables/useStorage'
 import { usePermission } from '~/composables/usePermission'
 import { useMentionClick } from '~/composables/useMentionClick'
@@ -20,7 +21,8 @@ const route = useRoute()
 const customerId = computed(() => route.params.id as string)
 const serviceType = computed(() => route.params.serviceType as string)
 const caseId = computed(() => route.params.caseId as string)
-const { fetchCase, fetchCases, updateCaseStatus, addProgressReport } = useServices()
+const { fetchCase, fetchCases, updateCaseStatus, addProgressReport, deleteCase } = useServices()
+const { show: showToast } = useToast()
 const { sendNotification } = useNotifications()
 const { uploadFile } = useStorage()
 const { canEditCustomer: checkEditPermission } = usePermission()
@@ -241,9 +243,19 @@ const statusClass = (status: string) => {
   }
 }
 
-const handleDelete = () => {
-  if (!confirm('この案件を削除してよろしいですか？')) return
-  alert('モックのため削除できません')
+const deleting = ref(false)
+const handleDelete = async () => {
+  if (!confirm('この案件を削除してよろしいですか？この操作は取り消せません。')) return
+  deleting.value = true
+  try {
+    await deleteCase(customerId.value, serviceType.value as any, caseId.value)
+    showToast('案件を削除しました')
+    await navigateTo(`/customers/${customerId.value}/services/${serviceType.value}`)
+  } catch (e: any) {
+    alert(e.message ?? '削除に失敗しました')
+  } finally {
+    deleting.value = false
+  }
 }
 </script>
 
@@ -305,9 +317,10 @@ const handleDelete = () => {
           <button
             v-if="canEditCustomer"
             class="btn-danger text-sm flex items-center gap-1.5"
+            :disabled="deleting"
             @click="handleDelete"
           >
-            <Icon name="heroicons:trash" class="h-4 w-4" />
+            <Icon :name="deleting ? 'heroicons:arrow-path' : 'heroicons:trash'" class="h-4 w-4" :class="{ 'animate-spin': deleting }" />
           </button>
         </div>
       </div>
