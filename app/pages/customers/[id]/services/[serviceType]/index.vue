@@ -18,12 +18,31 @@ const { canEditCustomer } = usePermission()
 // （アプリ管理で新規作成した、固定18アプリに含まれないアプリ向け）
 const { appDefs, fetchAll: fetchAppDefs } = useAppDefs()
 await fetchAppDefs()
+const appDef = computed(() => appDefs.value.find(a => a.sourceServiceType === serviceType.value))
 const serviceLabel = computed(() =>
   SERVICE_LABELS[serviceType.value]
-  ?? appDefs.value.find(a => a.sourceServiceType === serviceType.value)?.name
+  ?? appDef.value?.name
   ?? serviceType.value,
 )
 const isLifeInsurance = computed(() => serviceType.value === 'lifeInsurance')
+
+// 会社名・成約日・金額・備考といった固定項目を使わないアプリ（アプリ管理で
+// 作成したカスタムアプリ）では、一覧カードにステータス以外の情報が何も
+// 表示されず、入力した内容が分からなかった。入力済みのカスタム項目から
+// 単純なテキストとして表示できる種別だけを、ラベル付きで数件サマリ表示する
+// （ファイル添付・関連レコード一覧・ルックアップ等、単純な文字列で表せない
+// 項目は対象外）
+const SUMMARY_FIELD_TYPES = ['text', 'textarea', 'date', 'time', 'datetime', 'radio', 'dropdown', 'checkbox', 'multi_select', 'yes_no', 'number']
+const customFieldSummary = (c: ServiceCase) => {
+  if (!appDef.value || !c.customFields) return []
+  return appDef.value.fields
+    .filter(f => SUMMARY_FIELD_TYPES.includes(f.type) && c.customFields![f.id] !== undefined && c.customFields![f.id] !== '')
+    .map((f) => {
+      const raw = c.customFields![f.id]
+      return { label: f.label, value: Array.isArray(raw) ? raw.join('、') : raw }
+    })
+    .filter(e => e.value)
+}
 
 const { getById, ensureLoaded } = useCustomerStore()
 await ensureLoaded()
@@ -305,6 +324,14 @@ const PROGRESS_RESTRICTED_KEYS: (keyof typeof LIFE_INSURANCE_FIELD_LABELS)[] = [
                 <p v-if="c.amount">金額: {{ c.amount }}</p>
                 <p v-if="c.notes" class="text-gray-400 text-xs line-clamp-1">{{ c.notes }}</p>
               </div>
+              <!-- アプリ管理で作成したカスタム項目のサマリ（会社名・金額等の固定項目を
+                   使わないアプリでも、入力内容の概要が一覧で分かるようにする） -->
+              <dl v-if="customFieldSummary(c).length" class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                <div v-for="f in customFieldSummary(c).slice(0, 3)" :key="f.label" class="flex items-baseline gap-1 max-w-full">
+                  <dt class="text-gray-400 shrink-0">{{ f.label }}:</dt>
+                  <dd class="text-gray-700 truncate">{{ f.value }}</dd>
+                </div>
+              </dl>
             </div>
             <div class="text-right shrink-0 space-y-1">
               <span v-if="c.reminderDate" class="badge text-xs bg-rose-50 text-rose-600 flex items-center gap-1 w-fit ml-auto">
