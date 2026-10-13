@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { CustomerForm, FamilyMember, Reminder } from '~/types/customer'
 import { getAnimalFortune } from '~/utils/animalFortune'
+import { useUsers } from '~/composables/useUsers'
 
 const props = defineProps<{
   modelValue: Partial<CustomerForm>
@@ -19,6 +20,24 @@ const form = computed({
 
 const update = (key: string, value: any) => {
   emit('update:modelValue', { ...props.modelValue, [key]: value })
+}
+
+// 担当未来設計士の候補（自由入力だが、既存ユーザー名を検索・選択できるようにする）
+const { fetchUsers } = useUsers()
+const assignedFpSuggestions = ref<string[]>([])
+fetchUsers().then((users) => {
+  assignedFpSuggestions.value = users.filter(u => !u.isWithdrawn).map(u => u.displayName)
+}).catch(() => {})
+
+// 状況（ワン/ツー/フォロー以降）のテキストエリアは、内部スクロールだと見づらいため
+// 改行ごとに高さが自動で広がるようにする（最小の見た目はrows属性のまま維持する）
+const resizeTextarea = (el: HTMLTextAreaElement) => {
+  el.style.height = 'auto'
+  el.style.height = `${el.scrollHeight}px`
+}
+const vAutoGrow = {
+  mounted: (el: HTMLTextAreaElement) => resizeTextarea(el),
+  updated: (el: HTMLTextAreaElement) => resizeTextarea(el),
 }
 
 // ===== 家族メンバー操作 =====
@@ -426,8 +445,8 @@ const updateReminder = (idx: number, key: keyof Reminder, value: string) => {
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">担当 未来設計士</label>
-          <input :value="form.assignedFpName" type="text" class="input-field"
-            @input="update('assignedFpName', ($event.target as HTMLInputElement).value)" />
+          <ComboBox :model-value="form.assignedFpName ?? ''" :items="assignedFpSuggestions"
+            @update:model-value="update('assignedFpName', $event)" />
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">関係性</label>
@@ -446,17 +465,17 @@ const updateReminder = (idx: number, key: keyof Reminder, value: string) => {
         </div>
         <div class="sm:col-span-2">
           <label class="block text-sm font-medium text-gray-700 mb-1">状況（ワン）</label>
-          <textarea :value="form.status1" rows="4" class="input-field resize-none"
+          <textarea v-auto-grow :value="form.status1" rows="4" class="input-field resize-none overflow-hidden"
             @input="update('status1', ($event.target as HTMLTextAreaElement).value)" />
         </div>
         <div class="sm:col-span-2">
           <label class="block text-sm font-medium text-gray-700 mb-1">状況（ツー）</label>
-          <textarea :value="form.status2" rows="4" class="input-field resize-none"
+          <textarea v-auto-grow :value="form.status2" rows="4" class="input-field resize-none overflow-hidden"
             @input="update('status2', ($event.target as HTMLTextAreaElement).value)" />
         </div>
         <div class="sm:col-span-2">
           <label class="block text-sm font-medium text-gray-700 mb-1">フォロー以降の状況</label>
-          <textarea :value="form.postFollowStatus" rows="4" class="input-field resize-none"
+          <textarea v-auto-grow :value="form.postFollowStatus" rows="4" class="input-field resize-none overflow-hidden"
             @input="update('postFollowStatus', ($event.target as HTMLTextAreaElement).value)" />
         </div>
       </div>

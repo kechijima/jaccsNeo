@@ -73,18 +73,18 @@ export const SERVICE_CATEGORY_MAP: Record<string, string> = {
 export const APP_CATEGORY_DEFS: Record<string, {
   icon: string; color: string; bgColor: string; badgeColor: string; activeColor: string; borderColor: string
 }> = {
+  '保険':         { icon: 'heroicons:shield-check',     color: 'text-blue-600',   bgColor: 'bg-blue-50',    badgeColor: 'bg-blue-100 text-blue-700',     activeColor: 'bg-blue-600 text-white',   borderColor: 'border-blue-100' },
+  '通信関係':     { icon: 'heroicons:wifi',            color: 'text-sky-600',    bgColor: 'bg-sky-50',     badgeColor: 'bg-sky-100 text-sky-700',       activeColor: 'bg-sky-600 text-white',    borderColor: 'border-sky-100' },
+  '住宅関連':     { icon: 'heroicons:home',            color: 'text-amber-600',  bgColor: 'bg-amber-50',   badgeColor: 'bg-amber-100 text-amber-700',   activeColor: 'bg-amber-500 text-white',  borderColor: 'border-amber-100' },
+  '光熱費関連':   { icon: 'heroicons:bolt',            color: 'text-yellow-600', bgColor: 'bg-yellow-50',  badgeColor: 'bg-yellow-100 text-yellow-700', activeColor: 'bg-yellow-500 text-white', borderColor: 'border-yellow-100' },
+  'ライフイベント': { icon: 'heroicons:sparkles',       color: 'text-rose-600',   bgColor: 'bg-rose-50',    badgeColor: 'bg-rose-100 text-rose-700',     activeColor: 'bg-rose-500 text-white',   borderColor: 'border-rose-100' },
+  'キャリア':     { icon: 'heroicons:briefcase',        color: 'text-purple-600', bgColor: 'bg-purple-50',  badgeColor: 'bg-purple-100 text-purple-700', activeColor: 'bg-purple-600 text-white', borderColor: 'border-purple-100' },
+  '事業者':       { icon: 'heroicons:building-office',  color: 'text-indigo-600', bgColor: 'bg-indigo-50',  badgeColor: 'bg-indigo-100 text-indigo-700', activeColor: 'bg-indigo-600 text-white', borderColor: 'border-indigo-100' },
   '法務案件':     { icon: 'heroicons:scale',           color: 'text-gray-600',   bgColor: 'bg-gray-100',   badgeColor: 'bg-gray-200 text-gray-700',     activeColor: 'bg-gray-700 text-white',   borderColor: 'border-gray-200' },
   '自動車関連':   { icon: 'heroicons:truck',           color: 'text-orange-600', bgColor: 'bg-orange-50',  badgeColor: 'bg-orange-100 text-orange-700', activeColor: 'bg-orange-500 text-white', borderColor: 'border-orange-100' },
-  'キャリア':     { icon: 'heroicons:briefcase',        color: 'text-purple-600', bgColor: 'bg-purple-50',  badgeColor: 'bg-purple-100 text-purple-700', activeColor: 'bg-purple-600 text-white', borderColor: 'border-purple-100' },
-  'ライフイベント': { icon: 'heroicons:sparkles',       color: 'text-rose-600',   bgColor: 'bg-rose-50',    badgeColor: 'bg-rose-100 text-rose-700',     activeColor: 'bg-rose-500 text-white',   borderColor: 'border-rose-100' },
-  '光熱費関連':   { icon: 'heroicons:bolt',            color: 'text-yellow-600', bgColor: 'bg-yellow-50',  badgeColor: 'bg-yellow-100 text-yellow-700', activeColor: 'bg-yellow-500 text-white', borderColor: 'border-yellow-100' },
-  '住宅関連':     { icon: 'heroicons:home',            color: 'text-amber-600',  bgColor: 'bg-amber-50',   badgeColor: 'bg-amber-100 text-amber-700',   activeColor: 'bg-amber-500 text-white',  borderColor: 'border-amber-100' },
-  '保険':         { icon: 'heroicons:shield-check',     color: 'text-blue-600',   bgColor: 'bg-blue-50',    badgeColor: 'bg-blue-100 text-blue-700',     activeColor: 'bg-blue-600 text-white',   borderColor: 'border-blue-100' },
   'Webサービス':  { icon: 'heroicons:globe-alt',       color: 'text-cyan-600',   bgColor: 'bg-cyan-50',    badgeColor: 'bg-cyan-100 text-cyan-700',     activeColor: 'bg-cyan-600 text-white',   borderColor: 'border-cyan-100' },
-  'その他':       { icon: 'heroicons:squares-2x2',     color: 'text-teal-600',   bgColor: 'bg-teal-50',    badgeColor: 'bg-teal-100 text-teal-700',     activeColor: 'bg-teal-600 text-white',   borderColor: 'border-teal-100' },
-  '通信関係':     { icon: 'heroicons:wifi',            color: 'text-sky-600',    bgColor: 'bg-sky-50',     badgeColor: 'bg-sky-100 text-sky-700',       activeColor: 'bg-sky-600 text-white',    borderColor: 'border-sky-100' },
-  '事業者':       { icon: 'heroicons:building-office',  color: 'text-indigo-600', bgColor: 'bg-indigo-50',  badgeColor: 'bg-indigo-100 text-indigo-700', activeColor: 'bg-indigo-600 text-white', borderColor: 'border-indigo-100' },
   '販売':         { icon: 'heroicons:shopping-bag',    color: 'text-green-600',  bgColor: 'bg-green-50',   badgeColor: 'bg-green-100 text-green-700',   activeColor: 'bg-green-600 text-white',  borderColor: 'border-green-100' },
+  'その他':       { icon: 'heroicons:squares-2x2',     color: 'text-teal-600',   bgColor: 'bg-teal-50',    badgeColor: 'bg-teal-100 text-teal-700',     activeColor: 'bg-teal-600 text-white',   borderColor: 'border-teal-100' },
 }
 
 export const APP_CATEGORY_LIST = Object.keys(APP_CATEGORY_DEFS)

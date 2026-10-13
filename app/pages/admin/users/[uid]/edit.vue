@@ -31,6 +31,7 @@ const form = ref({
   mainSupporterUid: '',
   subSupporterUid:  '',
   isActive:     true,
+  isWithdrawn:  false,
 })
 
 const existingUsers = ref<Array<{ uid: string; displayName: string }>>([])
@@ -75,6 +76,7 @@ onMounted(async () => {
         mainSupporterUid: user.mainSupporterUid ?? '',
         subSupporterUid:  user.subSupporterUid ?? '',
         isActive:     user.isActive !== false,
+        isWithdrawn:  user.isWithdrawn === true,
       }
     }
   } catch (e: any) {
@@ -119,6 +121,31 @@ const handleDeactivate = async () => {
     form.value.isActive = false
   } catch (e: any) {
     error.value = e.message ?? '無効化に失敗しました'
+  }
+}
+
+// 脱退申請を経由しない、理事会・管理者による手動での脱退フラグ変更
+// （本人からの脱退申請が無いケース、申請前に急ぎ対応したいケース向け）
+const handleWithdraw = async () => {
+  if (!confirm(`「${form.value.name}」を脱退済みにしますか？\nログインできなくなります。`)) return
+  try {
+    await updateUser(uid.value, { isWithdrawn: true })
+    form.value.isWithdrawn = true
+    form.value.isActive = false
+    useOperationLog().log('user_withdraw', form.value.name).catch(() => {})
+  } catch (e: any) {
+    error.value = e.message ?? '脱退処理に失敗しました'
+  }
+}
+
+const handleUnwithdraw = async () => {
+  if (!confirm(`「${form.value.name}」の脱退を取り消し、アカウントを有効に戻しますか？`)) return
+  try {
+    await updateUser(uid.value, { isWithdrawn: false, isActive: true })
+    form.value.isWithdrawn = false
+    form.value.isActive = true
+  } catch (e: any) {
+    error.value = e.message ?? '脱退取り消しに失敗しました'
   }
 }
 
@@ -235,6 +262,15 @@ const toggleSpecialTeam = (team: string) => {
         </span>
       </div>
 
+      <!-- 脱退状態 -->
+      <div v-if="form.isWithdrawn" class="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 p-4">
+        <div>
+          <p class="text-sm font-medium text-red-700">脱退済み</p>
+          <p class="text-xs text-red-500 mt-0.5">ログインできません</p>
+        </div>
+        <span class="badge bg-red-100 text-red-600">脱退済み</span>
+      </div>
+
       <div class="flex justify-between pt-2">
         <NuxtLink to="/admin/users" class="btn-secondary">キャンセル</NuxtLink>
         <button type="submit" class="btn-primary" :disabled="submitting">
@@ -262,6 +298,20 @@ const toggleSpecialTeam = (team: string) => {
             <p class="text-xs text-gray-500">ログイン不可になります</p>
           </div>
           <button class="btn-danger text-sm" @click="handleDeactivate">無効化</button>
+        </div>
+        <div v-if="!form.isWithdrawn" class="flex items-center justify-between border-t border-gray-100 pt-3">
+          <div>
+            <p class="text-sm font-medium text-gray-800">脱退（手動）</p>
+            <p class="text-xs text-gray-500">脱退申請を経由せず、ここから直接脱退済みにします</p>
+          </div>
+          <button class="btn-danger text-sm" @click="handleWithdraw">脱退済みにする</button>
+        </div>
+        <div v-else class="flex items-center justify-between border-t border-gray-100 pt-3">
+          <div>
+            <p class="text-sm font-medium text-gray-800">脱退の取り消し</p>
+            <p class="text-xs text-gray-500">脱退状態を解除し、アカウントを有効に戻します</p>
+          </div>
+          <button class="btn-secondary text-sm" @click="handleUnwithdraw">取り消す</button>
         </div>
       </div>
     </div>

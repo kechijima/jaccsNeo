@@ -87,7 +87,9 @@ onMounted(async () => {
       fetchCase(customerId.value, serviceType.value as ServiceType, caseId.value),
       fetchUsers().catch(() => []),
     ])
-    allUsers.value = fetchedUsers
+    // 脱退済みユーザーは担当者・担当未来設計士・リマインド対象者のいずれにも
+    // 選択できないようにする
+    allUsers.value = fetchedUsers.filter(u => !u.isWithdrawn)
     appDef.value = await getPublishedByServiceType(serviceType.value).catch(() => null)
 
     customerName.value = customer?.name ?? ''
@@ -234,10 +236,7 @@ const handleDelete = async () => {
       <!-- 担当未来設計士（担当者以外操作禁止の対象外。誰でも変更可能） -->
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">担当未来設計士</label>
-        <select v-model="form.plannerUid" class="input-field">
-          <option value="">選択してください</option>
-          <option v-for="u in plannerOptions" :key="u.uid" :value="u.uid">{{ u.displayName }}</option>
-        </select>
+        <SearchableUserSelect v-model="form.plannerUid" :users="plannerOptions" placeholder="選択してください" />
       </div>
 
       <!-- アプリ管理で設定した追加項目 -->

@@ -245,10 +245,11 @@ const statusClass = (status: string) => {
           <NuxtLink
             v-if="canEdit"
             :to="`/customers/${customerId}/services/${svc.key}/new`"
-            class="ml-2 shrink-0 text-xs text-gray-400 hover:text-primary-600 transition-colors"
+            class="ml-2 shrink-0 inline-flex items-center gap-1 rounded-lg bg-primary-50 px-2.5 py-1.5 text-xs font-semibold text-primary-600 hover:bg-primary-100 transition-colors"
             @click.stop
           >
-            + 追加
+            <Icon name="heroicons:plus" class="h-3.5 w-3.5" />
+            追加
           </NuxtLink>
         </div>
       </div>
