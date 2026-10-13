@@ -109,7 +109,9 @@ onMounted(async () => {
       reminderDate: raw.reminderDate ?? '',
       reminderNote: raw.reminderNote ?? '',
       assigneeUid: raw.assigneeUid ?? '',
-      plannerUid: raw.plannerUid ?? '',
+      // 担当未来設計士が未設定の案件を開いた場合は、新規登録フォームと同様に
+      // ログイン中の自分自身を初期値として選択しておく
+      plannerUid: raw.plannerUid || currentUser.value?.uid || '',
       reminderAudienceUids: raw.reminderAudienceUids ? [...raw.reminderAudienceUids] : [],
     }
     customFieldValues.value = raw.customFields ? { ...raw.customFields } : {}
