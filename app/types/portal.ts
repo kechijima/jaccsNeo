@@ -25,6 +25,7 @@ export interface Space {
   headerImage?: string
   pinnedPostId?: string
   postCount?: number
+  lastPostAt?: Timestamp  // 最後に投稿があった日時（下書きを除く）。並び替え（更新順）に使う
   createdBy: string
   createdAt: Timestamp
   updatedAt: Timestamp
