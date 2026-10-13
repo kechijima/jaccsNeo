@@ -6,6 +6,15 @@ export default defineNuxtConfig({
   // JS読み込み前の「真っ白な画面」を防ぐため、SPA読み込み中の静的な画面を表示する
   spaLoadingTemplate: true,
 
+  // デプロイのたびにJSファイル名（ハッシュ）が変わるため、デプロイ直後に古い
+  // バンドルを開いたままの画面で別ページへ遷移すると、既に存在しない古いチャンクを
+  // 読み込もうとして「Failed to fetch dynamically imported module」エラーになる
+  // ことがある（承認キュー等、遅延読み込みされるページへの遷移で発生）。
+  // 自動的に最新版を再読み込みするようにし、このエラー画面が表示されないようにする
+  experimental: {
+    emitRouteChunkError: 'automatic',
+  },
+
   css: [
     '~/assets/css/main.css',
     'tippy.js/dist/tippy.css',
