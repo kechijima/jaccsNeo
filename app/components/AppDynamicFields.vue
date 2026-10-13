@@ -18,6 +18,7 @@ import { useAppDefs } from '~/composables/useAppDefs'
 import { useServices } from '~/composables/useServices'
 import { useUsers } from '~/composables/useUsers'
 import { useStorage } from '~/composables/useStorage'
+import { isFieldVisible } from '~/utils/appFieldVisibility'
 
 const props = defineProps<{
   fields: AppFieldDef[]
@@ -201,6 +202,9 @@ watch(
   { immediate: true },
 )
 
+// アプリ管理で設定した表示条件（visibleWhen）に基づき、この項目を表示するかどうか
+const isVisible = (f: AppFieldDef) => isFieldVisible(f, values.value)
+
 const statusClass = (status: string) => {
   if (/成約/.test(status)) return 'bg-green-100 text-green-700'
   if (/不成立/.test(status)) return 'bg-red-100 text-red-600'
@@ -212,6 +216,7 @@ const statusClass = (status: string) => {
 <template>
   <div class="space-y-4">
     <template v-for="f in fields" :key="f.id">
+    <template v-if="isVisible(f)">
       <!-- ラベル（説明表示のみ、値は持たない） -->
       <div
         v-if="f.type === 'label'"
@@ -400,6 +405,7 @@ const statusClass = (status: string) => {
       <div v-else-if="!isSupported(f.type)" class="rounded-lg border border-dashed border-gray-200 p-3 text-xs text-gray-400">
         「{{ f.label }}」は現在このフォームでは未対応の項目タイプです（アプリ管理でのみ設定可能）
       </div>
+    </template>
     </template>
   </div>
 </template>

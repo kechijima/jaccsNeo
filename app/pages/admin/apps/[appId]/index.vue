@@ -204,6 +204,7 @@ interface CanvasField {
   defaultValue?: string
   defaultValues?: string[]
   useTodayAsDefault?: boolean
+  visibleWhen?: { fieldId: string; values: string[] }
 }
 
 // ── 状態 ──────────────────────────────────────────────────────
@@ -224,6 +225,35 @@ const selectedField = computed(() => fields.value.find(f => f.id === selectedId.
 const hasOptions   = (t: string) => ['radio', 'dropdown', 'checkbox', 'multi_select'].includes(t)
 const isAutoField  = (t: string) => ['record_number', 'space'].includes(t)
 const isRelation   = (t: string) => ['lookup', 'related_records'].includes(t)
+
+// ── 表示条件（任意） ──────────────────────────────────────────
+// 選択式（選択肢が決まっている）項目の値によって、別の項目の表示・非表示を
+// 切り替えられるようにする。参照先は「この項目より前にある」選択式項目に限定し
+// （後ろの項目を参照すると循環・前後関係が分かりにくくなるため）、はい/いいえは
+// 選択肢を持たないためoptionsではなく固定の2値を使う
+const CONDITION_TRIGGER_TYPES = ['radio', 'dropdown', 'checkbox', 'multi_select', 'yes_no']
+const conditionTriggerFieldsFor = (field: CanvasField): CanvasField[] => {
+  const idx = fields.value.findIndex(f => f.id === field.id)
+  if (idx < 0) return []
+  return fields.value.slice(0, idx).filter(f => CONDITION_TRIGGER_TYPES.includes(f.type))
+}
+const conditionTriggerOptions = (field: CanvasField): string[] => {
+  const trigger = fields.value.find(f => f.id === field.visibleWhen?.fieldId)
+  if (!trigger) return []
+  return trigger.type === 'yes_no' ? ['はい', 'いいえ'] : trigger.options
+}
+const setVisibilityTrigger = (field: CanvasField, fieldId: string) => {
+  if (!fieldId) { delete field.visibleWhen; return }
+  field.visibleWhen = { fieldId, values: [] }
+}
+const toggleVisibilityValue = (field: CanvasField, opt: string) => {
+  if (!field.visibleWhen) return
+  const curr = field.visibleWhen.values
+  field.visibleWhen = {
+    ...field.visibleWhen,
+    values: curr.includes(opt) ? curr.filter(v => v !== opt) : [...curr, opt],
+  }
+}
 
 // 既存項目の種別を後から変更できる項目（単純な入力値を持つもの同士に限定。
 // ファイル添付・担当者・ルックアップ・関連レコード・レイアウト系は構成が大きく
@@ -288,6 +318,7 @@ const addField = (type: string, atIndex?: number) => {
 // リセットする。初期値は種別ごとに形式が異なるため、変更時は必ずリセットする
 const changeFieldType = (f: CanvasField, newType: string) => {
   if (f.type === newType) return
+  const wasTrigger = CONDITION_TRIGGER_TYPES.includes(f.type)
   f.type = newType
   f.options = hasOptions(newType)
     ? (f.options.length > 0 ? f.options : ['選択肢1', '選択肢2', '選択肢3'])
@@ -295,6 +326,13 @@ const changeFieldType = (f: CanvasField, newType: string) => {
   delete f.defaultValue
   delete f.defaultValues
   delete f.useTodayAsDefault
+  // この項目が他の項目の表示条件の参照先になっていた場合、選択式ではなくなると
+  // 参照が無効になるため、依存している項目の表示条件を解除しておく
+  if (wasTrigger && !CONDITION_TRIGGER_TYPES.includes(newType)) {
+    for (const other of fields.value) {
+      if (other.visibleWhen?.fieldId === f.id) delete other.visibleWhen
+    }
+  }
 }
 
 // ── モバイル用: 項目追加ボトムシート ──────────────────────────
@@ -319,6 +357,10 @@ const confirmMobileAddField = () => {
 
 const removeField = (id: string) => {
   fields.value = fields.value.filter(f => f.id !== id)
+  // 削除した項目を表示条件の参照先にしていた項目があれば、条件を解除しておく
+  for (const f of fields.value) {
+    if (f.visibleWhen?.fieldId === id) delete f.visibleWhen
+  }
   if (selectedId.value === id) selectedId.value = null
 }
 
@@ -1272,6 +1314,35 @@ const handleDeleteApp = async () => {
             </select>
             <p class="text-xs text-gray-400 leading-relaxed">
               同じ顧客の、選択したアプリの案件一覧をここに表示します（読み取り専用）。
+            </p>
+          </div>
+
+          <!-- 表示条件（任意） -->
+          <div v-if="!isAutoField(selectedField.type)" class="space-y-2 pt-2 border-t border-gray-100">
+            <label class="block text-xs font-medium text-gray-600">表示条件（任意）</label>
+            <select
+              :value="selectedField.visibleWhen?.fieldId ?? ''"
+              class="input-field text-sm"
+              @change="setVisibilityTrigger(selectedField, ($event.target as HTMLSelectElement).value)"
+            >
+              <option value="">常に表示する</option>
+              <option v-for="tf in conditionTriggerFieldsFor(selectedField)" :key="tf.id" :value="tf.id">{{ canvasLabel(tf) }}</option>
+            </select>
+            <template v-if="selectedField.visibleWhen?.fieldId">
+              <p class="text-xs text-gray-500">選択した項目の値が次のいずれかの場合のみ、この項目を表示します</p>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  v-for="opt in conditionTriggerOptions(selectedField)"
+                  :key="opt"
+                  type="button"
+                  class="rounded-lg border px-2.5 py-1 text-xs transition"
+                  :class="(selectedField.visibleWhen?.values ?? []).includes(opt) ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'"
+                  @click="toggleVisibilityValue(selectedField, opt)"
+                >{{ opt }}</button>
+              </div>
+            </template>
+            <p v-else-if="conditionTriggerFieldsFor(selectedField).length === 0" class="text-xs text-gray-400">
+              この項目より上に、ラジオボタン・ドロップダウン・チェックボックス・複数選択・はい/いいえのいずれかの項目を追加すると設定できます
             </p>
           </div>
 

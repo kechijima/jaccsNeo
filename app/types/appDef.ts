@@ -17,6 +17,13 @@ export interface AppFieldDef {
   defaultValue?: string              // text / textarea / radio 用の初期値
   defaultValues?: string[]           // checkbox / multi_select 用の初期値（複数選択）
   useTodayAsDefault?: boolean        // date 用。trueの場合、新規登録フォームを開いた日の日付を初期値にする
+  // ── 表示条件（任意） ──
+  // 指定した項目（radio/dropdown/checkbox/multi_select/yes_no）の値が、
+  // valuesのいずれかに一致する場合のみこの項目を表示する。未設定の場合は常に表示
+  visibleWhen?: {
+    fieldId: string
+    values: string[]
+  }
 }
 
 // アプリ管理（フォームビルダー）で作成・管理するアプリ定義

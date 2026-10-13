@@ -3,6 +3,7 @@ import { SERVICE_LABELS } from '~/types/service'
 import type { ServiceCaseForm, ServiceStatus, ServiceType } from '~/types/service'
 import { useAppDefs } from '~/composables/useAppDefs'
 import { useUsers } from '~/composables/useUsers'
+import { isFieldVisible } from '~/utils/appFieldVisibility'
 import type { AppDef } from '~/types/appDef'
 import type { AppUser } from '~/types/user'
 
@@ -152,8 +153,14 @@ const handleSubmit = async () => {
         customFieldValues.value = { ...customFieldValues.value, [builderAssigneeField.value.id]: originalAssigneeUid.value }
       }
     }
+    // 表示条件により現在非表示の項目は保存しない（別の選択肢を選んだ後に
+    // 残った古い値が紛れ込むのを防ぐ）
     const cleanedCustomFields = Object.fromEntries(
-      Object.entries(customFieldValues.value).filter(([, v]) => (Array.isArray(v) ? v.length > 0 : !!v)),
+      Object.entries(customFieldValues.value).filter(([id, v]) => {
+        if (Array.isArray(v) ? v.length === 0 : !v) return false
+        const field = appDef.value?.fields.find(f => f.id === id)
+        return !field || isFieldVisible(field, customFieldValues.value)
+      }),
     )
     const resolvedAssigneeUid = builderAssigneeField.value
       ? (customFieldValues.value[builderAssigneeField.value.id] as string | undefined)
