@@ -3,6 +3,7 @@ import { SERVICE_LABELS } from '~/types/service'
 import type { ServiceCaseForm, ServiceStatus, ServiceType } from '~/types/service'
 import { useAppDefs } from '~/composables/useAppDefs'
 import { useUsers } from '~/composables/useUsers'
+import { useNotifications } from '~/composables/useNotifications'
 import { isFieldVisible } from '~/utils/appFieldVisibility'
 import type { AppDef } from '~/types/appDef'
 import type { AppUser } from '~/types/user'
@@ -16,6 +17,7 @@ const caseId = computed(() => route.params.caseId as string)
 
 const { fetchCustomer } = useCustomers()
 const { fetchCase, updateCase, deleteCase } = useServices()
+const { sendNotification } = useNotifications()
 
 // アプリ管理（フォームビルダー）でこのserviceTypeに連携された項目定義。
 // 新規登録フォームと同じ項目・保存内容を編集でも扱えるようにする
@@ -180,7 +182,34 @@ const handleSubmit = async () => {
         : undefined,
       customFields: Object.keys(cleanedCustomFields).length > 0 ? cleanedCustomFields : undefined,
     })
-    await navigateTo(`/customers/${customerId.value}/services/${serviceType.value}/${caseId.value}`)
+
+    const caseLinkUrl = `/customers/${customerId.value}/services/${serviceType.value}/${caseId.value}`
+    // 担当者が新たに設定・変更された場合、設定された本人に通知する
+    if (resolvedAssigneeUid && resolvedAssigneeUid !== originalAssigneeUid.value && resolvedAssigneeUid !== currentUser.value?.uid) {
+      sendNotification(resolvedAssigneeUid, {
+        type:      'app_assigned',
+        title:     '担当者に設定されました',
+        body:      `「${serviceLabel.value}」（${customerName.value}さん）の担当者に設定されました。`,
+        linkUrl:   caseLinkUrl,
+        relatedId: caseId.value,
+      }).catch(() => {})
+    }
+    // ステータスが変更された場合、担当者・担当未来設計士に通知する
+    if (form.value.status !== originalStatus.value) {
+      const statusLabel = { consulting: '相談中', considering: '検討中', contracted: '成約', completed: '完了', failed: '不成立' }[form.value.status] ?? form.value.status
+      const notifyUids = new Set([resolvedAssigneeUid, form.value.plannerUid].filter((uid): uid is string => !!uid && uid !== currentUser.value?.uid))
+      for (const uid of notifyUids) {
+        sendNotification(uid, {
+          type:      'app_status_changed',
+          title:     'ステータスが変更されました',
+          body:      `「${serviceLabel.value}」（${customerName.value}さん）のステータスが「${statusLabel}」に変更されました。`,
+          linkUrl:   caseLinkUrl,
+          relatedId: caseId.value,
+        }).catch(() => {})
+      }
+    }
+
+    await navigateTo(caseLinkUrl)
   }
   catch (e: any) {
     error.value = e.message ?? '保存に失敗しました'

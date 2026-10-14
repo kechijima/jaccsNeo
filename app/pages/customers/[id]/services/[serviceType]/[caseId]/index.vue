@@ -151,6 +151,22 @@ const handleStatusChange = async (newStatus: any) => {
   if (!confirm(`ステータスを「${STATUS_LABELS[newStatus as keyof typeof STATUS_LABELS]}」に変更しますか？`)) return
   
   await updateCaseStatus(customerId.value, serviceType.value as any, caseId.value, newStatus, oldStatus)
+
+  // ステータス変更を担当者・担当未来設計士に通知する
+  const notifyUids = new Set(
+    [caseData.value.assigneeUid, caseData.value.plannerUid]
+      .filter((uid): uid is string => !!uid && uid !== authStore.user?.uid),
+  )
+  for (const uid of notifyUids) {
+    sendNotification(uid, {
+      type:      'app_status_changed',
+      title:     'ステータスが変更されました',
+      body:      `「${serviceLabel.value}」（${customerName.value}さん）のステータスが「${STATUS_LABELS[newStatus as keyof typeof STATUS_LABELS]}」に変更されました。`,
+      linkUrl:   route.fullPath,
+      relatedId: caseId.value,
+    }).catch(() => {})
+  }
+
   // Re-fetch or update local
   dbCase.value = { ...caseData.value, status: newStatus, reports: [...(caseData.value.reports || []), {
     id: `temp_${Date.now()}`,

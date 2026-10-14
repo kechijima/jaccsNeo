@@ -13,6 +13,7 @@ import { useToast } from '~/composables/useToast'
 import { useAppDefs } from '~/composables/useAppDefs'
 import { useUsers } from '~/composables/useUsers'
 import { useCurrentUser } from '~/composables/useCurrentUser'
+import { useNotifications } from '~/composables/useNotifications'
 import { isFieldVisible } from '~/utils/appFieldVisibility'
 import type { AppDef } from '~/types/appDef'
 import type { AppUser } from '~/types/user'
@@ -30,6 +31,7 @@ const { show: showToast } = useToast()
 // ===== 汎用アプリ用フォーム =====
 const { fetchCustomer } = useCustomers()
 const { createCase } = useServices()
+const { sendNotification } = useNotifications()
 
 const customerName = ref('')
 const customer = ref<any>(null)
@@ -188,7 +190,7 @@ const handleSubmit = async () => {
         return !field || isFieldVisible(field, customFieldValues.value)
       }),
     )
-    await createCase(customerId.value, serviceType.value as ServiceType, {
+    const newCaseId = await createCase(customerId.value, serviceType.value as ServiceType, {
       ...form.value,
       assigneeUid: resolvedAssigneeUid.value || undefined,
       plannerUid: form.value.plannerUid || undefined,
@@ -197,6 +199,15 @@ const handleSubmit = async () => {
         : undefined,
       customFields: Object.keys(cleanedCustomFields).length > 0 ? cleanedCustomFields : undefined,
     })
+    if (resolvedAssigneeUid.value && resolvedAssigneeUid.value !== currentUser.value?.uid) {
+      sendNotification(resolvedAssigneeUid.value, {
+        type:      'app_assigned',
+        title:     '担当者に設定されました',
+        body:      `「${serviceLabel.value}」（${customerName.value}さん）の担当者に設定されました。`,
+        linkUrl:   `/customers/${customerId.value}/services/${serviceType.value}/${newCaseId}`,
+        relatedId: newCaseId,
+      }).catch(() => {})
+    }
     showToast('案件を追加しました')
     await navigateTo(`/customers/${customerId.value}/services/${serviceType.value}`)
   }
