@@ -168,6 +168,16 @@ export const useUsers = () => {
     return result.data.uid
   }
 
+  // メールアドレスの誤入力等で作成してしまったアカウントを、脱退フローを経ずに
+  // 完全に削除する（Firebase Authユーザー・Firestoreプロフィールの両方）。
+  // システム管理者のみ実行可能（Cloud Functions側でも二重チェックしている）
+  const deleteAuthUser = async (uid: string): Promise<void> => {
+    const { getFunctions, httpsCallable } = await loadFunctions()
+    const functions = getFunctions($firebase, 'asia-northeast1')
+    const fn = httpsCallable<{ uid: string }, { success: boolean }>(functions, 'deleteAuthUser')
+    await fn({ uid })
+  }
+
   return {
     fetchUsers,
     fetchUsersByGroup,
@@ -177,5 +187,6 @@ export const useUsers = () => {
     updateMyProfile,
     updateUserProfile,
     createAuthUser,
+    deleteAuthUser,
   }
 }

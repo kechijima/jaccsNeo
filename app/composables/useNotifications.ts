@@ -3,6 +3,7 @@ import {
   doc,
   getDocs,
   updateDoc,
+  deleteDoc,
   query,
   orderBy,
   limit,
@@ -110,6 +111,13 @@ export const useNotifications = () => {
     await updateDoc(doc($db, 'notifications', uid, 'items', notifId), { isRead: true })
   }
 
+  // ===== 個別に削除する（都度削除） =====
+  const deleteNotification = async (notifId: string): Promise<void> => {
+    const uid = authStore.user?.uid
+    if (!uid) return
+    await deleteDoc(doc($db, 'notifications', uid, 'items', notifId))
+  }
+
   // ===== 全て既読 =====
   const markAllAsRead = async (): Promise<void> => {
     const uid = authStore.user?.uid
@@ -176,6 +184,7 @@ export const useNotifications = () => {
     subscribeUnreadCount,
     markAsRead,
     markAllAsRead,
+    deleteNotification,
     sendNotification,
     sendMentionNotifications,
   }

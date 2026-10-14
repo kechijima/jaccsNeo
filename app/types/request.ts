@@ -40,6 +40,7 @@ export interface KumiaiCreatePayload {
   groupName?: string   // 表示用（一覧でグループを再取得しなくて済むように保持）
   name: string
   adminName?: string
+  createSpace?: boolean  // 承認時に、組合の活動報告スペース（type: 'kumiai'）も同時に作成する
 }
 
 export interface GroupCreatePayload {
@@ -87,9 +88,12 @@ export interface KumiaiDissolvePayload {
   kumiaiName: string
 }
 
-// プロダクトアプリ担当者への追加申請。承認されると、申請者自身が各アプリの
-// 担当者（AppDef.staffUids）に追加される。1申請で複数アプリへ同時に追加できる
+// プロダクトアプリ担当者への追加申請。承認されると、対象者（初期値は申請者
+// 自身だが変更可能）が各アプリの担当者（AppDef.staffUids）に追加される。
+// 1申請で複数アプリへ同時に追加できる
 export interface AppStaffAddPayload {
+  targetUid: string
+  targetName?: string  // 表示用
   appIds: string[]
   appNames: string[]  // 表示用（承認キュー一覧でアプリを再取得しなくて済むように保持）
 }

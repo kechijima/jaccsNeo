@@ -4,6 +4,7 @@ import type { Group } from '~/types/group'
 import type { SpecialTeamDef } from '~/types/specialTeam'
 import { useGroups } from '~/composables/useGroups'
 import { useSpecialTeams } from '~/composables/useSpecialTeams'
+import { useDirectorIndex } from '~/composables/useDirectorIndex'
 
 definePageMeta({ middleware: ['auth', 'admin'] })
 
@@ -11,6 +12,7 @@ const { createAuthUser, updateUser, fetchUsers } = useUsers()
 const { fetchGroups } = useGroups()
 const { fetchAll: fetchSpecialTeams } = useSpecialTeams()
 const { sendPasswordReset } = useAuth()
+const { upsertDirectorAssignment } = useDirectorIndex()
 
 const genTempPassword = () =>
   `Jaccs${Math.random().toString(36).slice(-6)}!${Math.floor(Math.random() * 10)}`
@@ -92,6 +94,20 @@ const handleSubmit = async () => {
         mainSupporterUid: form.value.mainSupporterUid || null,
         subSupporterUid:  form.value.subSupporterUid || null,
       })
+    }
+
+    // ディレクター逆引き（メンバー一覧のディレクター逆引き検索）に反映する。
+    // ここを行わないと、申請フローを経由せずこの画面から直接作成したユーザーが
+    // 逆引き検索結果に出てこない不具合になっていた
+    if (kumiaiName) {
+      const mainSupporterName = existingUsers.value.find(u => u.uid === form.value.mainSupporterUid)?.displayName
+      const subSupporterName = existingUsers.value.find(u => u.uid === form.value.subSupporterUid)?.displayName
+      if (mainSupporterName) {
+        await upsertDirectorAssignment({ directorName: mainSupporterName, kumiaiName, role: 'main', memberName: form.value.name }).catch(() => {})
+      }
+      if (subSupporterName) {
+        await upsertDirectorAssignment({ directorName: subSupporterName, kumiaiName, role: 'sub', memberName: form.value.name }).catch(() => {})
+      }
     }
 
     if (form.value.sendInviteEmail) {

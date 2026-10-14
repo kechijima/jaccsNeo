@@ -69,6 +69,40 @@ exports.createAuthUser = onCall(async (request) => {
   return { uid: userRecord.uid, bootstrap: isBootstrap }
 })
 
+// メールアドレスを誤って入力したまま作成してしまったアカウント等、正式な脱退
+// フローを経ずにアカウント自体を削除したい場合に使う（Firebase Authユーザーと
+// Firestoreのusersプロフィールの両方を削除する）。脱退フラグ
+// （users.isWithdrawn）とは異なり、データは一切残さず完全に削除する点に注意。
+// Admin SDKでのAuthユーザー削除が必要なためCloud Functions側で行う
+exports.deleteAuthUser = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'ログインが必要です')
+  }
+  const callerSnap = await admin.firestore().doc(`users/${request.auth.uid}`).get()
+  if (callerSnap.data()?.role !== 'system_admin') {
+    throw new HttpsError('permission-denied', 'システム管理者のみ実行できます')
+  }
+
+  const { uid } = request.data ?? {}
+  if (!uid) {
+    throw new HttpsError('invalid-argument', '対象ユーザーが指定されていません')
+  }
+  if (uid === request.auth.uid) {
+    throw new HttpsError('invalid-argument', '自分自身のアカウントは削除できません')
+  }
+
+  try {
+    await admin.auth().deleteUser(uid)
+  } catch (err) {
+    if (err.code !== 'auth/user-not-found') {
+      throw new HttpsError('internal', 'Authユーザーの削除に失敗しました')
+    }
+  }
+  await admin.firestore().doc(`users/${uid}`).delete()
+
+  return { success: true }
+})
+
 // パスワードリセットメールが迷惑メールフォルダ等に振り分けられて届かず、
 // ログインできなくなるケースへの対応。メールアドレスと生年月日（users/{uid}.birthday、
 // 本人がマイページ等で登録した値）が一致した場合に限り、リセットメールを使わず
@@ -254,5 +288,31 @@ exports.checkStaleServiceCases = onSchedule({ schedule: '0 9 * * *', timeZone: '
 
       await caseDoc.ref.update({ staleAlertSentFor: updatedAtIso })
     }
+  }
+})
+
+// 毎日深夜、作成から1ヶ月（30日）以上経過した通知（notifications/{uid}/items/{itemId}）を
+// 自動削除する。collectionGroupクエリにwhereを付けるとコレクショングループ用の
+// インデックスが別途必要になる（このリポジトリのCIはFirestoreのインデックスを
+// 自動デプロイしない）ため、checkStaleServiceCasesと同様に絞り込みなしで全件取得
+// してからメモリ上でフィルタする。都度の個別削除は別途アプリ側（通知一覧の削除
+// ボタン）で対応している
+exports.cleanupOldNotifications = onSchedule({ schedule: '30 3 * * *', timeZone: 'Asia/Tokyo' }, async () => {
+  const db = admin.firestore()
+  const RETENTION_MS = 30 * 24 * 60 * 60 * 1000
+  const cutoff = Date.now() - RETENTION_MS
+
+  const snap = await db.collectionGroup('items').get()
+  const expired = snap.docs.filter((d) => {
+    const createdAt = d.data().createdAt?.toDate?.()
+    return createdAt && createdAt.getTime() < cutoff
+  })
+  if (expired.length === 0) return
+
+  // Firestoreのバッチ書き込みは1回あたり最大500件
+  for (let i = 0; i < expired.length; i += 500) {
+    const batch = db.batch()
+    expired.slice(i, i + 500).forEach(d => batch.delete(d.ref))
+    await batch.commit()
   }
 })

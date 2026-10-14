@@ -4,7 +4,7 @@ import type { Notification } from '~/types/notification'
 
 definePageMeta({ middleware: ['auth'] })
 
-const { subscribeNotifications, markAsRead, markAllAsRead } = useNotifications()
+const { subscribeNotifications, markAsRead, markAllAsRead, deleteNotification } = useNotifications()
 
 const typeIconMap: Record<string, { icon: string; iconColor: string }> = {
   post_comment:      { icon: 'heroicons:chat-bubble-left',        iconColor: 'bg-green-100 text-green-600' },
@@ -56,6 +56,19 @@ const handleTap = async (n: typeof displayWithIcon.value[0]) => {
 // 全て既読
 const markAllRead = () => {
   markAllAsRead()
+}
+
+// 個別に削除（1ヶ月経過後の自動削除とは別に、都度削除できるようにする）
+const deletingIds = ref<Set<string>>(new Set())
+const handleDelete = async (n: { id: string }) => {
+  deletingIds.value = new Set(deletingIds.value).add(n.id)
+  try {
+    await deleteNotification(n.id)
+  } finally {
+    const next = new Set(deletingIds.value)
+    next.delete(n.id)
+    deletingIds.value = next
+  }
 }
 
 // 日付フォーマット
@@ -169,6 +182,17 @@ const formatDate = (ts: any): string => {
           <div v-if="!n.isRead" class="h-2.5 w-2.5 rounded-full bg-primary-500" />
           <div v-else class="h-2.5 w-2.5" />
         </div>
+
+        <!-- 削除 -->
+        <button
+          type="button"
+          class="shrink-0 rounded-lg p-1.5 text-gray-300 hover:bg-gray-100 hover:text-red-500 transition"
+          :disabled="deletingIds.has(n.id)"
+          aria-label="削除"
+          @click.stop="handleDelete(n)"
+        >
+          <Icon :name="deletingIds.has(n.id) ? 'heroicons:arrow-path' : 'heroicons:trash'" class="h-4 w-4" :class="{ 'animate-spin': deletingIds.has(n.id) }" />
+        </button>
       </div>
     </div>
 

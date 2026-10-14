@@ -5,16 +5,18 @@ import type { SpecialTeamDef } from '~/types/specialTeam'
 import { useGroups } from '~/composables/useGroups'
 import { useSpecialTeams } from '~/composables/useSpecialTeams'
 import { useOperationLog } from '~/composables/useOperationLog'
+import { useDirectorIndex } from '~/composables/useDirectorIndex'
 
 definePageMeta({ middleware: ['auth', 'admin'] })
 
 const route = useRoute()
 const uid = computed(() => route.params.uid as string)
 
-const { fetchUser, updateUser, fetchUsers } = useUsers()
+const { fetchUser, updateUser, fetchUsers, deleteAuthUser } = useUsers()
 const { fetchGroups } = useGroups()
 const { fetchAll: fetchSpecialTeams } = useSpecialTeams()
 const { sendPasswordReset } = useAuth()
+const { upsertDirectorAssignment } = useDirectorIndex()
 
 const loading = ref(false)
 const error = ref('')
@@ -107,6 +109,18 @@ const handleSubmit = async () => {
     if (originalRole.value && originalRole.value !== form.value.role) {
       useOperationLog().log('user_role_change', `${originalName.value || form.value.name}: ${originalRole.value} → ${form.value.role}`).catch(() => {})
     }
+    // ディレクター逆引きに反映する（この画面からの編集でも反映されないと、
+    // メンバー一覧のディレクター逆引き検索結果に出てこない不具合になるため）
+    if (kumiaiName) {
+      const mainSupporterName = existingUsers.value.find(u => u.uid === form.value.mainSupporterUid)?.displayName
+      const subSupporterName = existingUsers.value.find(u => u.uid === form.value.subSupporterUid)?.displayName
+      if (mainSupporterName) {
+        await upsertDirectorAssignment({ directorName: mainSupporterName, kumiaiName, role: 'main', memberName: form.value.name }).catch(() => {})
+      }
+      if (subSupporterName) {
+        await upsertDirectorAssignment({ directorName: subSupporterName, kumiaiName, role: 'sub', memberName: form.value.name }).catch(() => {})
+      }
+    }
     await navigateTo('/admin/users')
   } catch (e: any) {
     error.value = e.message ?? '保存に失敗しました'
@@ -146,6 +160,23 @@ const handleUnwithdraw = async () => {
     form.value.isActive = true
   } catch (e: any) {
     error.value = e.message ?? '脱退取り消しに失敗しました'
+  }
+}
+
+// メールアドレスを誤って入力したまま作成してしまったアカウント等、正式な脱退
+// フローを経ずにアカウントごと削除したい場合に使う（脱退フラグとは異なり、
+// Firebase Auth・Firestoreのユーザー情報を完全に削除する。元に戻せない）
+const deletingUser = ref(false)
+const handleDeleteUser = async () => {
+  if (!confirm(`「${form.value.name}」のアカウントを完全に削除します。\nこの操作は取り消せません。メールアドレス誤入力等での削除用です。よろしいですか？`)) return
+  deletingUser.value = true
+  error.value = ''
+  try {
+    await deleteAuthUser(uid.value)
+    await navigateTo('/admin/users')
+  } catch (e: any) {
+    error.value = e.message ?? 'アカウントの削除に失敗しました'
+    deletingUser.value = false
   }
 }
 
@@ -312,6 +343,16 @@ const toggleSpecialTeam = (team: string) => {
             <p class="text-xs text-gray-500">脱退状態を解除し、アカウントを有効に戻します</p>
           </div>
           <button class="btn-secondary text-sm" @click="handleUnwithdraw">取り消す</button>
+        </div>
+        <div class="flex items-center justify-between border-t border-gray-100 pt-3">
+          <div>
+            <p class="text-sm font-medium text-red-600">アカウントを完全に削除</p>
+            <p class="text-xs text-gray-500">メールアドレスの誤入力等で作成してしまった場合に使用します（元に戻せません）</p>
+          </div>
+          <button class="btn-danger text-sm" :disabled="deletingUser" @click="handleDeleteUser">
+            <Icon v-if="deletingUser" name="heroicons:arrow-path" class="h-4 w-4 animate-spin mr-1" />
+            削除する
+          </button>
         </div>
       </div>
     </div>

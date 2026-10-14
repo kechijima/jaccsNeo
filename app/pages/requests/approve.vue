@@ -6,6 +6,7 @@ import { useNotifications } from '~/composables/useNotifications'
 import { useDirectorIndex } from '~/composables/useDirectorIndex'
 import { useOperationLog } from '~/composables/useOperationLog'
 import { useAppDefs } from '~/composables/useAppDefs'
+import { useSpaces } from '~/composables/useSpaces'
 import { REQUEST_TYPE_LABELS, REQUEST_STATUS_LABELS } from '~/types/request'
 import { requestPayloadSummary } from '~/utils/requestSummary'
 import type { AppRequest } from '~/types/request'
@@ -20,6 +21,7 @@ const { sendNotification } = useNotifications()
 const { upsertDirectorAssignment, removeMemberFromIndex } = useDirectorIndex()
 const { log: logOperation } = useOperationLog()
 const { fetchOne: fetchAppDef, update: updateAppDef } = useAppDefs()
+const { createSpace } = useSpaces()
 
 await fetchAll()
 
@@ -101,7 +103,10 @@ const payloadRows = (r: AppRequest): { label: string; value: string }[] => {
     ]
   }
   if (r.type === 'app_staff_add') {
-    return [{ label: '対象アプリ', value: (p.appNames ?? []).join('、') || '（なし）' }]
+    return [
+      { label: '対象者', value: p.targetName || r.requestedByName },
+      { label: '対象アプリ', value: (p.appNames ?? []).join('、') || '（なし）' },
+    ]
   }
   return []
 }
@@ -110,9 +115,15 @@ const payloadRows = (r: AppRequest): { label: string; value: string }[] => {
 const applyRequest = async (r: AppRequest): Promise<void> => {
   const p = r.payload ?? {}
   if (r.type === 'kumiai_create') {
-    await createKumiai(p.groupId, { name: p.name, adminName: p.adminName })
+    const kumiaiId = await createKumiai(p.groupId, { name: p.name, adminName: p.adminName })
+    if (p.createSpace) {
+      await createSpace({ name: p.name, type: 'kumiai', groupId: p.groupId, kumiaiId }).catch(() => {})
+    }
   } else if (r.type === 'kumiai_preparatory_create') {
-    await createKumiai(p.groupId, { name: p.name, adminName: p.adminName, status: 'preparatory' })
+    const kumiaiId = await createKumiai(p.groupId, { name: p.name, adminName: p.adminName, status: 'preparatory' })
+    if (p.createSpace) {
+      await createSpace({ name: p.name, type: 'kumiai', groupId: p.groupId, kumiaiId }).catch(() => {})
+    }
   } else if (r.type === 'kumiai_promote') {
     await updateKumiai(p.groupId, p.kumiaiId, { status: 'active' })
   } else if (r.type === 'group_create') {
@@ -156,14 +167,16 @@ const applyRequest = async (r: AppRequest): Promise<void> => {
     // 組合データは残したまま解体フラグのみ設定する。以後、各種選択肢には表示されなくなる
     await updateKumiai(p.groupId, p.kumiaiId, { isDissolved: true })
   } else if (r.type === 'app_staff_add') {
-    // 承認時点の最新のstaffUidsに申請者を追加する（他の変更と競合しないよう、
-    // 申請時点ではなく承認時点でアプリを個別に取得し直す）
+    // 承認時点の最新のstaffUidsに対象者を追加する（他の変更と競合しないよう、
+    // 申請時点ではなく承認時点でアプリを個別に取得し直す）。targetUidが無い
+    // 古い申請（対象者選択を追加する前のもの）は申請者自身を対象とする
+    const targetUid: string = p.targetUid || r.requestedBy
     const appIds: string[] = p.appIds ?? []
     for (const appId of appIds) {
       const app = await fetchAppDef(appId).catch(() => null)
       if (!app) continue
-      if (app.staffUids.includes(r.requestedBy)) continue
-      await updateAppDef(appId, { staffUids: [...app.staffUids, r.requestedBy] })
+      if (app.staffUids.includes(targetUid)) continue
+      await updateAppDef(appId, { staffUids: [...app.staffUids, targetUid] })
     }
   }
 }

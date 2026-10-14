@@ -99,10 +99,10 @@ const error = ref('')
 const done = ref(false)
 
 // ── 組合の登録 ──────────────────────────────────────────────────────────
-const kumiaiCreateForm = reactive({ groupId: '', name: '', adminName: '' })
+const kumiaiCreateForm = reactive({ groupId: '', name: '', adminName: '', createSpace: true })
 
 // ── 準備室の登録（組合登録前段階。項目は組合の登録と同じ） ──────────────────
-const kumiaiPreparatoryCreateForm = reactive({ groupId: '', name: '', adminName: '' })
+const kumiaiPreparatoryCreateForm = reactive({ groupId: '', name: '', adminName: '', createSpace: true })
 
 // ── 準備室から組合への昇格 ──────────────────────────────────────────────
 const kumiaiPromoteForm = reactive({ groupId: '', kumiaiId: '' })
@@ -145,17 +145,18 @@ const dissolveKumiaiOptions = computed(() =>
 )
 watch(() => kumiaiDissolveForm.groupId, () => { kumiaiDissolveForm.kumiaiId = '' })
 
-// ── プロダクトアプリ担当者への追加（自分自身を複数アプリの担当者へ追加申請） ──
+// ── プロダクトアプリ担当者への追加（対象者を複数アプリの担当者へ追加申請。
+//    対象者は初期値として自分自身が選択されているが、他のメンバーに変更もできる） ──
 // アプリ数が多く一覧がフラットだと選びにくいため、「アプリ」一覧（services/index.vue）
 // と同じカテゴリ分類で絞り込んでから選択する
-const appStaffAddForm = reactive({ appIds: [] as string[] })
-// 既に自分が担当者になっているアプリ・AppDefが無いアプリ（固定アプリで未連携のもの）は
+const appStaffAddForm = reactive({ appIds: [] as string[], targetUid: currentUser.value?.uid ?? '' })
+// 既に対象者が担当者になっているアプリ・AppDefが無いアプリ（固定アプリで未連携のもの）は
 // 選択肢から除く（重複申請の防止・staffUidsを持たないため追加しようがないもの）
 const appStaffCandidates = computed(() =>
   appCatalog.value.filter((e) => {
     if (!e.appDefId) return false
     const def = appDefs.value.find(a => a.id === e.appDefId)
-    return !!def && def.isPublished && !def.staffUids.includes(currentUser.value?.uid ?? '')
+    return !!def && def.isPublished && !def.staffUids.includes(appStaffAddForm.targetUid)
   }),
 )
 const appStaffCategories = computed(() => {
@@ -181,6 +182,9 @@ watch(appStaffCategories, (cats) => {
 const currentAppCategoryEntries = computed(() =>
   appStaffCategories.value.find(c => c.label === selectedAppCategory.value)?.entries ?? [],
 )
+// 対象者を変更した場合、選択済みのアプリが新しい対象者に当てはまらなくなる
+// （既に担当者になっている等）ことがあるため、選択し直してもらう
+watch(() => appStaffAddForm.targetUid, () => { appStaffAddForm.appIds = [] })
 const toggleAppStaffAdd = (appDefId: string) => {
   appStaffAddForm.appIds = appStaffAddForm.appIds.includes(appDefId)
     ? appStaffAddForm.appIds.filter(id => id !== appDefId)
@@ -191,11 +195,11 @@ const appStaffAddLabel = (appDefId: string) => appCatalog.value.find(e => e.appD
 const note = ref('')
 
 const userOptions = computed(() => users.value.filter(u => !u.isWithdrawn).map(u => ({ uid: u.uid, displayName: u.displayName })))
-const adminNameSuggestions = computed(() => users.value.map(u => u.displayName).filter(Boolean))
+const adminNameSuggestions = computed(() => users.value.filter(u => !u.isWithdrawn).map(u => u.displayName).filter(Boolean))
 
 const resetForms = () => {
-  Object.assign(kumiaiCreateForm, { groupId: '', name: '', adminName: '' })
-  Object.assign(kumiaiPreparatoryCreateForm, { groupId: '', name: '', adminName: '' })
+  Object.assign(kumiaiCreateForm, { groupId: '', name: '', adminName: '', createSpace: true })
+  Object.assign(kumiaiPreparatoryCreateForm, { groupId: '', name: '', adminName: '', createSpace: true })
   Object.assign(kumiaiPromoteForm, { groupId: '', kumiaiId: '' })
   Object.assign(groupCreateForm, { name: '' })
   Object.assign(memberCreateForm, { displayName: '', email: '', groupId: '', kumiaiId: '', position: '', mainSupporterUid: '', subSupporterUid: '' })
@@ -204,6 +208,7 @@ const resetForms = () => {
   Object.assign(memberWithdrawForm, { targetUid: '' })
   Object.assign(kumiaiDissolveForm, { groupId: '', kumiaiId: '' })
   appStaffAddForm.appIds = []
+  appStaffAddForm.targetUid = currentUser.value?.uid ?? ''
   note.value = ''
   resubmitted.value = false
 }
@@ -278,7 +283,7 @@ const isValid = computed(() => {
   if (type.value === 'supporter_change') return !!supporterChangeForm.targetUid
   if (type.value === 'kumiai_member_withdraw') return !!memberWithdrawForm.targetUid
   if (type.value === 'kumiai_dissolve') return !!kumiaiDissolveForm.groupId && !!kumiaiDissolveForm.kumiaiId
-  if (type.value === 'app_staff_add') return appStaffAddForm.appIds.length > 0
+  if (type.value === 'app_staff_add') return !!appStaffAddForm.targetUid && appStaffAddForm.appIds.length > 0
   return false
 })
 
@@ -302,6 +307,7 @@ const doSubmit = async () => {
         groupName: groups.value.find(g => g.id === kumiaiCreateForm.groupId)?.name,
         name: kumiaiCreateForm.name.trim(),
         adminName: kumiaiCreateForm.adminName.trim() || undefined,
+        createSpace: kumiaiCreateForm.createSpace,
       }
     } else if (type.value === 'kumiai_preparatory_create') {
       payload = {
@@ -309,6 +315,7 @@ const doSubmit = async () => {
         groupName: groups.value.find(g => g.id === kumiaiPreparatoryCreateForm.groupId)?.name,
         name: kumiaiPreparatoryCreateForm.name.trim(),
         adminName: kumiaiPreparatoryCreateForm.adminName.trim() || undefined,
+        createSpace: kumiaiPreparatoryCreateForm.createSpace,
       }
     } else if (type.value === 'kumiai_promote') {
       const group = groups.value.find(g => g.id === kumiaiPromoteForm.groupId)
@@ -363,6 +370,8 @@ const doSubmit = async () => {
       }
     } else if (type.value === 'app_staff_add') {
       payload = {
+        targetUid: appStaffAddForm.targetUid,
+        targetName: users.value.find(u => u.uid === appStaffAddForm.targetUid)?.displayName,
         appIds: [...appStaffAddForm.appIds],
         appNames: appStaffAddForm.appIds.map(appStaffAddLabel),
       }
@@ -463,6 +472,10 @@ const doSubmit = async () => {
           <label class="block text-sm font-medium text-gray-700 mb-1.5">組合管理者名（任意）</label>
           <ComboBox v-model="kumiaiCreateForm.adminName" :items="adminNameSuggestions" placeholder="例: 山田 一郎" />
         </div>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" v-model="kumiaiCreateForm.createSpace" class="h-4 w-4 rounded text-primary-600" />
+          <span class="text-sm text-gray-700">組合の活動報告スペースも同時に作成する</span>
+        </label>
       </template>
 
       <!-- 準備室の登録 -->
@@ -482,6 +495,10 @@ const doSubmit = async () => {
           <label class="block text-sm font-medium text-gray-700 mb-1.5">組合管理者名（任意）</label>
           <ComboBox v-model="kumiaiPreparatoryCreateForm.adminName" :items="adminNameSuggestions" placeholder="例: 山田 一郎" />
         </div>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" v-model="kumiaiPreparatoryCreateForm.createSpace" class="h-4 w-4 rounded text-primary-600" />
+          <span class="text-sm text-gray-700">準備室の活動報告スペースも同時に作成する</span>
+        </label>
         <p class="text-xs text-gray-400">承認されると「準備室」ステータスで組合として登録されます。正式な組合への移行は別途「準備室から組合への昇格」を申請してください。</p>
       </template>
 
@@ -619,6 +636,12 @@ const doSubmit = async () => {
 
       <!-- プロダクトアプリ担当者への追加 -->
       <template v-else-if="type === 'app_staff_add'">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">対象者 <span class="text-red-500">*</span></label>
+          <SearchableUserSelect v-model="appStaffAddForm.targetUid" :users="userOptions" placeholder="対象者を選択..." />
+          <p class="mt-1 text-xs text-gray-400">初期値はご自身です。他のメンバーを担当者に追加したい場合は変更してください。</p>
+        </div>
+
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">
             担当者に追加してほしいアプリ <span class="text-red-500">*</span>

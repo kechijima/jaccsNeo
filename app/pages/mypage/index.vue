@@ -13,15 +13,26 @@ definePageMeta({ middleware: ['auth'] })
 
 const { user } = useCurrentUser()
 const authStore = useAuthStore()
-const { updateMyProfile } = useUsers()
+const { updateMyProfile, fetchUsers } = useUsers()
 const { uploadFile } = useStorage()
 const { fetchGroups } = useGroups()
 const { format: formatDisplayName } = useDisplayName()
 const { themeColor, ensureLoaded: ensureThemeColorLoaded, setThemeColor } = useThemeColor()
 ensureThemeColorLoaded()
 
+// 氏名欄は、空欄のまま保存すると「なし」が入ってしまう不具合の再発防止も兼ね、
+// システム管理者以外は変更できないようにする（登録時に設定された氏名を維持する）
+const canEditName = computed(() => authStore.isSystemAdmin)
+
 const groups = ref<Group[]>([])
 onMounted(async () => { groups.value = await fetchGroups().catch(() => []) })
+
+// サポート者欄の入力候補（入力ミス防止のため、自由入力の補助として組合員名を提示する）
+const supportPersonSuggestions = ref<string[]>([])
+onMounted(async () => {
+  const users = await fetchUsers().catch(() => [])
+  supportPersonSuggestions.value = users.filter(u => !u.isWithdrawn).map(u => u.displayName).filter(Boolean)
+})
 
 // ログイン中の実ユーザーを優先し、未取得時のみモックデータにフォールバックする
 const mockUser = computed(() =>
@@ -299,26 +310,27 @@ const groupLabel = computed(() => groups.value.find(g => g.id === form.groupId)?
       <template v-if="activeTab === 'basic'">
         <h2 class="font-semibold text-gray-900 border-b border-gray-100 pb-2">基本情報</h2>
         <p class="text-xs text-gray-400 -mt-3">該当がない項目は空欄のまま保存すると「なし」として登録されます</p>
+        <p v-if="!canEditName" class="text-xs text-gray-400 -mt-3">氏名の変更が必要な場合はシステム管理者にご連絡ください</p>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <!-- 氏名 -->
           <div>
             <label class="block text-xs font-medium text-gray-500 mb-1">姓（氏名）</label>
-            <input v-model="form.lastName" type="text" class="input-field text-sm" placeholder="山田" />
+            <input v-model="form.lastName" type="text" class="input-field text-sm disabled:bg-gray-50 disabled:text-gray-400" placeholder="山田" :disabled="!canEditName" />
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-500 mb-1">名（氏名）</label>
-            <input v-model="form.firstName" type="text" class="input-field text-sm" placeholder="太郎" />
+            <input v-model="form.firstName" type="text" class="input-field text-sm disabled:bg-gray-50 disabled:text-gray-400" placeholder="太郎" :disabled="!canEditName" />
           </div>
 
           <!-- よみがな -->
           <div>
             <label class="block text-xs font-medium text-gray-500 mb-1">姓（よみがな）</label>
-            <input v-model="form.lastNameKana" type="text" class="input-field text-sm" placeholder="ヤマダ" />
+            <input v-model="form.lastNameKana" type="text" class="input-field text-sm disabled:bg-gray-50 disabled:text-gray-400" placeholder="ヤマダ" :disabled="!canEditName" />
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-500 mb-1">名（よみがな）</label>
-            <input v-model="form.firstNameKana" type="text" class="input-field text-sm" placeholder="タロウ" />
+            <input v-model="form.firstNameKana" type="text" class="input-field text-sm disabled:bg-gray-50 disabled:text-gray-400" placeholder="タロウ" :disabled="!canEditName" />
           </div>
 
           <!-- 連絡先 -->
@@ -403,7 +415,7 @@ const groupLabel = computed(() => groups.value.find(g => g.id === form.groupId)?
         <div class="grid grid-cols-1 gap-4">
           <div>
             <label class="block text-xs font-medium text-gray-500 mb-1">サポート者</label>
-            <input v-model="form.supportPerson" type="text" class="input-field text-sm" placeholder="上司・サポート担当者名" />
+            <ComboBox v-model="form.supportPerson" :items="supportPersonSuggestions" placeholder="サポート担当者名" />
           </div>
 
           <div>

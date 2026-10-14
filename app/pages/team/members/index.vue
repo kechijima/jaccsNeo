@@ -5,11 +5,14 @@ import { DIRECTOR_ROLE_LABELS } from '~/types/directorIndex'
 import { useGroups } from '~/composables/useGroups'
 import { useGroupLabels } from '~/composables/useGroupLabels'
 import { useDisplayName } from '~/composables/useDisplayName'
+import { useSpecialTeams } from '~/composables/useSpecialTeams'
+import type { SpecialTeamDef } from '~/types/specialTeam'
 
 definePageMeta({ middleware: ['auth'] })
 
 const { fetchUsers } = useUsers()
 const { fetchGroups } = useGroups()
+const { fetchAll: fetchSpecialTeams } = useSpecialTeams()
 const { getGroupColor, getGroupBadgeClass, ensureLoaded: ensureGroupLabelsLoaded } = useGroupLabels()
 const { format: formatDisplayName } = useDisplayName()
 const { user } = useCurrentUser()
@@ -45,6 +48,7 @@ interface MemberRow {
   kumiaiName?: string
   planLabel?: string
   groupId?: string
+  specialTeams: string[]
 }
 
 interface KumaiRow {
@@ -66,6 +70,8 @@ const error = ref('')
 
 const searchQuery = ref('')
 const expandedGroups = ref<string[]>([])
+const specialTeams = ref<SpecialTeamDef[]>([])
+const selectedSpecialTeam = ref('')
 
 const toggleGroup = (id: string) => {
   if (expandedGroups.value.includes(id)) {
@@ -76,8 +82,8 @@ const toggleGroup = (id: string) => {
   }
 }
 
-// 検索中はヒットしたメンバーが折りたたまれて見えなくならないよう、常に展開扱いにする
-const isGroupExpanded = (id: string) => searchQuery.value.trim() !== '' || expandedGroups.value.includes(id)
+// 検索・専門チーム絞り込み中はヒットしたメンバーが折りたたまれて見えなくならないよう、常に展開扱いにする
+const isGroupExpanded = (id: string) => searchQuery.value.trim() !== '' || !!selectedSpecialTeam.value || expandedGroups.value.includes(id)
 
 const toMemberRow = (u: AppUser, groupId?: string): MemberRow => ({
   uid: u.uid,
@@ -92,6 +98,7 @@ const toMemberRow = (u: AppUser, groupId?: string): MemberRow => ({
   kumiaiName: u.kumiaiName,
   planLabel: u.position,
   groupId,
+  specialTeams: u.specialTeams ?? [],
 })
 
 onMounted(async () => {
@@ -101,11 +108,13 @@ onMounted(async () => {
   error.value = ''
   try {
     // 脱退済みの組合員はメンバー一覧に表示しない
-    const [allUsers, groupDefs] = await Promise.all([
+    const [allUsers, groupDefs, , fetchedTeams] = await Promise.all([
       fetchUsers(),
       fetchGroups(),
       ensureGroupLabelsLoaded(),
+      fetchSpecialTeams().catch(() => []),
     ])
+    specialTeams.value = fetchedTeams
     const users = allUsers.filter(u => !u.isWithdrawn)
 
     const built: GroupRow[] = []
@@ -169,15 +178,22 @@ onMounted(async () => {
   }
 })
 
-// 名前で検索（グループ・組合の階層構造は保ったまま、一致するメンバーのみに絞り込む）
+// 名前・専門チームで検索（グループ・組合の階層構造は保ったまま、一致するメンバーのみに絞り込む）
 const filteredGroups = computed<GroupRow[]>(() => {
   const q = searchQuery.value.trim().toLowerCase()
-  if (!q) return groups.value
+  const team = selectedSpecialTeam.value
+  if (!q && !team) return groups.value
   return groups.value
     .map(g => ({
       ...g,
       kumiais: g.kumiais
-        .map(k => ({ ...k, members: k.members.filter(m => m.name.toLowerCase().includes(q)) }))
+        .map(k => ({
+          ...k,
+          members: k.members.filter(m =>
+            (!q || m.name.toLowerCase().includes(q)) &&
+            (!team || m.specialTeams.includes(team)),
+          ),
+        }))
         .filter(k => k.members.length > 0),
     }))
     .filter(g => g.kumiais.length > 0)
@@ -264,9 +280,15 @@ const filteredGroups = computed<GroupRow[]>(() => {
     <!-- 一覧 -->
     <template v-if="viewMode === 'list'">
     <!-- 検索 -->
-    <div class="relative">
-      <Icon name="heroicons:magnifying-glass" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-      <input v-model="searchQuery" type="search" placeholder="名前で検索..." class="input-field pl-9" />
+    <div class="flex gap-2">
+      <div class="relative flex-1">
+        <Icon name="heroicons:magnifying-glass" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <input v-model="searchQuery" type="search" placeholder="名前で検索..." class="input-field pl-9" />
+      </div>
+      <select v-if="specialTeams.length > 0" v-model="selectedSpecialTeam" class="input-field w-auto shrink-0 text-sm">
+        <option value="">専門チーム: すべて</option>
+        <option v-for="t in specialTeams" :key="t.id" :value="t.id">{{ t.name }}</option>
+      </select>
     </div>
 
     <!-- 読み込み中 -->

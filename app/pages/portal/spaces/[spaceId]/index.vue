@@ -696,31 +696,5 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
       </div>
     </main>
 
-    <!-- 右サイドバー：ピープル -->
-    <aside class="w-48 shrink-0 bg-white border-l border-gray-200 p-3 space-y-3 hidden lg:block">
-      <div class="flex items-center justify-between">
-        <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">メンバー</span>
-        <span class="text-xs text-gray-400">{{ space.memberCount }}名</span>
-      </div>
-      <!-- アバターグリッド -->
-      <p v-if="resolvedMembers.length === 0" class="text-xs text-gray-300">メンバーが設定されていません</p>
-      <div class="grid grid-cols-3 gap-1.5">
-        <div
-          v-for="u in resolvedMembers"
-          :key="u.uid"
-          class="flex flex-col items-center gap-0.5"
-          :title="u.displayName"
-        >
-          <div
-            class="h-10 w-10 rounded-full flex items-center justify-center text-white text-sm font-semibold"
-            :class="getGroupColor(u.groupId)"
-          >
-            {{ u.displayName.charAt(0) }}
-          </div>
-          <span class="text-[10px] text-gray-500 leading-tight text-center line-clamp-1 w-full">{{ u.lastName }}</span>
-        </div>
-      </div>
-    </aside>
-
   </div>
 </template>

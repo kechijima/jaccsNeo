@@ -46,13 +46,13 @@ const navItems = computed(() => [
   { label: 'パーソナルデータ', icon: 'heroicons:identification',         to: '/personal-data' },
   { label: 'プロダクトアプリ', icon: 'heroicons:squares-2x2',            to: '/services' },
   { label: '活動報告',         icon: 'heroicons:chat-bubble-left-right', to: '/portal' },
+  { label: '業務ツールアプリ', icon: 'heroicons:wrench-screwdriver',     to: '/tools' },
   { label: 'カレンダー',       icon: 'heroicons:calendar-days',          to: '/events' },
   { label: 'リマインダー',     icon: 'heroicons:bell-alert',             to: '/reminders' },
   ...(authStore.user?.role !== 'general'
     ? [{ label: 'チーム', icon: 'heroicons:chart-bar', to: '/team' }]
     : []),
   { label: 'メンバー一覧',     icon: 'heroicons:users',                  to: '/team/members' },
-  { label: '業務ツールアプリ', icon: 'heroicons:wrench-screwdriver',     to: '/tools' },
   { label: '申請',             icon: 'heroicons:document-check',         to: '/requests' },
 ])
 
