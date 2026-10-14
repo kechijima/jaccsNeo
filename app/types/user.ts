@@ -10,7 +10,7 @@ export type SpecialTeam = string
 export const TITLE_OPTIONS = [
   'Sプラン', 'Bプラン',
   'EM1', 'EM2', 'EM3', 'EM4',
-  'PM1', 'PM3', 'PM6', 'PM9', 'PM12',
+  'PM1', 'PM3', 'PM6', 'PM12',
   'MM1', 'MM2', 'MM3', 'MM4', 'MM5', 'MM6',
 ] as const
 
