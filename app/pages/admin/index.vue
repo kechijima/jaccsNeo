@@ -51,48 +51,10 @@ const adminMenus = [
     description: 'ログイン・削除・承認・権限変更・CSV出力などの重要操作の履歴',
     color: 'text-gray-600 bg-gray-100',
   },
-  {
-    to: '/admin/restricted',
-    icon: 'heroicons:lock-closed',
-    label: '制限コンテンツ（JACCS等）',
-    description: '管理者専用コンテンツの管理・アクセスログ',
-    color: 'text-red-600 bg-red-50',
-  },
-  {
-    to: '/admin/import',
-    icon: 'heroicons:arrow-up-tray',
-    label: 'CSVインポート管理',
-    description: 'kintoneデータのバッチインポート・履歴',
-    color: 'text-green-600 bg-green-50',
-  },
-  {
-    to: '/admin/seed',
-    icon: 'heroicons:beaker',
-    label: 'サンプルデータ投入',
-    description: 'デモ・動作確認用の顧客データをFirestoreに投入',
-    color: 'text-amber-600 bg-amber-50',
-  },
-  {
-    to: '/admin/seed-life-insurance',
-    icon: 'heroicons:shield-check',
-    label: '生命保険データ投入',
-    description: 'kintoneインポート済みの生命保険案件データをFirestoreへ一括投入',
-    color: 'text-sky-600 bg-sky-50',
-  },
-  {
-    to: '/admin/seed-spaces',
-    icon: 'heroicons:chat-bubble-left-right',
-    label: 'スペースデータ投入',
-    description: '全体スペース・Reteraceグループ活動報告など既存の掲示板データをFirestoreへ一括投入',
-    color: 'text-indigo-600 bg-indigo-50',
-  },
-  {
-    to: '/admin/seed-director-index',
-    icon: 'heroicons:magnifying-glass',
-    label: 'ディレクター検索インデックス投入',
-    description: 'ディレクター×組合×役割ごとの担当メンバー検索インデックスをFirestoreへ一括投入',
-    color: 'text-cyan-600 bg-cyan-50',
-  },
+  // 「制限コンテンツ（JACCS等）」「CSVインポート管理」「サンプルデータ投入」
+  // 「生命保険データ投入」「スペースデータ投入」「ディレクター検索インデックス投入」は
+  // 開発・初期データ投入用のメニューのため、運用開始に伴いメニューから非表示にした
+  // （画面自体は削除していないため、必要時はURLを直接指定すればアクセス可能）
 ]
 
 const { fetchUsers } = useUsers()

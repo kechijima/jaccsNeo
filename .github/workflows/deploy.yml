@@ -40,3 +40,16 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           channelId: live
           projectId: jaccsneo
+
+      - name: Install functions dependencies
+        run: npm install --prefix functions
+
+      # Hosting用に渡しているサービスアカウントの認証情報(FIREBASE_SERVICE_ACCOUNT)を
+      # ファイルへ書き出し、Cloud Functionsのデプロイ認証にも再利用する
+      - name: Write service account credentials
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > ${{ runner.temp }}/firebase-service-account.json
+
+      - name: Deploy Cloud Functions
+        run: npx firebase-tools@13 deploy --only functions --project jaccsneo --non-interactive
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-service-account.json

@@ -62,7 +62,7 @@ const actionColor = (action: OperationLogAction) => {
 
     <div>
       <h1 class="text-xl font-bold text-gray-900">操作ログ</h1>
-      <p class="text-sm text-gray-500 mt-0.5">ログイン・削除・承認・権限変更・CSV出力などの重要操作の履歴（直近300件）</p>
+      <p class="text-sm text-gray-500 mt-0.5">ログイン・削除・承認・権限変更・CSV出力などの重要操作の履歴（直近2000件）</p>
     </div>
 
     <div class="flex items-center gap-2 flex-wrap">

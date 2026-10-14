@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { MOCK_MONTHLY_NEW_CLIENTS } from '~/data/mock'
 import { useTeamStats } from '~/composables/useTeamStats'
 import type { FpRankingRow } from '~/composables/useTeamStats'
 
@@ -9,8 +8,12 @@ const { canViewGlobalDashboard } = usePermission()
 
 const currentMonth = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long' })
 
-const { loading: statsLoading, groupStats, serviceRanking, fpRanking, load: loadTeamStats } = useTeamStats()
-if (canViewGlobalDashboard.value) await loadTeamStats()
+const { loading: statsLoading, groupStats, serviceRanking, fpRanking, monthlyTrend, load: loadTeamStats, myStats, myStatsLoading, loadMyStats } = useTeamStats()
+if (canViewGlobalDashboard.value) {
+  await loadTeamStats()
+} else {
+  await loadMyStats()
+}
 
 const fpRankingWithBadge = computed(() =>
   fpRanking.value.map((fp, i) => ({
@@ -22,20 +25,18 @@ const fpRankingWithBadge = computed(() =>
 
 const maxServicePostCount = computed(() => Math.max(1, ...serviceRanking.value.map(s => s.postCount)))
 
-// 個人KPI（一般FP）
-const myKpis = ref([
-  { label: '今月の活動数',   value: 24, unit: '件', icon: 'heroicons:clipboard-document-list', color: 'bg-blue-50 text-blue-700' },
-  { label: '今月の成約数',   value: 8,  unit: '件', icon: 'heroicons:trophy',                  color: 'bg-green-50 text-green-700' },
-  { label: '目標達成率',     value: 80, unit: '%',  icon: 'heroicons:chart-bar',               color: 'bg-purple-50 text-purple-700' },
-  { label: '今月の紹介獲得', value: 3,  unit: '件', icon: 'heroicons:share',                   color: 'bg-amber-50 text-amber-700' },
+// 個人KPI（一般FP。当月の実績をFirestoreの実データから集計したもの）
+const myKpis = computed(() => [
+  { label: '今月の活動数',   value: myStats.value.activityCount, unit: '件', icon: 'heroicons:clipboard-document-list', color: 'bg-blue-50 text-blue-700' },
+  { label: '今月の成約数',   value: myStats.value.contractCount, unit: '件', icon: 'heroicons:trophy',                  color: 'bg-green-50 text-green-700' },
+  { label: '今月の紹介獲得', value: myStats.value.referralCount, unit: '件', icon: 'heroicons:share',                   color: 'bg-amber-50 text-amber-700' },
 ])
 
 // ── FP詳細スライドオーバー ────────────────────────────────────────────
 const selectedFp = ref<(FpRankingRow & { rank: number; badge: string }) | null>(null)
 
-// ── 新規顧客獲得推移グラフ ────────────────────────────────────────────
-const maxTotal = computed(() => Math.max(...MOCK_MONTHLY_NEW_CLIENTS.map(m => m.total)))
-const groupColors = { reterace: '#6366f1', miraito: '#0ea5e9', asset: '#f59e0b' }
+// ── 新規顧客獲得推移グラフ（直近6ヶ月・グループ別、実データ集計） ────────
+const maxTotal = computed(() => Math.max(1, ...monthlyTrend.value.map(m => m.total)))
 </script>
 
 <template>
@@ -144,24 +145,28 @@ const groupColors = { reterace: '#6366f1', miraito: '#0ea5e9', asset: '#f59e0b' 
         </h2>
 
         <!-- 凡例 -->
-        <div class="flex items-center gap-5 mb-4 text-xs text-gray-500">
-          <span class="flex items-center gap-1.5"><span class="inline-block h-2.5 w-2.5 rounded-sm bg-indigo-400" />Reterace</span>
-          <span class="flex items-center gap-1.5"><span class="inline-block h-2.5 w-2.5 rounded-sm bg-sky-400" />Miraito</span>
-          <span class="flex items-center gap-1.5"><span class="inline-block h-2.5 w-2.5 rounded-sm bg-amber-400" />Asset</span>
+        <div v-if="groupStats.length > 0" class="flex items-center gap-5 mb-4 text-xs text-gray-500 flex-wrap">
+          <span v-for="g in groupStats" :key="g.id" class="flex items-center gap-1.5">
+            <span class="inline-block h-2.5 w-2.5 rounded-sm" :class="g.color" />{{ g.label }}
+          </span>
         </div>
 
         <!-- バーチャート -->
-        <div class="flex items-end gap-3 h-40">
+        <div v-if="monthlyTrend.length > 0" class="flex items-end gap-3 h-40">
           <div
-            v-for="m in MOCK_MONTHLY_NEW_CLIENTS"
+            v-for="m in monthlyTrend"
             :key="m.month"
             class="flex-1 flex flex-col items-center gap-0.5"
           >
             <!-- 積み上げバー -->
-            <div class="w-full flex flex-col-reverse gap-px" :style="{ height: `${(m.total / maxTotal) * 130}px` }">
-              <div class="w-full bg-indigo-400 rounded-b-sm" :style="{ flex: m.reterace }" />
-              <div class="w-full bg-sky-400"    :style="{ flex: m.miraito }" />
-              <div class="w-full bg-amber-400 rounded-t-sm" :style="{ flex: m.asset }" />
+            <div class="w-full flex flex-col-reverse gap-px rounded-sm overflow-hidden" :style="{ height: `${(m.total / maxTotal) * 130}px` }">
+              <div
+                v-for="g in groupStats"
+                :key="g.id"
+                class="w-full"
+                :class="g.color"
+                :style="{ flex: m.byGroup[g.id] ?? 0 }"
+              />
             </div>
             <!-- 合計ラベル -->
             <p class="text-[10px] font-semibold text-gray-600">{{ m.total }}</p>
@@ -169,6 +174,7 @@ const groupColors = { reterace: '#6366f1', miraito: '#0ea5e9', asset: '#f59e0b' 
             <p class="text-[11px] text-gray-400">{{ m.month }}</p>
           </div>
         </div>
+        <p v-else class="text-sm text-gray-400 text-center py-6">データがありません</p>
       </div>
 
     </template>
@@ -187,36 +193,6 @@ const groupColors = { reterace: '#6366f1', miraito: '#0ea5e9', asset: '#f59e0b' 
             <span class="inline-flex items-center justify-center h-8 w-8 rounded-lg" :class="kpi.color">
               <Icon :name="kpi.icon" class="h-4 w-4" />
             </span>
-          </div>
-        </div>
-      </div>
-
-      <div class="card p-5">
-        <h2 class="font-semibold text-gray-900 mb-4">今月の目標達成状況</h2>
-        <div class="space-y-4">
-          <div>
-            <div class="flex justify-between text-sm mb-1.5">
-              <span class="text-gray-600">成約数</span><span class="font-semibold text-gray-900">8 / 10件</span>
-            </div>
-            <div class="h-3 w-full rounded-full bg-gray-100">
-              <div class="h-3 rounded-full bg-green-400" style="width: 80%" />
-            </div>
-          </div>
-          <div>
-            <div class="flex justify-between text-sm mb-1.5">
-              <span class="text-gray-600">新規顧客</span><span class="font-semibold text-gray-900">3 / 5件</span>
-            </div>
-            <div class="h-3 w-full rounded-full bg-gray-100">
-              <div class="h-3 rounded-full bg-blue-400" style="width: 60%" />
-            </div>
-          </div>
-          <div>
-            <div class="flex justify-between text-sm mb-1.5">
-              <span class="text-gray-600">活動件数</span><span class="font-semibold text-gray-900">24 / 30件</span>
-            </div>
-            <div class="h-3 w-full rounded-full bg-gray-100">
-              <div class="h-3 rounded-full bg-purple-400" style="width: 80%" />
-            </div>
           </div>
         </div>
       </div>

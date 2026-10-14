@@ -43,6 +43,13 @@ export const useReferrals = () => {
     return snap.docs.map(d => toReferral(d.id, d.data()))
   }
 
+  // ===== 指定ユーザーが登録した紹介関係一覧（チームダッシュボードの個人実績用） =====
+  const fetchReferralsByUser = async (uid: string): Promise<Referral[]> => {
+    const q = query(referralsCol(), where('createdBy', '==', uid))
+    const snap = await getDocs(q)
+    return snap.docs.map(d => toReferral(d.id, d.data()))
+  }
+
   // ===== 紹介関係を登録 =====
   const createReferral = async (
     fromCustomerId: string,
@@ -70,6 +77,7 @@ export const useReferrals = () => {
   return {
     fetchReferredBy,
     fetchReferredTo,
+    fetchReferralsByUser,
     createReferral,
     deleteReferral,
   }

@@ -62,7 +62,6 @@ const spaces = computed(() => {
 
 const activeCount    = computed(() => allSpaces.value.filter(s => !s.isArchived).length)
 const archivedCount  = computed(() => allSpaces.value.filter(s => s.isArchived).length)
-const memberCount    = (s: Space) => s.memberUids?.length ?? 0
 
 // ── アーカイブ切り替え ────────────────────────────────────────────────
 const togglingId = ref<string | null>(null)
@@ -146,14 +145,13 @@ const toggleArchive = async (id: string) => {
               <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">スペース名</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">種別</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">説明</th>
-              <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 whitespace-nowrap">メンバー</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">状態</th>
               <th class="px-4 py-3" />
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-50">
             <tr v-if="spaces.length === 0">
-              <td colspan="6" class="py-12 text-center text-gray-400">
+              <td colspan="5" class="py-12 text-center text-gray-400">
                 <Icon name="heroicons:chat-bubble-left-right" class="h-10 w-10 mx-auto mb-2 text-gray-200" />
                 条件に一致するスペースがありません
               </td>
@@ -177,7 +175,6 @@ const toggleArchive = async (id: string) => {
                 </span>
               </td>
               <td class="px-4 py-3 text-gray-500 text-xs max-w-[220px] truncate">{{ space.description || '—' }}</td>
-              <td class="px-4 py-3 text-center text-gray-600 whitespace-nowrap">{{ memberCount(space) }}名</td>
               <td class="px-4 py-3 whitespace-nowrap">
                 <span class="badge text-xs" :class="space.isArchived ? 'bg-gray-100 text-gray-500' : 'bg-green-100 text-green-700'">
                   {{ space.isArchived ? 'アーカイブ' : 'アクティブ' }}

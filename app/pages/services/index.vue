@@ -2,7 +2,6 @@
 import { APP_CATEGORY_DEFS, APP_CATEGORY_LIST } from '~/types/service'
 import type { ServiceCase } from '~/types/service'
 import { useCustomerStore } from '~/composables/useCustomerStore'
-import { useAppServices } from '~/composables/useAppServices'
 import { useAppCatalog } from '~/composables/useAppCatalog'
 import { useLifeInsuranceCases } from '~/composables/useLifeInsuranceCases'
 import { useServices } from '~/composables/useServices'
@@ -12,39 +11,34 @@ import type { AppCatalogEntry } from '~/composables/useAppCatalog'
 definePageMeta({ middleware: ['auth'] })
 
 const { customers, ensureLoaded: ensureCustomersLoaded } = useCustomerStore()
-const { countForType } = useAppServices()
 const { cases: liCases, fetchAll: fetchLiCases } = useLifeInsuranceCases()
 const { catalog, ensureLoaded: ensureCatalogLoaded } = useAppCatalog()
 const { fetchAllCases } = useServices()
 
+// 案件数は実際の案件レコード（customers/{id}/services/{type}/cases サブコレクション、
+// 生命保険のみ専用のlifeInsuranceCasesコレクション）の件数で統一する
+const allCases = ref<ServiceCase[]>([])
 await Promise.all([fetchLiCases(), ensureCustomersLoaded(), ensureCatalogLoaded()])
-
-// 新規作成された（固定18アプリに紐づかない）アプリの件数は、実際の案件データから集計する
-const customCases = ref<ServiceCase[]>([])
-if (catalog.value.some(e => e.isCustom)) {
-  customCases.value = await fetchAllCases()
-}
+allCases.value = await fetchAllCases()
 
 const { isFavoriteApp, toggleFavoriteApp, ensureLoaded: ensureFavoritesLoaded } = useFavorites()
 ensureFavoritesLoaded()
 
-// ── カウント計算（生命保険はFirestore連動の専用案件数、固定アプリはパーソナルデータの
-// サービス項目、新規作成アプリは実際の案件データから集計） ──
+// ── カウント計算（生命保険はFirestore連動の専用案件数、それ以外は実際の案件レコード数） ──
 const getCount = (entry: AppCatalogEntry) => {
   if (entry.key === 'lifeInsurance') return liCases.value.length
-  if (entry.isCustom) return customCases.value.filter(c => c.serviceType === entry.key).length
-  return countForType(entry.key)
+  return allCases.value.filter(c => c.serviceType === entry.key).length
 }
 
 // ── サマリー ──────────────────────────────────────────────────────────
-const totalCases = computed(() =>
-  customers.value.reduce((sum, c) => sum + Object.keys(c.services ?? {}).length, 0)
-  + customCases.value.length,
-)
+const totalCases = computed(() => liCases.value.length + allCases.value.length)
 
-const customersWithCases = computed(() =>
-  customers.value.filter(c => Object.keys(c.services ?? {}).length > 0).length,
-)
+const customersWithCases = computed(() => {
+  const ids = new Set<string>()
+  for (const c of liCases.value) ids.add(c.customerId)
+  for (const c of allCases.value) ids.add(c.customerId)
+  return ids.size
+})
 
 // ── カテゴリ別グルーピング（アプリ管理で設定したカテゴリに基づく） ──────
 const categories = computed(() => {

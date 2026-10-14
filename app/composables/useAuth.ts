@@ -12,6 +12,22 @@ import { toAppUser } from '~/utils/userMapper'
 import { useOperationLog } from '~/composables/useOperationLog'
 import { markWasLoggedIn } from '~/utils/wasLoggedIn'
 
+// ブラウザタブを閉じるまでのセッション内で、同一ユーザーの「ログイン」操作ログを
+// 二重記録しないためのキー。明示的なログイン（login()）とセッション復元
+// （initAuth()のonAuthStateChanged）の両方から呼ばれ得るため、先に呼ばれた方だけが
+// 記録しsessionStorageに印を付ける
+const SESSION_LOG_KEY = 'jaccsneo:sessionLoggedUid'
+const logSessionStartOnce = (uid: string, detail?: string) => {
+  try {
+    if (sessionStorage.getItem(SESSION_LOG_KEY) === uid) return
+    sessionStorage.setItem(SESSION_LOG_KEY, uid)
+  } catch {
+    // sessionStorageが使えない環境（プライベートブラウズ等）では重複記録の
+    // リスクより記録漏れを避ける方を優先し、そのまま記録を試みる
+  }
+  useOperationLog().log('login', detail).catch(() => {})
+}
+
 export const useAuth = () => {
   const authStore = useAuthStore()
   const router = useRouter()
@@ -120,6 +136,12 @@ export const useAuth = () => {
             } else {
               authStore.setUser(user)
               markWasLoggedIn(!!user)
+              // セッション復元（F5更新・ブラウザ再起動後の自動ログイン状態維持）では
+              // 明示的なlogin()が呼ばれないため、ここで記録しないと「ログインしている
+              // はずなのに操作ログに出てこない」ユーザーが発生する（セッションが
+              // 長期間維持され、再度パスワード入力でログインし直す機会が少ないほど
+              // 顕著）。タブを開いている間は1回のみ記録する
+              logSessionStartOnce(user.uid, 'セッション復元')
             }
           } else {
             authStore.setUser(null)
@@ -156,7 +178,7 @@ export const useAuth = () => {
       authStore.setUser(user)
       authStore.setConfirmed(true)
       markWasLoggedIn(true)
-      useOperationLog().log('login').catch(() => {})
+      logSessionStartOnce(user.uid)
       const redirect = route.query.redirect
       const target = typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//')
         ? redirect

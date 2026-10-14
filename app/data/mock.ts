@@ -91,15 +91,6 @@ export const MOCK_EVENTS = [
   { id: 'ev004', title: 'Reteraceグループ定例',      startAt: ts(3),  scope: 'group', location: 'Zoom' },
   { id: 'ev005', title: '第1組合 勉強会',            startAt: ts(10), scope: 'kumiai', location: '組合会館' },
 ]
-// ─── チーム：新規顧客獲得推移 ─────────────────────────────────────────────────
-export const MOCK_MONTHLY_NEW_CLIENTS = [
-  { month: '11月', reterace: 8,  miraito: 5, asset: 4, total: 17 },
-  { month: '12月', reterace: 6,  miraito: 7, asset: 3, total: 16 },
-  { month: '1月',  reterace: 9,  miraito: 6, asset: 5, total: 20 },
-  { month: '2月',  reterace: 7,  miraito: 8, asset: 6, total: 21 },
-  { month: '3月',  reterace: 11, miraito: 7, asset: 7, total: 25 },
-  { month: '4月',  reterace: 5,  miraito: 4, asset: 3, total: 12 },
-]
 
 // ─── チーム：FP詳細 ───────────────────────────────────────────────────────────
 export const MOCK_FP_DETAILS = [

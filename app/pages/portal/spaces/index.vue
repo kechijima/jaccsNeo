@@ -1,20 +1,12 @@
 <script setup lang="ts">
 import { usePortalStore } from '~/composables/usePortalStore'
-import { useUsers } from '~/composables/useUsers'
-import { resolveSpaceMembers } from '~/composables/useSpaces'
 import { useFavorites } from '~/composables/useFavorites'
-import type { AppUser } from '~/types/user'
 
 definePageMeta({ middleware: ['auth'] })
 
 const store = usePortalStore()
-const { fetchUsers } = useUsers()
 // 閲覧条件（minTitleLevel）の変更を確実に反映するため、常に最新状態を取得する
 await store.fetchSpaces(true)
-const allUsers = ref<AppUser[]>([])
-onMounted(async () => {
-  allUsers.value = await fetchUsers().catch(() => [])
-})
 
 const { isFavoriteSpace, toggleFavoriteSpace, ensureLoaded: ensureFavoritesLoaded } = useFavorites()
 ensureFavoritesLoaded()
@@ -40,7 +32,6 @@ const spaceGroups = computed(() => {
     groupMap.get(key)!.push({
       id:          s.id,
       name:        s.name,
-      memberCount: resolveSpaceMembers(s, allUsers.value).length,
       description: s.description ? stripHtml(s.description) : '',
       isPinned:    s.isPinned,
       headerImage: s.headerImage,
@@ -112,7 +103,6 @@ const filteredSpaces = computed(() => {
             </div>
             <div>
               <p class="text-base font-semibold text-gray-900">{{ space.name }}</p>
-              <p class="text-xs text-gray-400">{{ space.memberCount }}名</p>
             </div>
           </div>
           <div class="flex items-center gap-2 shrink-0">
@@ -164,7 +154,6 @@ const filteredSpaces = computed(() => {
                   <p class="text-base font-semibold text-gray-900 truncate">{{ space.name }}</p>
                   <Icon v-if="space.isPinned" name="heroicons:bookmark-solid" class="h-3 w-3 text-primary-500 shrink-0" />
                 </div>
-                <p class="text-xs text-gray-400">{{ space.memberCount }}名</p>
               </div>
             </div>
             <div class="flex items-center gap-2 shrink-0">

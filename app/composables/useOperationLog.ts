@@ -81,7 +81,7 @@ export const useOperationLog = () => {
     }
   }
 
-  const fetchRecent = async (count = 300): Promise<OperationLogEntry[]> => {
+  const fetchRecent = async (count = 2000): Promise<OperationLogEntry[]> => {
     const snap = await getDocs(query(logsCol(), orderBy('createdAt', 'desc'), limit(count)))
     return snap.docs.map(d => toEntry(d.id, d.data()))
   }

@@ -160,10 +160,18 @@ const spaceColorMap: Record<string, string> = {
   event:   'bg-sky-100 text-sky-700',
 }
 
-// 参加スペースが多いと一覧が長くなり見づらいため、サイドバーにはお気に入り・
-// 更新順（最後に投稿があった日時）を優先して上位5件のみ表示する。全件は
-// 下部の「すべてのスペースを表示」リンクから一覧画面（/portal/spaces）で見られる
-const SIDEBAR_SPACE_LIMIT = 5
+// サイドバーの「参加スペース」には、各グループの活動報告・理事会報告スペースと
+// 中央理事会報告の7つを固定で表示する（スペース名で一致させる）。全件は下部の
+// 「すべてのスペースを表示」リンクから一覧画面（/portal/spaces）で見られる
+const FIXED_SIDEBAR_SPACE_NAMES = [
+  'Reteraceグループ活動報告',
+  'Miraitoグループ活動報告',
+  'Assetグループ活動報告',
+  'Reteraceグループ理事会報告',
+  'Miraitoグループ理事会報告',
+  'Assetグループ理事会報告',
+  '中央理事会報告',
+]
 const allSpaces = computed(() => {
   const decorated = store.spaces.value.map(s => ({
     id:          s.id,
@@ -171,17 +179,11 @@ const allSpaces = computed(() => {
     postCount:   s.postCount ?? 0,
     color:       spaceColorMap[s.type] ?? 'bg-indigo-100 text-indigo-700',
     headerImage: s.headerImage,
-    sortTime:    (s.lastPostAt ?? s.updatedAt)?.toMillis?.() ?? 0,
   }))
-  return decorated
-    .slice()
-    .sort((a, b) => {
-      const aFav = isFavoriteSpace(a.id) ? 1 : 0
-      const bFav = isFavoriteSpace(b.id) ? 1 : 0
-      if (aFav !== bFav) return bFav - aFav
-      return b.sortTime - a.sortTime
-    })
-    .slice(0, SIDEBAR_SPACE_LIMIT)
+  const byName = new Map(decorated.map(s => [s.name, s]))
+  return FIXED_SIDEBAR_SPACE_NAMES
+    .map(name => byName.get(name))
+    .filter((s): s is typeof decorated[number] => !!s)
 })
 
 // ── 近日のイベント（DBから取得） ───────────────────────────────────────

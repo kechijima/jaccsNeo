@@ -1,49 +1,40 @@
-import type { Customer } from '~/types/customer'
-import { useCustomerStore } from './useCustomerStore'
-
-// アプリのサービスキー → 顧客データ(CSV由来)のservicesフィールド対応
-const SERVICE_KEY_ALIAS: Record<string, string> = {
-  hikari: 'pikaraHikari',
-}
+import type { ServiceCase } from '~/types/service'
+import { useServices } from './useServices'
 
 export interface DerivedCase {
   id: string
   customerId: string
-  customerName: string
-  customerNameKana: string
   status: string
-  assignedFpName: string
-  updatedAt: Date | { toDate: () => Date }
+  updatedAt: ServiceCase['updatedAt']
 }
 
+// アプリごとの実際の案件レコード（customers/{id}/services/{type}/cases）は
+// 画面間で何度も参照されるため、セッション内で一度だけ取得してキャッシュする
+const allCases = useState<ServiceCase[]>('appServices:allCases', () => [])
+const loaded = useState<boolean>('appServices:loaded', () => false)
+
 export const useAppServices = () => {
-  const { customers, ensureLoaded } = useCustomerStore()
+  const { fetchAllCases } = useServices()
 
-  const resolveKey = (serviceType: string) => SERVICE_KEY_ALIAS[serviceType] ?? serviceType
+  const ensureLoaded = async (force = false) => {
+    if (loaded.value && !force) return
+    allCases.value = await fetchAllCases()
+    loaded.value = true
+  }
 
-  // 指定サービスに対応データを持つ顧客一覧（パーソナルデータ → アプリ連動）
-  const getCasesForType = (serviceType: string): DerivedCase[] => {
-    const key = resolveKey(serviceType)
-    return customers.value
-      .filter(c => (c.services as any)?.[key])
+  // 指定サービスタイプの実際の案件一覧
+  const getCasesForType = (serviceType: string): DerivedCase[] =>
+    allCases.value
+      .filter(c => c.serviceType === serviceType)
       .map(c => ({
-        id:               `${c.id}-${key}`,
-        customerId:       c.id,
-        customerName:     c.name,
-        customerNameKana: c.nameKana ?? '',
-        status:           (c.services as any)[key] as string,
-        assignedFpName:   c.assignedFpName ?? '',
-        updatedAt:        c.updatedAt,
+        id:         c.id,
+        customerId: c.customerId,
+        status:     c.status,
+        updatedAt:  c.updatedAt,
       }))
-  }
 
-  const countForType = (serviceType: string) => {
-    const key = resolveKey(serviceType)
-    return customers.value.filter(c => (c.services as any)?.[key]).length
-  }
+  const countForType = (serviceType: string) =>
+    allCases.value.filter(c => c.serviceType === serviceType).length
 
-  const getServiceValue = (customer: Customer | null, serviceType: string): string =>
-    customer ? ((customer.services as any)?.[resolveKey(serviceType)] ?? '') : ''
-
-  return { getCasesForType, countForType, getServiceValue, resolveKey, ensureLoaded }
+  return { getCasesForType, countForType, allCases, ensureLoaded }
 }
