@@ -17,8 +17,8 @@ export interface Space {
   targetRoles?: UserRole[]
   // 閲覧に必要な最低タイトル（例: 'EM1'）。未設定なら制限なし。TITLE_OPTIONSの序列で判定する
   minTitleLevel?: string
-  // 連動するカレンダーの会議（種別「会議」）のイベントID。type:'meeting'のスペースのみ設定可能で、
-  // 設定するとスペース上でそのイベントの議事録（全期間分）を閲覧できる
+  // 連動するカレンダーの会議（種別「会議」）のイベントID。type:'kumiai'・type:'meeting'の
+  // スペースのみ設定可能で、設定するとスペース上でそのイベントの議事録（全期間分）を閲覧できる
   linkedEventId?: string
   isArchived: boolean
   isPinned?: boolean

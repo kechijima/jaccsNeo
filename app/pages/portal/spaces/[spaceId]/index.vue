@@ -60,7 +60,7 @@ const space = computed(() => {
   }
 })
 
-// ── 連動する会議の議事録（種別「数字会議」でカレンダー連動を設定している場合のみ） ──
+// ── 連動する会議の議事録（種別「組合」「数字会議」でカレンダー連動を設定している場合のみ） ──
 // 過去分も含めすべて表示する（カレンダー側のように開催日で絞り込まない）
 const { fetchEvent } = useEvents()
 const linkedEventId = computed(() => spaceRaw.value?.linkedEventId ?? '')

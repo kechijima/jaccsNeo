@@ -30,10 +30,50 @@ const form = ref({
   linkedEventId: '',
 })
 
-// ── カレンダーの会議との連動（種別「数字会議」のスペースのみ） ──────────
+// ── カレンダーの会議との連動（種別「組合」「数字会議」のスペースのみ） ───
+const canLinkToEvent = computed(() => form.value.type === 'kumiai' || form.value.type === 'meeting')
 const meetingEvents = ref<EventSummary[]>([])
 const isLinkedToEvent = ref(false)
 watch(isLinkedToEvent, (on) => { if (!on) form.value.linkedEventId = '' })
+
+// 連動先の会議カレンダー（種別「会議」のイベント）がまだ無い場合、その場で
+// 最小限の情報だけで新規作成できるようにする（詳細な設定はカレンダー側で後から編集可能）
+const { createEvent } = useEvents()
+const showNewEventForm = ref(false)
+const newEventTitle = ref('')
+const newEventStartAt = ref('')
+const creatingEvent = ref(false)
+const newEventError = ref('')
+
+const openNewEventForm = () => {
+  newEventTitle.value = form.value.type === 'kumiai' ? `${form.value.name} 理事会` : `${form.value.name} 定例会議`
+  newEventStartAt.value = ''
+  newEventError.value = ''
+  showNewEventForm.value = true
+}
+
+const handleCreateMeetingEvent = async () => {
+  if (!newEventTitle.value.trim() || !newEventStartAt.value) return
+  creatingEvent.value = true
+  newEventError.value = ''
+  try {
+    const eventId = await createEvent({
+      title:    newEventTitle.value.trim(),
+      startAt:  new Date(newEventStartAt.value).toISOString(),
+      scope:    'space',
+      spaceId:  spaceId.value,
+      category: 'meeting',
+    })
+    const events = await fetchEvents().catch(() => [] as EventSummary[])
+    meetingEvents.value = events.filter(e => e.category === 'meeting')
+    form.value.linkedEventId = eventId
+    showNewEventForm.value = false
+  } catch (e: any) {
+    newEventError.value = e.message ?? '会議カレンダーの作成に失敗しました'
+  } finally {
+    creatingEvent.value = false
+  }
+}
 
 // ── 画像アップロード（ヘッダー画像 = アイコン画像として使用） ──────────
 const imageInputRef = ref<HTMLInputElement>()
@@ -127,7 +167,7 @@ const handleSave = async () => {
       type:          form.value.type as SpaceForm['type'],
       headerImage:   form.value.headerImage,
       minTitleLevel: form.value.minTitleLevel || '',
-      linkedEventId: form.value.type === 'meeting' && isLinkedToEvent.value ? (form.value.linkedEventId || '') : '',
+      linkedEventId: canLinkToEvent.value && isLinkedToEvent.value ? (form.value.linkedEventId || '') : '',
     })
     saved.value = true
     setTimeout(() => { saved.value = false }, 3000)
@@ -197,8 +237,8 @@ const handleSave = async () => {
           </select>
         </div>
 
-        <!-- カレンダー連動（種別「数字会議」のみ） -->
-        <div v-if="form.type === 'meeting'" class="rounded-lg border border-gray-200 p-4 space-y-3">
+        <!-- カレンダー連動（種別「組合」「数字会議」のみ） -->
+        <div v-if="canLinkToEvent" class="rounded-lg border border-gray-200 p-4 space-y-3">
           <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
             <input v-model="isLinkedToEvent" type="checkbox" class="h-4 w-4 rounded text-primary-600" />
             カレンダーの会議と連動する
@@ -206,15 +246,47 @@ const handleSave = async () => {
           <p class="text-xs text-gray-400">
             連動すると、このスペースで対象の会議の議事録（過去分すべて）を閲覧できるようになります。
           </p>
-          <div v-if="isLinkedToEvent">
+          <div v-if="isLinkedToEvent" class="space-y-2">
             <label class="block text-sm font-medium text-gray-700 mb-1.5">連動する会議</label>
             <select v-model="form.linkedEventId" class="input-field">
               <option value="">選択してください</option>
               <option v-for="ev in meetingEvents" :key="ev.id" :value="ev.id">{{ ev.title }}</option>
             </select>
-            <p v-if="meetingEvents.length === 0" class="text-xs text-gray-400 mt-1.5">
-              種別「会議」のイベントがまだありません。カレンダーで作成してください。
-            </p>
+
+            <!-- 連動先の会議カレンダーがまだ無い場合、その場で作成できる -->
+            <div v-if="!showNewEventForm">
+              <p v-if="meetingEvents.length === 0" class="text-xs text-gray-400">
+                種別「会議」のイベントがまだありません。
+              </p>
+              <button type="button" class="text-xs text-primary-600 hover:underline mt-1 flex items-center gap-1" @click="openNewEventForm">
+                <Icon name="heroicons:plus" class="h-3.5 w-3.5" />
+                新しい会議カレンダーを作成する
+              </button>
+            </div>
+            <div v-else class="rounded-lg bg-gray-50 border border-gray-200 p-3 space-y-2">
+              <div>
+                <label class="block text-xs font-medium text-gray-700 mb-1">会議名</label>
+                <input v-model="newEventTitle" type="text" class="input-field text-sm" placeholder="例: 第1組合 理事会" />
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-700 mb-1">初回の開催日時</label>
+                <input v-model="newEventStartAt" type="datetime-local" class="input-field text-sm" />
+              </div>
+              <p class="text-xs text-gray-400">繰り返しや詳細な設定は、作成後にカレンダー側の編集画面から行えます。</p>
+              <p v-if="newEventError" class="text-xs text-red-500">{{ newEventError }}</p>
+              <div class="flex items-center justify-end gap-2 pt-1">
+                <button type="button" class="text-xs text-gray-400 hover:text-gray-600" @click="showNewEventForm = false">キャンセル</button>
+                <button
+                  type="button"
+                  class="btn-primary text-xs !py-1.5"
+                  :disabled="!newEventTitle.trim() || !newEventStartAt || creatingEvent"
+                  @click="handleCreateMeetingEvent"
+                >
+                  <Icon v-if="creatingEvent" name="heroicons:arrow-path" class="h-3.5 w-3.5 animate-spin mr-1" />
+                  作成して連動する
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
