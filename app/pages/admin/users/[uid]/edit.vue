@@ -23,7 +23,10 @@ const error = ref('')
 const submitting = ref(false)
 
 const form = ref({
-  name:         '',
+  lastName:      '',
+  firstName:     '',
+  lastNameKana:  '',
+  firstNameKana: '',
   email:        '',
   role:         'general' as UserRole,
   groupId:      '' as GroupId | '',
@@ -51,6 +54,10 @@ const kumiaiOptions = computed(() =>
   allKumiai.value.map(k => ({ id: k.id, label: k.name, sublabel: k.groupName }))
 )
 
+// 表示名（displayName）は姓名から自動生成する（通知・検索・一覧表示等は
+// 引き続きdisplayName単一フィールドを使うため、ここで一本化しておく）
+const displayName = computed(() => `${form.value.lastName.trim()}${form.value.firstName.trim()}`)
+
 const originalRole = ref<UserRole | null>(null)
 const originalName = ref('')
 
@@ -67,8 +74,15 @@ onMounted(async () => {
     if (user) {
       originalRole.value = user.role
       originalName.value = user.displayName
+      // 姓名未設定（姓名分割対応より前に作成されたユーザー）の場合、保存済みの
+      // displayNameをそのまま「姓」欄へ引き継ぐ。これにより、このまま何も
+      // 変更せず保存してもdisplayNameが空になってしまうことを防ぐ
+      const hasSplitName = !!(user.lastName || user.firstName)
       form.value = {
-        name:         user.displayName,
+        lastName:      hasSplitName ? (user.lastName ?? '') : user.displayName,
+        firstName:     hasSplitName ? (user.firstName ?? '') : '',
+        lastNameKana:  user.lastNameKana ?? '',
+        firstNameKana: user.firstNameKana ?? '',
         email:        user.email,
         role:         user.role,
         groupId:      user.groupId ?? '',
@@ -85,8 +99,6 @@ onMounted(async () => {
     error.value = e.message ?? 'ユーザー情報の取得に失敗しました'
   } finally {
     loading.value = false
-    await nextTick()
-    formReady.value = true
   }
 })
 
@@ -96,7 +108,11 @@ const handleSubmit = async () => {
   try {
     const kumiaiName = allKumiai.value.find(k => k.id === form.value.kumiaiId)?.name
     await updateUser(uid.value, {
-      displayName:  form.value.name,
+      displayName:   displayName.value,
+      lastName:      form.value.lastName.trim() || null,
+      firstName:     form.value.firstName.trim() || null,
+      lastNameKana:  form.value.lastNameKana.trim() || null,
+      firstNameKana: form.value.firstNameKana.trim() || null,
       role:         form.value.role,
       specialTeams: form.value.specialTeams,
       groupId:      (form.value.groupId as GroupId) || null,
@@ -107,7 +123,7 @@ const handleSubmit = async () => {
       subSupporterUid:  form.value.subSupporterUid || null,
     })
     if (originalRole.value && originalRole.value !== form.value.role) {
-      useOperationLog().log('user_role_change', `${originalName.value || form.value.name}: ${originalRole.value} → ${form.value.role}`).catch(() => {})
+      useOperationLog().log('user_role_change', `${originalName.value || displayName.value}: ${originalRole.value} → ${form.value.role}`).catch(() => {})
     }
     // ディレクター逆引きに反映する（この画面からの編集でも反映されないと、
     // メンバー一覧のディレクター逆引き検索結果に出てこない不具合になるため）
@@ -115,10 +131,10 @@ const handleSubmit = async () => {
       const mainSupporterName = existingUsers.value.find(u => u.uid === form.value.mainSupporterUid)?.displayName
       const subSupporterName = existingUsers.value.find(u => u.uid === form.value.subSupporterUid)?.displayName
       if (mainSupporterName && form.value.mainSupporterUid) {
-        await upsertDirectorAssignment({ directorUid: form.value.mainSupporterUid, directorName: mainSupporterName, kumiaiName, role: 'main', memberUid: uid.value, memberName: form.value.name }).catch(() => {})
+        await upsertDirectorAssignment({ directorUid: form.value.mainSupporterUid, directorName: mainSupporterName, kumiaiName, role: 'main', memberUid: uid.value, memberName: displayName.value }).catch(() => {})
       }
       if (subSupporterName && form.value.subSupporterUid) {
-        await upsertDirectorAssignment({ directorUid: form.value.subSupporterUid, directorName: subSupporterName, kumiaiName, role: 'sub', memberUid: uid.value, memberName: form.value.name }).catch(() => {})
+        await upsertDirectorAssignment({ directorUid: form.value.subSupporterUid, directorName: subSupporterName, kumiaiName, role: 'sub', memberUid: uid.value, memberName: displayName.value }).catch(() => {})
       }
     }
     await navigateTo('/admin/users')
@@ -129,7 +145,7 @@ const handleSubmit = async () => {
 }
 
 const handleDeactivate = async () => {
-  if (!confirm(`「${form.value.name}」のアカウントを無効化しますか？`)) return
+  if (!confirm(`「${displayName.value}」のアカウントを無効化しますか？`)) return
   try {
     await updateUser(uid.value, { isActive: false })
     form.value.isActive = false
@@ -141,19 +157,19 @@ const handleDeactivate = async () => {
 // 脱退申請を経由しない、理事会・管理者による手動での脱退フラグ変更
 // （本人からの脱退申請が無いケース、申請前に急ぎ対応したいケース向け）
 const handleWithdraw = async () => {
-  if (!confirm(`「${form.value.name}」を脱退済みにしますか？\nログインできなくなります。`)) return
+  if (!confirm(`「${displayName.value}」を脱退済みにしますか？\nログインできなくなります。`)) return
   try {
     await updateUser(uid.value, { isWithdrawn: true })
     form.value.isWithdrawn = true
     form.value.isActive = false
-    useOperationLog().log('user_withdraw', form.value.name).catch(() => {})
+    useOperationLog().log('user_withdraw', displayName.value).catch(() => {})
   } catch (e: any) {
     error.value = e.message ?? '脱退処理に失敗しました'
   }
 }
 
 const handleUnwithdraw = async () => {
-  if (!confirm(`「${form.value.name}」の脱退を取り消し、アカウントを有効に戻しますか？`)) return
+  if (!confirm(`「${displayName.value}」の脱退を取り消し、アカウントを有効に戻しますか？`)) return
   try {
     await updateUser(uid.value, { isWithdrawn: false, isActive: true })
     form.value.isWithdrawn = false
@@ -168,7 +184,7 @@ const handleUnwithdraw = async () => {
 // Firebase Auth・Firestoreのユーザー情報を完全に削除する。元に戻せない）
 const deletingUser = ref(false)
 const handleDeleteUser = async () => {
-  if (!confirm(`「${form.value.name}」のアカウントを完全に削除します。\nこの操作は取り消せません。メールアドレス誤入力等での削除用です。よろしいですか？`)) return
+  if (!confirm(`「${displayName.value}」のアカウントを完全に削除します。\nこの操作は取り消せません。メールアドレス誤入力等での削除用です。よろしいですか？`)) return
   deletingUser.value = true
   error.value = ''
   try {
@@ -207,16 +223,30 @@ const toggleSpecialTeam = (team: string) => {
       <Icon name="heroicons:chevron-right" class="h-3 w-3" />
       <NuxtLink to="/admin/users">ユーザー管理</NuxtLink>
       <Icon name="heroicons:chevron-right" class="h-3 w-3" />
-      <span class="text-gray-600">{{ form.name }}</span>
+      <span class="text-gray-600">{{ displayName }}</span>
     </div>
 
     <h1 class="text-xl font-bold text-gray-900">ユーザー編集</h1>
 
     <form class="card p-6 space-y-5" @submit.prevent="handleSubmit">
 
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1.5">氏名</label>
-        <input v-model="form.name" type="text" class="input-field" />
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">姓</label>
+          <input v-model="form.lastName" type="text" class="input-field" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">名</label>
+          <input v-model="form.firstName" type="text" class="input-field" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">姓（よみがな）</label>
+          <input v-model="form.lastNameKana" type="text" class="input-field" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">名（よみがな）</label>
+          <input v-model="form.firstNameKana" type="text" class="input-field" />
+        </div>
       </div>
 
       <div>

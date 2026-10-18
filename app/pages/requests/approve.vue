@@ -141,6 +141,10 @@ const applyRequest = async (r: AppRequest): Promise<void> => {
       position:     p.position || undefined,
     })
     await updateUser(uid, {
+      lastName:         p.lastName || null,
+      firstName:        p.firstName || null,
+      lastNameKana:     p.lastNameKana || null,
+      firstNameKana:    p.firstNameKana || null,
       kumiaiName:       p.kumiaiName || null,
       mainSupporterUid: p.mainSupporterUid || null,
       subSupporterUid:  p.subSupporterUid || null,

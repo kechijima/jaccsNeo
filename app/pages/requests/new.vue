@@ -118,9 +118,13 @@ const groupCreateForm = reactive({ name: '' })
 
 // ── 組合員の登録 ────────────────────────────────────────────────────────
 const memberCreateForm = reactive({
-  displayName: '', email: '', groupId: '', kumiaiId: '', position: '',
+  lastName: '', firstName: '', lastNameKana: '', firstNameKana: '',
+  email: '', groupId: '', kumiaiId: '', position: '',
   mainSupporterUid: '', subSupporterUid: '',
 })
+// 表示名（displayName）は姓名から自動生成する（通知・検索・一覧表示等は
+// 引き続きdisplayName単一フィールドを使うため、ここで一本化しておく）
+const memberCreateDisplayName = computed(() => `${memberCreateForm.lastName.trim()}${memberCreateForm.firstName.trim()}`)
 // 所属組合は所属グループとは独立して選択できる（別グループの組合に所属するケースがあるため）
 const memberKumiaiOptions = computed(() =>
   groups.value.flatMap(g => g.kumiai
@@ -202,7 +206,7 @@ const resetForms = () => {
   Object.assign(kumiaiPreparatoryCreateForm, { groupId: '', name: '', adminName: '', createSpace: true })
   Object.assign(kumiaiPromoteForm, { groupId: '', kumiaiId: '' })
   Object.assign(groupCreateForm, { name: '' })
-  Object.assign(memberCreateForm, { displayName: '', email: '', groupId: '', kumiaiId: '', position: '', mainSupporterUid: '', subSupporterUid: '' })
+  Object.assign(memberCreateForm, { lastName: '', firstName: '', lastNameKana: '', firstNameKana: '', email: '', groupId: '', kumiaiId: '', position: '', mainSupporterUid: '', subSupporterUid: '' })
   Object.assign(planChangeForm, { targetUid: '', newPlan: MEMBERSHIP_PLAN_OPTIONS[0] })
   Object.assign(supporterChangeForm, { targetUid: '', mainSupporterUid: '', subSupporterUid: '' })
   Object.assign(memberWithdrawForm, { targetUid: '' })
@@ -278,7 +282,7 @@ const isValid = computed(() => {
   if (type.value === 'kumiai_preparatory_create') return !!kumiaiPreparatoryCreateForm.groupId && !!kumiaiPreparatoryCreateForm.name.trim()
   if (type.value === 'kumiai_promote') return !!kumiaiPromoteForm.groupId && !!kumiaiPromoteForm.kumiaiId
   if (type.value === 'group_create') return !!groupCreateForm.name.trim()
-  if (type.value === 'kumiai_member_create') return !!memberCreateForm.displayName.trim() && !!memberCreateForm.email.trim()
+  if (type.value === 'kumiai_member_create') return !!memberCreateForm.lastName.trim() && !!memberCreateForm.firstName.trim() && !!memberCreateForm.email.trim()
   if (type.value === 'plan_change') return !!planChangeForm.targetUid && !!planChangeForm.newPlan.trim()
   if (type.value === 'supporter_change') return !!supporterChangeForm.targetUid
   if (type.value === 'kumiai_member_withdraw') return !!memberWithdrawForm.targetUid
@@ -329,7 +333,11 @@ const doSubmit = async () => {
       payload = { name: groupCreateForm.name.trim() }
     } else if (type.value === 'kumiai_member_create') {
       payload = {
-        displayName: memberCreateForm.displayName.trim(),
+        displayName: memberCreateDisplayName.value,
+        lastName: memberCreateForm.lastName.trim(),
+        firstName: memberCreateForm.firstName.trim(),
+        lastNameKana: memberCreateForm.lastNameKana.trim() || undefined,
+        firstNameKana: memberCreateForm.firstNameKana.trim() || undefined,
         email: memberCreateForm.email.trim(),
         groupId: memberCreateForm.groupId || undefined,
         groupName: groups.value.find(g => g.id === memberCreateForm.groupId)?.name,
@@ -529,9 +537,23 @@ const doSubmit = async () => {
 
       <!-- 組合員の登録 -->
       <template v-else-if="type === 'kumiai_member_create'">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">氏名 <span class="text-red-500">*</span></label>
-          <input v-model="memberCreateForm.displayName" type="text" placeholder="例: 西島 伸樹" class="input-field" />
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">姓 <span class="text-red-500">*</span></label>
+            <input v-model="memberCreateForm.lastName" type="text" placeholder="例: 西島" class="input-field" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">名 <span class="text-red-500">*</span></label>
+            <input v-model="memberCreateForm.firstName" type="text" placeholder="例: 伸樹" class="input-field" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">姓（よみがな）</label>
+            <input v-model="memberCreateForm.lastNameKana" type="text" placeholder="例: ニシジマ" class="input-field" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">名（よみがな）</label>
+            <input v-model="memberCreateForm.firstNameKana" type="text" placeholder="例: ノブキ" class="input-field" />
+          </div>
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">メールアドレス <span class="text-red-500">*</span></label>

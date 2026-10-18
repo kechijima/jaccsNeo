@@ -18,7 +18,10 @@ const genTempPassword = () =>
   `Jaccs${Math.random().toString(36).slice(-6)}!${Math.floor(Math.random() * 10)}`
 
 const form = ref({
-  name:            '',
+  lastName:        '',
+  firstName:       '',
+  lastNameKana:    '',
+  firstNameKana:   '',
   email:           '',
   password:        genTempPassword(),  // 仮パスワード（招待メールのリンクから変更してもらう）
   role:            'general' as UserRole,
@@ -30,6 +33,10 @@ const form = ref({
   subSupporterUid:  '',
   sendInviteEmail: true,
 })
+
+// 表示名（displayName）は姓名から自動生成する（通知・検索・一覧表示等は
+// 引き続きdisplayName単一フィールドを使うため、ここで一本化しておく）
+const displayName = computed(() => `${form.value.lastName.trim()}${form.value.firstName.trim()}`)
 
 const existingUsers = ref<Array<{ uid: string; displayName: string }>>([])
 const groups = ref<Group[]>([])
@@ -78,7 +85,7 @@ const handleSubmit = async () => {
     const uid = await createAuthUser({
       email:        form.value.email,
       password:     form.value.password,
-      displayName:  form.value.name,
+      displayName:  displayName.value,
       role:         form.value.role,
       specialTeams: form.value.specialTeams,
       groupId:      form.value.groupId || undefined,
@@ -86,15 +93,17 @@ const handleSubmit = async () => {
       position:     form.value.position || undefined,
     })
 
-    // 組合名・組織図（メインサポート・サブサポート）はクライアント側で追加登録する
+    // 姓名・ふりがな・組合名・組織図（メインサポート・サブサポート）はクライアント側で追加登録する
     const kumiaiName = allKumiai.value.find(k => k.id === form.value.kumiaiId)?.name
-    if (kumiaiName || form.value.mainSupporterUid || form.value.subSupporterUid) {
-      await updateUser(uid, {
-        kumiaiName: kumiaiName || null,
-        mainSupporterUid: form.value.mainSupporterUid || null,
-        subSupporterUid:  form.value.subSupporterUid || null,
-      })
-    }
+    await updateUser(uid, {
+      lastName:         form.value.lastName.trim() || null,
+      firstName:        form.value.firstName.trim() || null,
+      lastNameKana:     form.value.lastNameKana.trim() || null,
+      firstNameKana:    form.value.firstNameKana.trim() || null,
+      kumiaiName:       kumiaiName || null,
+      mainSupporterUid: form.value.mainSupporterUid || null,
+      subSupporterUid:  form.value.subSupporterUid || null,
+    })
 
     // ディレクター逆引き（メンバー一覧のディレクター逆引き検索）に反映する。
     // ここを行わないと、申請フローを経由せずこの画面から直接作成したユーザーが
@@ -103,10 +112,10 @@ const handleSubmit = async () => {
       const mainSupporterName = existingUsers.value.find(u => u.uid === form.value.mainSupporterUid)?.displayName
       const subSupporterName = existingUsers.value.find(u => u.uid === form.value.subSupporterUid)?.displayName
       if (mainSupporterName && form.value.mainSupporterUid) {
-        await upsertDirectorAssignment({ directorUid: form.value.mainSupporterUid, directorName: mainSupporterName, kumiaiName, role: 'main', memberUid: uid, memberName: form.value.name }).catch(() => {})
+        await upsertDirectorAssignment({ directorUid: form.value.mainSupporterUid, directorName: mainSupporterName, kumiaiName, role: 'main', memberUid: uid, memberName: displayName.value }).catch(() => {})
       }
       if (subSupporterName && form.value.subSupporterUid) {
-        await upsertDirectorAssignment({ directorUid: form.value.subSupporterUid, directorName: subSupporterName, kumiaiName, role: 'sub', memberUid: uid, memberName: form.value.name }).catch(() => {})
+        await upsertDirectorAssignment({ directorUid: form.value.subSupporterUid, directorName: subSupporterName, kumiaiName, role: 'sub', memberUid: uid, memberName: displayName.value }).catch(() => {})
       }
     }
 
@@ -115,7 +124,7 @@ const handleSubmit = async () => {
       await sendPasswordReset(form.value.email).catch(() => {})
     }
 
-    createdName.value = form.value.name
+    createdName.value = displayName.value
     created.value = true
   } catch (e: any) {
     error.value = e.message ?? 'ユーザーの作成に失敗しました'
@@ -193,9 +202,23 @@ const toggleSpecialTeam = (team: string) => {
 
     <form v-else class="card p-6 space-y-5" @submit.prevent="handleSubmit">
 
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1.5">氏名 <span class="text-red-500">*</span></label>
-        <input v-model="form.name" type="text" placeholder="例: 西島 伸樹" class="input-field" required />
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">姓 <span class="text-red-500">*</span></label>
+          <input v-model="form.lastName" type="text" placeholder="例: 西島" class="input-field" required />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">名 <span class="text-red-500">*</span></label>
+          <input v-model="form.firstName" type="text" placeholder="例: 伸樹" class="input-field" required />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">姓（よみがな）</label>
+          <input v-model="form.lastNameKana" type="text" placeholder="例: ニシジマ" class="input-field" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">名（よみがな）</label>
+          <input v-model="form.firstNameKana" type="text" placeholder="例: ノブキ" class="input-field" />
+        </div>
       </div>
 
       <div>

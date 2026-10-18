@@ -81,6 +81,10 @@ export const useUsers = () => {
   // ===== ユーザー情報更新（管理者・理事会専用。役割・所属など） =====
   const updateUser = async (uid: string, data: {
     displayName?: string
+    lastName?: string | null
+    firstName?: string | null
+    lastNameKana?: string | null
+    firstNameKana?: string | null
     role?: UserRole
     specialTeams?: SpecialTeam[]
     groupId?: GroupId | null

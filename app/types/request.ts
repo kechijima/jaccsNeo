@@ -48,7 +48,11 @@ export interface GroupCreatePayload {
 }
 
 export interface KumiaiMemberCreatePayload {
-  displayName: string
+  displayName: string   // 姓名を結合した表示名（自動生成。表示・検索・通知等で引き続き使用する）
+  lastName?: string
+  firstName?: string
+  lastNameKana?: string
+  firstNameKana?: string
   email: string
   groupId?: string
   groupName?: string
