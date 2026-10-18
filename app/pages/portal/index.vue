@@ -368,10 +368,11 @@ const upcomingEvents = computed(() =>
           <div class="flex items-start gap-3">
             <button
               type="button"
-              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 font-semibold text-sm hover:ring-2 hover:ring-indigo-300 transition"
+              class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-indigo-100 text-indigo-700 font-semibold text-sm hover:ring-2 hover:ring-indigo-300 transition"
               @click="openAuthorProfile(post.authorId, post.authorName)"
             >
-              {{ post.authorInitial }}
+              <img v-if="post.authorAvatarUrl" :src="post.authorAvatarUrl" alt="" class="h-full w-full object-cover" />
+              <template v-else>{{ post.authorInitial }}</template>
             </button>
             <div class="flex-1 min-w-0">
               <!-- メタ情報 -->
@@ -445,8 +446,9 @@ const upcomingEvents = computed(() =>
               <div v-if="post.showComments" class="mt-3 space-y-2 border-t border-gray-100 pt-3">
                 <div v-if="post.comments.length === 0" class="text-xs text-gray-400">コメントはまだありません</div>
                 <div v-for="comment in post.comments" :key="comment.id" class="flex items-start gap-2">
-                  <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-600 font-semibold text-xs">
-                    {{ comment.authorInitial }}
+                  <div class="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-100 text-gray-600 font-semibold text-xs">
+                    <img v-if="comment.authorAvatarUrl" :src="comment.authorAvatarUrl" alt="" class="h-full w-full object-cover" />
+                    <template v-else>{{ comment.authorInitial }}</template>
                   </div>
                   <div>
                     <p class="text-xs font-semibold text-gray-700">{{ comment.authorName }} <span class="font-normal text-gray-400">{{ comment.postedAt }}</span></p>

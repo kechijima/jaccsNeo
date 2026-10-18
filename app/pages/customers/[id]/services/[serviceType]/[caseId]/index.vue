@@ -103,9 +103,14 @@ const relatedStatusClass = (status: string) => {
 const { getById, ensureLoaded } = useCustomerStore()
 await ensureLoaded()
 const customer = getById(customerId)
-const customerName = computed(() => customer.value?.name ?? '')
+const customerName = computed(() => customer.value?.name ?? '（顧客不明）')
 
+// 紐づく顧客データが既に削除済み等で存在しない「孤立案件」は、通常の担当者
+// 判定ができないため、システム管理者・このアプリの責任者（アプリ管理で設定）
+// に限り、顧客の有無によらず編集・削除できるようにする
 const canEditCustomer = computed(() => {
+  if (authStore.isSystemAdmin) return true
+  if (appDef.value?.ownerUids?.includes(authStore.user?.uid ?? '')) return true
   if (!customer.value) return false
   return checkEditPermission(customer.value.assignedFpId || '', customer.value.groupId)
 })

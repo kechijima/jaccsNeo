@@ -1,5 +1,5 @@
 import {
-  collection, doc, getDocs, addDoc, updateDoc,
+  collection, doc, getDocs, addDoc, updateDoc, deleteDoc,
   serverTimestamp, writeBatch, type DocumentData,
 } from 'firebase/firestore'
 import { LIFE_INSURANCE_CASES } from '~/data/lifeInsuranceData'
@@ -100,6 +100,11 @@ export const useLifeInsuranceCases = () => {
     notifyAppOwner('編集', cases.value[idx]?.name ?? payload.name ?? '', id)
   }
 
+  const remove = async (id: string): Promise<void> => {
+    await deleteDoc(doc($db, COLLECTION, id))
+    cases.value = cases.value.filter(c => c.id !== id)
+  }
+
   // kintone CSVから取り込んだ既存61件をFirestoreへ一括投入する初回移行処理（管理者操作）
   const seedFromStatic = async (): Promise<number> => {
     const chunkSize = 400 // Firestoreの1バッチ上限（500件）未満に収める
@@ -118,5 +123,5 @@ export const useLifeInsuranceCases = () => {
     return count
   }
 
-  return { cases, loading, loaded, fetchAll, getByCustomerId, getById, create, update, seedFromStatic }
+  return { cases, loading, loaded, fetchAll, getByCustomerId, getById, create, update, remove, seedFromStatic }
 }

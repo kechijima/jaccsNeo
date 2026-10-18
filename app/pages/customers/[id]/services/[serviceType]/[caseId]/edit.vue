@@ -47,6 +47,7 @@ const originalReminderNote = ref('')
 const originalReminderAudienceUids = ref<string[]>([])
 const canEditProtected = computed(() => {
   if (isEm2OrAbove.value) return true
+  if (appDef.value?.ownerUids?.includes(currentUser.value?.uid ?? '')) return true
   return !!originalAssigneeUid.value && originalAssigneeUid.value === currentUser.value?.uid
 })
 

@@ -398,10 +398,11 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
             <div class="flex items-start gap-3">
               <button
                 type="button"
-                class="h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-semibold shrink-0 bg-amber-400 hover:ring-2 hover:ring-amber-300 transition"
+                class="h-9 w-9 rounded-full flex items-center justify-center overflow-hidden text-white text-sm font-semibold shrink-0 bg-amber-400 hover:ring-2 hover:ring-amber-300 transition"
                 @click="openAuthorProfile(pinnedPost.authorId, pinnedPost.authorName)"
               >
-                {{ pinnedPost.authorInitial }}
+                <img v-if="pinnedPost.authorAvatarUrl" :src="pinnedPost.authorAvatarUrl" alt="" class="h-full w-full object-cover" />
+                <template v-else>{{ pinnedPost.authorInitial }}</template>
               </button>
               <div class="flex-1 min-w-0">
                 <p class="text-sm font-semibold text-gray-900">{{ pinnedPost.authorName }}</p>
@@ -565,11 +566,12 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
           <div class="px-4 pt-4 pb-3 flex items-start gap-3">
             <button
               type="button"
-              class="h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-semibold shrink-0 hover:ring-2 hover:ring-primary-300 transition"
+              class="h-9 w-9 rounded-full flex items-center justify-center overflow-hidden text-white text-sm font-semibold shrink-0 hover:ring-2 hover:ring-primary-300 transition"
               :class="getGroupColor(members.find(u => u.uid === post.authorId)?.groupId)"
               @click="openAuthorProfile(post.authorId, post.authorName)"
             >
-              {{ post.authorInitial }}
+              <img v-if="post.authorAvatarUrl" :src="post.authorAvatarUrl" alt="" class="h-full w-full object-cover" />
+              <template v-else>{{ post.authorInitial }}</template>
             </button>
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2 flex-wrap">
@@ -660,8 +662,9 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
           <div class="px-4 py-3 border-t border-gray-100 space-y-2 bg-gray-50/50">
             <div v-if="post.comments.length > 0" class="space-y-2">
               <div v-for="comment in post.comments" :key="comment.id" class="flex items-start gap-2">
-                <div class="h-7 w-7 rounded-full flex items-center justify-center text-white text-xs font-semibold shrink-0 bg-gray-400">
-                  {{ comment.authorInitial }}
+                <div class="h-7 w-7 rounded-full flex items-center justify-center overflow-hidden text-white text-xs font-semibold shrink-0 bg-gray-400">
+                  <img v-if="comment.authorAvatarUrl" :src="comment.authorAvatarUrl" alt="" class="h-full w-full object-cover" />
+                  <template v-else>{{ comment.authorInitial }}</template>
                 </div>
                 <div class="flex-1 bg-white rounded-lg px-2.5 py-1.5 border border-gray-100">
                   <p class="text-xs font-semibold text-gray-700">{{ comment.authorName }} <span class="font-normal text-gray-400">{{ comment.postedAt }}</span></p>

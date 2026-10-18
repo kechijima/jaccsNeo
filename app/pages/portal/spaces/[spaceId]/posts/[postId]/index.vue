@@ -133,10 +133,11 @@ const deletePost = async () => {
         <div class="flex items-start gap-3">
           <button
             type="button"
-            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 font-semibold hover:ring-2 hover:ring-indigo-300 transition"
+            class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-indigo-100 text-indigo-700 font-semibold hover:ring-2 hover:ring-indigo-300 transition"
             @click="openAuthorProfile(post.authorId, post.authorName)"
           >
-            {{ post.authorInitial }}
+            <img v-if="post.authorAvatarUrl" :src="post.authorAvatarUrl" alt="" class="h-full w-full object-cover" />
+            <template v-else>{{ post.authorInitial }}</template>
           </button>
           <div class="flex-1 min-w-0">
             <!-- メタ -->
@@ -223,8 +224,9 @@ const deletePost = async () => {
         <!-- コメント一覧 -->
         <div v-if="post.comments.length > 0" class="space-y-4 divide-y divide-gray-50">
           <div v-for="comment in post.comments" :key="comment.id" class="flex items-start gap-3 pt-4 first:pt-0">
-            <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-600 font-semibold text-sm">
-              {{ comment.authorInitial }}
+            <div class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-100 text-gray-600 font-semibold text-sm">
+              <img v-if="comment.authorAvatarUrl" :src="comment.authorAvatarUrl" alt="" class="h-full w-full object-cover" />
+              <template v-else>{{ comment.authorInitial }}</template>
             </div>
             <div class="flex-1">
               <p class="text-sm font-semibold text-gray-800">{{ comment.authorName }}

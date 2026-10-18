@@ -6,12 +6,16 @@ import { useCustomerStore } from '~/composables/useCustomerStore'
 import { useLifeInsuranceCases } from '~/composables/useLifeInsuranceCases'
 import { useFavorites } from '~/composables/useFavorites'
 import { useAppDefs } from '~/composables/useAppDefs'
+import { useAuthStore } from '~/stores/auth'
+import { useToast } from '~/composables/useToast'
 
 definePageMeta({ middleware: ['auth'] })
 
 const route = useRoute()
 const serviceType = computed(() => route.params.serviceType as string)
 const isLifeInsurance = computed(() => serviceType.value === 'lifeInsurance')
+const authStore = useAuthStore()
+const { show: showToast } = useToast()
 
 // アプリ管理（フォームビルダー）でこのserviceTypeに連携されたAppDefがあれば、
 // その表示名を優先する（アプリ管理はデータ保存先の連携設定だが、表示名を
@@ -19,17 +23,24 @@ const isLifeInsurance = computed(() => serviceType.value === 'lifeInsurance')
 // 表示名に反映する）。連携が無い場合はSERVICE_LABELSの固定名にフォールバックする
 const { appDefs, fetchAll: fetchAppDefs } = useAppDefs()
 await fetchAppDefs()
+const currentAppDef = computed(() => appDefs.value.find(a => a.sourceServiceType === serviceType.value))
 const serviceLabel = computed(() =>
-  appDefs.value.find(a => a.sourceServiceType === serviceType.value)?.name
+  currentAppDef.value?.name
   ?? SERVICE_LABELS[serviceType.value]
   ?? serviceType.value,
+)
+
+// 案件データの削除は、このアプリの責任者（アプリ管理で設定）またはシステム
+// 管理者のみ許可する（担当者個人ではなく、アプリ全体を管理する立場の操作のため）
+const canDeleteCases = computed(() =>
+  authStore.isSystemAdmin || !!currentAppDef.value?.ownerUids?.includes(authStore.user?.uid ?? ''),
 )
 
 const { isFavoriteApp, toggleFavoriteApp, ensureLoaded: ensureFavoritesLoaded } = useFavorites()
 ensureFavoritesLoaded()
 
 // ── 生命保険：専用案件データ（Firestore連動） ──────────
-const { cases: liCases, loading: liLoading, fetchAll: fetchLiCases } = useLifeInsuranceCases()
+const { cases: liCases, loading: liLoading, fetchAll: fetchLiCases, remove: removeLiCase } = useLifeInsuranceCases()
 if (isLifeInsurance.value) await fetchLiCases()
 
 // ── その他サービス：customers/{id}/services/{type}/cases を全顧客横断で取得 ──
@@ -38,7 +49,7 @@ interface JoinedCase extends ServiceCase {
   customerNameKana: string
 }
 
-const { fetchAllCasesForType } = useServices()
+const { fetchAllCasesForType, deleteCase } = useServices()
 const { customers, ensureLoaded: ensureCustomersLoaded } = useCustomerStore()
 const genericCasesLoading = ref(false)
 const rawGenericCases = ref<ServiceCase[]>([])
@@ -48,6 +59,38 @@ if (!isLifeInsurance.value) {
   await ensureCustomersLoaded()
   rawGenericCases.value = await fetchAllCasesForType(serviceType.value as any)
   genericCasesLoading.value = false
+}
+
+// ── 削除（アプリ責任者・システム管理者のみ） ──────────────────────────
+const deletingIds = ref<Set<string>>(new Set())
+const handleDeleteGeneric = async (c: JoinedCase) => {
+  if (!confirm(`「${c.customerName}」の案件を削除してよろしいですか？この操作は取り消せません。`)) return
+  deletingIds.value = new Set(deletingIds.value).add(c.id)
+  try {
+    await deleteCase(c.customerId, serviceType.value as any, c.id)
+    rawGenericCases.value = rawGenericCases.value.filter(rc => rc.id !== c.id)
+    showToast('案件を削除しました')
+  } catch (e: any) {
+    alert(e.message ?? '削除に失敗しました')
+  } finally {
+    const next = new Set(deletingIds.value)
+    next.delete(c.id)
+    deletingIds.value = next
+  }
+}
+const handleDeleteLi = async (id: string, name: string) => {
+  if (!confirm(`「${name}」の案件を削除してよろしいですか？この操作は取り消せません。`)) return
+  deletingIds.value = new Set(deletingIds.value).add(id)
+  try {
+    await removeLiCase(id)
+    showToast('案件を削除しました')
+  } catch (e: any) {
+    alert(e.message ?? '削除に失敗しました')
+  } finally {
+    const next = new Set(deletingIds.value)
+    next.delete(id)
+    deletingIds.value = next
+  }
 }
 
 const genericCases = computed<JoinedCase[]>(() => rawGenericCases.value.map((c) => {
@@ -229,13 +272,25 @@ const statusClass = (status: string) => {
                 </td>
                 <td class="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{{ c.assignedFpName || '—' }}</td>
                 <td class="px-4 py-3 whitespace-nowrap sticky right-0 bg-white group-hover:bg-gray-50 shadow-[-4px_0_4px_-2px_rgba(0,0,0,0.06)]">
-                  <NuxtLink
-                    :to="`/services/${serviceType}/${c.id}`"
-                    class="inline-flex items-center gap-0.5 text-xs text-primary-600 hover:underline"
-                  >
-                    詳細
-                    <Icon name="heroicons:arrow-top-right-on-square" class="h-3 w-3" />
-                  </NuxtLink>
+                  <div class="flex items-center gap-2">
+                    <NuxtLink
+                      :to="`/services/${serviceType}/${c.id}`"
+                      class="inline-flex items-center gap-0.5 text-xs text-primary-600 hover:underline"
+                    >
+                      詳細
+                      <Icon name="heroicons:arrow-top-right-on-square" class="h-3 w-3" />
+                    </NuxtLink>
+                    <button
+                      v-if="canDeleteCases"
+                      type="button"
+                      class="text-gray-300 hover:text-red-500 transition disabled:opacity-40"
+                      :disabled="deletingIds.has(c.id)"
+                      title="削除"
+                      @click="handleDeleteLi(c.id, c.name)"
+                    >
+                      <Icon :name="deletingIds.has(c.id) ? 'heroicons:arrow-path' : 'heroicons:trash'" class="h-3.5 w-3.5" :class="{ 'animate-spin': deletingIds.has(c.id) }" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -267,7 +322,18 @@ const statusClass = (status: string) => {
           <p v-if="c.contractContent || c.planningContent" class="text-xs text-gray-500 line-clamp-2 whitespace-pre-line border-t border-gray-50 pt-2">
             {{ c.contractContent || c.planningContent }}
           </p>
-          <div class="flex justify-end pt-1 border-t border-gray-50">
+          <div class="flex items-center justify-between pt-1 border-t border-gray-50">
+            <button
+              v-if="canDeleteCases"
+              type="button"
+              class="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 transition disabled:opacity-40"
+              :disabled="deletingIds.has(c.id)"
+              @click="handleDeleteLi(c.id, c.name)"
+            >
+              <Icon :name="deletingIds.has(c.id) ? 'heroicons:arrow-path' : 'heroicons:trash'" class="h-3.5 w-3.5" :class="{ 'animate-spin': deletingIds.has(c.id) }" />
+              削除
+            </button>
+            <span v-else />
             <NuxtLink
               :to="`/services/${serviceType}/${c.id}`"
               class="inline-flex items-center gap-1 text-xs text-primary-600 font-medium hover:underline"
@@ -344,13 +410,25 @@ const statusClass = (status: string) => {
                   <span v-else class="text-xs text-gray-300">—</span>
                 </td>
                 <td class="px-4 py-3 whitespace-nowrap sticky right-0 bg-white group-hover:bg-gray-50 shadow-[-4px_0_4px_-2px_rgba(0,0,0,0.06)]">
-                  <NuxtLink
-                    :to="`/customers/${c.customerId}/services/${serviceType}/${c.id}`"
-                    class="inline-flex items-center gap-0.5 text-xs text-primary-600 hover:underline"
-                  >
-                    詳細
-                    <Icon name="heroicons:arrow-top-right-on-square" class="h-3 w-3" />
-                  </NuxtLink>
+                  <div class="flex items-center gap-2">
+                    <NuxtLink
+                      :to="`/customers/${c.customerId}/services/${serviceType}/${c.id}`"
+                      class="inline-flex items-center gap-0.5 text-xs text-primary-600 hover:underline"
+                    >
+                      詳細
+                      <Icon name="heroicons:arrow-top-right-on-square" class="h-3 w-3" />
+                    </NuxtLink>
+                    <button
+                      v-if="canDeleteCases"
+                      type="button"
+                      class="text-gray-300 hover:text-red-500 transition disabled:opacity-40"
+                      :disabled="deletingIds.has(c.id)"
+                      title="削除"
+                      @click="handleDeleteGeneric(c)"
+                    >
+                      <Icon :name="deletingIds.has(c.id) ? 'heroicons:arrow-path' : 'heroicons:trash'" class="h-3.5 w-3.5" :class="{ 'animate-spin': deletingIds.has(c.id) }" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -391,13 +469,25 @@ const statusClass = (status: string) => {
               {{ c.reminderDate.replace(/-/g, '/') }}
             </span>
             <span v-else class="text-xs text-gray-400">—</span>
-            <NuxtLink
-              :to="`/customers/${c.customerId}/services/${serviceType}/${c.id}`"
-              class="inline-flex items-center gap-1 text-xs text-primary-600 font-medium hover:underline"
-            >
-              案件詳細を見る
-              <Icon name="heroicons:arrow-right" class="h-3.5 w-3.5" />
-            </NuxtLink>
+            <div class="flex items-center gap-3">
+              <button
+                v-if="canDeleteCases"
+                type="button"
+                class="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 transition disabled:opacity-40"
+                :disabled="deletingIds.has(c.id)"
+                @click="handleDeleteGeneric(c)"
+              >
+                <Icon :name="deletingIds.has(c.id) ? 'heroicons:arrow-path' : 'heroicons:trash'" class="h-3.5 w-3.5" :class="{ 'animate-spin': deletingIds.has(c.id) }" />
+                削除
+              </button>
+              <NuxtLink
+                :to="`/customers/${c.customerId}/services/${serviceType}/${c.id}`"
+                class="inline-flex items-center gap-1 text-xs text-primary-600 font-medium hover:underline"
+              >
+                案件詳細を見る
+                <Icon name="heroicons:arrow-right" class="h-3.5 w-3.5" />
+              </NuxtLink>
+            </div>
           </div>
         </div>
       </div>
