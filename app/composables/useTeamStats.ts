@@ -100,17 +100,25 @@ export const useTeamStats = () => {
 
       // ── グループ別: 人数・当月新規パーソナルデータ・当月活動報告件数 ──
       const groupIds: GroupId[] = allGroups.map(g => g.id)
-      // 脱退済みの組合員は集計の対象外とする（人数・新規パーソナルデータ・推移グラフ共通）
+      // 脱退済みの組合員は集計の対象外とする（人数・新規パーソナルデータ・推移グラフ共通）。
+      // 顧客の担当FPは原則assignedFpId（uid）で突合し、同姓同名ユーザーによる誤集計を防ぐ。
+      // assignedFpIdが無い過去データ（CSV取込分等）のみ、従来通りassignedFpName（氏名）で突合する
+      const groupMemberUids = new Map<GroupId, Set<string>>(
+        groupIds.map(gid => [gid, new Set(users.value.filter(u => u.groupId === gid && !u.isWithdrawn).map(u => u.uid))]),
+      )
       const groupMemberNames = new Map<GroupId, Set<string>>(
         groupIds.map(gid => [gid, new Set(users.value.filter(u => u.groupId === gid && !u.isWithdrawn).map(u => u.displayName))]),
       )
+      const customerBelongsToGroup = (c: typeof customers.value[number], gid: GroupId): boolean => {
+        if (c.assignedFpId) return groupMemberUids.get(gid)!.has(c.assignedFpId)
+        return !!c.assignedFpName && groupMemberNames.get(gid)!.has(c.assignedFpName)
+      }
       groupStats.value = groupIds.map((gid) => {
         const members = users.value.filter(u => u.groupId === gid && !u.isWithdrawn)
         const memberUids  = new Set(members.map(u => u.uid))
-        const memberNames = groupMemberNames.get(gid)!
 
         const newPersonalData = customers.value.filter(c =>
-          isThisMonth(c.createdAt) && c.assignedFpName && memberNames.has(c.assignedFpName),
+          isThisMonth(c.createdAt) && customerBelongsToGroup(c, gid),
         ).length
 
         const activityReports = portalStore.posts.value.filter(p =>
@@ -137,11 +145,10 @@ export const useTeamStats = () => {
         const byGroup: Record<string, number> = {}
         let total = 0
         for (const gid of groupIds) {
-          const names = groupMemberNames.get(gid)!
           const count = customers.value.filter((c) => {
             const date = toDate(c.createdAt)
             return !!date && date.getFullYear() === year && date.getMonth() === month
-              && c.assignedFpName && names.has(c.assignedFpName)
+              && customerBelongsToGroup(c, gid)
           }).length
           byGroup[gid] = count
           total += count
@@ -165,14 +172,24 @@ export const useTeamStats = () => {
         .slice(0, 8)
 
       // ── FP別 生命保険成約件数ランキング（今月） ──
-      const fpCounts = new Map<string, number>()
+      // assignedFpUid（uid）が分かっていればuidで集計し、同姓同名ユーザーの成約が
+      // 1人分に合算されたり、表示される所属・役職が別人のものになったりしないようにする。
+      // uidが無い過去データ（CSV取込分等）のみ、従来通り氏名で集計する
+      const byUid = new Map(users.value.map(u => [u.uid, u]))
+      const fpCounts = new Map<string, { name: string; uid: string | null; contracts: number }>()
       for (const c of liCases.value) {
         if (!c.assignedFpName || !isContracted(c.progressStatus ?? '') || !isThisMonth(c.updatedAt)) continue
-        fpCounts.set(c.assignedFpName, (fpCounts.get(c.assignedFpName) ?? 0) + 1)
+        const key = c.assignedFpUid ? `uid:${c.assignedFpUid}` : `name:${c.assignedFpName}`
+        const entry = fpCounts.get(key)
+        if (entry) {
+          entry.contracts++
+        } else {
+          fpCounts.set(key, { name: c.assignedFpName, uid: c.assignedFpUid ?? null, contracts: 1 })
+        }
       }
-      fpRanking.value = [...fpCounts.entries()]
-        .map(([name, contracts]) => {
-          const u = byName.get(name)
+      fpRanking.value = [...fpCounts.values()]
+        .map(({ name, uid, contracts }) => {
+          const u = uid ? byUid.get(uid) : byName.get(name)
           return {
             uid:        u?.uid ?? null,
             name,
@@ -209,8 +226,12 @@ export const useTeamStats = () => {
         isThisMonth(p.createdAt) && p.authorId === uid,
       ).length
 
+      // assignedFpUidが分かっている案件はuidで判定し、同姓同名の他人の成約を
+      // 自分の実績として（またはその逆で）カウントしないようにする。uidが無い
+      // 過去データ（CSV取込分等）のみ従来通り氏名で判定する
       const liContractCount = liCases.value.filter(c =>
-        c.assignedFpName === displayName && isContracted(c.progressStatus ?? '') && isThisMonth(c.updatedAt),
+        (c.assignedFpUid ? c.assignedFpUid === uid : c.assignedFpName === displayName)
+        && isContracted(c.progressStatus ?? '') && isThisMonth(c.updatedAt),
       ).length
       const otherContractCount = allCases.value.filter(c =>
         c.assigneeUid === uid && c.status === 'contracted' && isThisMonth(c.updatedAt),

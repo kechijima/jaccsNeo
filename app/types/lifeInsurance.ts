@@ -15,7 +15,10 @@ export interface LifeInsuranceCase {
   gender?: string              // 性別
   dob?: string                 // 生年月日（本人）
 
-  assignedFpName?: string      // 担当 未来設計士
+  assignedFpName?: string      // 担当 未来設計士（表示用）
+  // 担当 未来設計士のuid。同姓同名ユーザーによる取り違えを防ぐため、新規登録・編集画面では
+  // こちらをユーザー選択で設定する。CSVインポート等の過去データには存在しない場合がある
+  assignedFpUid?: string
   faceToFaceStaffName?: string // 面前担当者名
 
   contractContent?: string     // 契約内容

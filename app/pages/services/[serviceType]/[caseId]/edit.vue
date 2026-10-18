@@ -10,6 +10,8 @@ import { useCaseComments } from '~/composables/useCaseComments'
 import { useStorage } from '~/composables/useStorage'
 import { useToast } from '~/composables/useToast'
 import { useMentionClick } from '~/composables/useMentionClick'
+import { useUsers } from '~/composables/useUsers'
+import type { AppUser } from '~/types/user'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -35,6 +37,11 @@ if (!liCase.value) {
 }
 
 const { show: showToast } = useToast()
+
+// 担当 未来設計士（uid選択。同姓同名ユーザーによる取り違えを防ぐ）
+const { fetchUsers } = useUsers()
+const allUsers = ref<AppUser[]>([])
+onMounted(async () => { allUsers.value = await fetchUsers().catch(() => []) })
 
 // ── コメント ──────────────────────────────────────────────────────────
 const {
@@ -67,6 +74,7 @@ const liForm = reactive<LifeInsuranceCaseInput>({
   dob: liCase.value?.dob ?? '',
   tel: liCase.value?.tel ?? '',
   assignedFpName: liCase.value?.assignedFpName ?? '',
+  assignedFpUid: liCase.value?.assignedFpUid ?? '',
   faceToFaceStaffName: liCase.value?.faceToFaceStaffName ?? '',
   designRequest: liCase.value?.designRequest ?? '',
   newOrSwitch: liCase.value?.newOrSwitch ?? '',
@@ -91,6 +99,11 @@ const liForm = reactive<LifeInsuranceCaseInput>({
   contractContent: liCase.value?.contractContent ?? '',
   planningContent: liCase.value?.planningContent ?? '',
   recordNumber: liCase.value?.recordNumber ?? '',
+})
+
+// 選択結果から表示用の氏名を自動的に同期する
+watch(() => liForm.assignedFpUid, (uid) => {
+  liForm.assignedFpName = allUsers.value.find(u => u.uid === uid)?.displayName ?? ''
 })
 
 // 保険証券コピー（既存分を引き継ぎつつ、Firebase Storageへ追加アップロード）
@@ -204,7 +217,7 @@ const handleLiSubmit = async () => {
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1.5">担当 未来設計士</label>
-            <input v-model="liForm.assignedFpName" type="text" class="input-field" />
+            <SearchableUserSelect v-model="liForm.assignedFpUid" :users="allUsers" placeholder="選択してください" />
           </div>
         </div>
       </div>

@@ -146,7 +146,7 @@ const applyRequest = async (r: AppRequest): Promise<void> => {
       subSupporterUid:  p.subSupporterUid || null,
     })
     await sendPasswordReset(p.email).catch(() => {})
-    await syncDirectorIndexForSupporters(p.displayName, p.kumiaiName, p)
+    await syncDirectorIndexForSupporters(uid, p.displayName, p.kumiaiName, p)
   } else if (r.type === 'plan_change') {
     await updateUser(p.targetUid, { membershipPlan: p.newPlan })
   } else if (r.type === 'supporter_change') {
@@ -156,13 +156,13 @@ const applyRequest = async (r: AppRequest): Promise<void> => {
     })
     // この申請には対象者の所属組合が含まれていないため、現在のプロフィールから取得する
     const target = await fetchUser(p.targetUid).catch(() => null)
-    await syncDirectorIndexForSupporters(p.targetName ?? target?.displayName, target?.kumiaiName, p)
+    await syncDirectorIndexForSupporters(p.targetUid, p.targetName ?? target?.displayName, target?.kumiaiName, p)
   } else if (r.type === 'kumiai_member_withdraw') {
     // データは削除せず脱退フラグのみ設定する。以後ログイン・システム利用はできなくなる
     await updateUser(p.targetUid, { isWithdrawn: true })
     // ディレクター逆引きの担当メンバー一覧からも除外する
     const target = await fetchUser(p.targetUid).catch(() => null)
-    await removeMemberFromIndex(p.targetName ?? target?.displayName ?? '').catch(() => {})
+    await removeMemberFromIndex(p.targetUid, p.targetName ?? target?.displayName ?? '').catch(() => {})
   } else if (r.type === 'kumiai_dissolve') {
     // 組合データは残したまま解体フラグのみ設定する。以後、各種選択肢には表示されなくなる
     await updateKumiai(p.groupId, p.kumiaiId, { isDissolved: true })
@@ -183,16 +183,17 @@ const applyRequest = async (r: AppRequest): Promise<void> => {
 
 // メインサポート/サブサポートの設定をディレクター逆引きへ反映する
 const syncDirectorIndexForSupporters = async (
+  memberUid: string | undefined,
   memberName: string | undefined,
   kumiaiName: string | undefined,
   p: Record<string, any>,
 ): Promise<void> => {
-  if (!memberName || !kumiaiName) return
-  if (p.mainSupporterName) {
-    await upsertDirectorAssignment({ directorName: p.mainSupporterName, kumiaiName, role: 'main', memberName }).catch(() => {})
+  if (!memberUid || !memberName || !kumiaiName) return
+  if (p.mainSupporterName && p.mainSupporterUid) {
+    await upsertDirectorAssignment({ directorUid: p.mainSupporterUid, directorName: p.mainSupporterName, kumiaiName, role: 'main', memberUid, memberName }).catch(() => {})
   }
-  if (p.subSupporterName) {
-    await upsertDirectorAssignment({ directorName: p.subSupporterName, kumiaiName, role: 'sub', memberName }).catch(() => {})
+  if (p.subSupporterName && p.subSupporterUid) {
+    await upsertDirectorAssignment({ directorUid: p.subSupporterUid, directorName: p.subSupporterName, kumiaiName, role: 'sub', memberUid, memberName }).catch(() => {})
   }
 }
 

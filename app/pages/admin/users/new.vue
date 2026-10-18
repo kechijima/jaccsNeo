@@ -102,11 +102,11 @@ const handleSubmit = async () => {
     if (kumiaiName) {
       const mainSupporterName = existingUsers.value.find(u => u.uid === form.value.mainSupporterUid)?.displayName
       const subSupporterName = existingUsers.value.find(u => u.uid === form.value.subSupporterUid)?.displayName
-      if (mainSupporterName) {
-        await upsertDirectorAssignment({ directorName: mainSupporterName, kumiaiName, role: 'main', memberName: form.value.name }).catch(() => {})
+      if (mainSupporterName && form.value.mainSupporterUid) {
+        await upsertDirectorAssignment({ directorUid: form.value.mainSupporterUid, directorName: mainSupporterName, kumiaiName, role: 'main', memberUid: uid, memberName: form.value.name }).catch(() => {})
       }
-      if (subSupporterName) {
-        await upsertDirectorAssignment({ directorName: subSupporterName, kumiaiName, role: 'sub', memberName: form.value.name }).catch(() => {})
+      if (subSupporterName && form.value.subSupporterUid) {
+        await upsertDirectorAssignment({ directorUid: form.value.subSupporterUid, directorName: subSupporterName, kumiaiName, role: 'sub', memberUid: uid, memberName: form.value.name }).catch(() => {})
       }
     }
 

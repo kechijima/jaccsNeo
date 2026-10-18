@@ -155,6 +155,7 @@ onMounted(async () => {
       liForm.dob = c.dob ?? ''
       liForm.tel = c.tel ?? ''
       liForm.assignedFpName = c.assignedFpName ?? ''
+      liForm.assignedFpUid = c.assignedFpId ?? ''
     }
   }
   catch (e: any) {
@@ -228,6 +229,7 @@ const liForm = reactive<LifeInsuranceCaseInput>({
   dob: '',
   tel: '',
   assignedFpName: '',
+  assignedFpUid: '',
   faceToFaceStaffName: '',
   designRequest: '',
   newOrSwitch: '',
@@ -248,6 +250,12 @@ const liForm = reactive<LifeInsuranceCaseInput>({
   contractContent: '',
   planningContent: '',
   recordNumber: '',
+})
+
+// 担当 未来設計士はuidで選択し、表示用の氏名は選択結果から自動的に同期する
+// （同姓同名ユーザーが存在しても、以後の集計・ランキングでuidを使って正しく識別できるようにするため）
+watch(() => liForm.assignedFpUid, (uid) => {
+  liForm.assignedFpName = allUsers.value.find(u => u.uid === uid)?.displayName ?? ''
 })
 
 // 保険証券コピー（Firebase Storageへアップロードし、ダウンロードURLを保持）
@@ -364,7 +372,7 @@ const handleLiSubmit = async () => {
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1.5">担当 未来設計士</label>
-            <input v-model="liForm.assignedFpName" type="text" class="input-field" />
+            <SearchableUserSelect v-model="liForm.assignedFpUid" :users="allUsers" placeholder="選択してください" />
           </div>
         </div>
       </div>
