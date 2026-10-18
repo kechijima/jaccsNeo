@@ -81,10 +81,17 @@ export const useDirectorIndex = () => {
     const batch = writeBatch($db)
     let touched = false
 
+    // 既存行はuidが記録されていればuidで、無ければ従来通り名前で特定する
+    // （同じ判定基準を除外ループ・既存行検索の両方で使い、同一行を「別の担当」と
+    // 誤認して削除対象にしてしまわないようにする。uidが記録されていない過去データ
+    // （静的移行分）だけがdirectorNameでの判定対象になる）
+    const isSameTarget = (row: DirectorIndexRow) =>
+      row.kumiaiName === kumiaiName && (row.directorUid ? row.directorUid === directorUid : row.directorName === directorName)
+
     // 別の担当（ディレクター・組合）に付いていた場合はそちらから外す
     for (const row of rows.value) {
       if (row.role !== role) continue
-      if (row.directorUid === directorUid && row.kumiaiName === kumiaiName) continue
+      if (isSameTarget(row)) continue
       const matchedByUid = (row.memberUids ?? []).includes(memberUid)
       const matchedByName = row.memberNames.includes(memberName)
       if (!matchedByUid && !matchedByName) continue
@@ -98,10 +105,7 @@ export const useDirectorIndex = () => {
       touched = true
     }
 
-    // 既存行はuidが記録されていればuidで、無ければ従来通り名前で特定する
-    // （名前で特定した場合も、この時点で判明したuidをその場で記録し、以後はuid判定に切り替える）
-    const existing = rows.value.find(r => r.role === role && r.kumiaiName === kumiaiName &&
-      (r.directorUid ? r.directorUid === directorUid : r.directorName === directorName))
+    const existing = rows.value.find(r => r.role === role && isSameTarget(r))
     if (existing) {
       const alreadyByUid = (existing.memberUids ?? []).includes(memberUid)
       const alreadyByName = existing.memberNames.includes(memberName)
