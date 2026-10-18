@@ -4,7 +4,7 @@ import { DIRECTOR_INDEX_DATA } from '~/data/directorIndexData'
 
 definePageMeta({ middleware: ['auth', 'admin'] })
 
-const { fetchAll, seedFromStatic, cleanupWithdrawnMembers, rows } = useDirectorIndex()
+const { fetchAll, seedFromStatic, cleanupWithdrawnMembers, resyncAllFromUsers, rows } = useDirectorIndex()
 
 const checking = ref(true)
 const seeding  = ref(false)
@@ -53,6 +53,27 @@ const runCleanup = async () => {
     cleanupError.value = e.message ?? '除去処理に失敗しました'
   } finally {
     cleaning.value = false
+  }
+}
+
+// ── usersコレクションからの再同期 ───────────────────────────────────────
+// 何らかの理由で担当設定時にディレクター逆引きへの反映が漏れたケース
+// （例: 対象メンバーに組合が未設定のタイミングで担当設定された等）を、
+// 現在のusersコレクションの値から再構築して埋め合わせる
+const resyncing = ref(false)
+const resyncResult = ref<{ synced: number; skipped: number } | null>(null)
+const resyncError = ref('')
+
+const runResync = async () => {
+  resyncing.value = true
+  resyncError.value = ''
+  resyncResult.value = null
+  try {
+    resyncResult.value = await resyncAllFromUsers()
+  } catch (e: any) {
+    resyncError.value = e.message ?? '再同期に失敗しました'
+  } finally {
+    resyncing.value = false
   }
 }
 </script>
@@ -169,6 +190,46 @@ const runCleanup = async () => {
           <Icon v-if="cleaning" name="heroicons:arrow-path" class="h-4 w-4 animate-spin" />
           <Icon v-else name="heroicons:user-minus" class="h-4 w-4" />
           {{ cleaning ? '確認中...' : '脱退済みメンバーを除去する' }}
+        </button>
+      </div>
+
+      <!-- ユーザーデータからの再同期 -->
+      <div class="border-t border-gray-100 pt-6 mt-2 space-y-3">
+        <div>
+          <h2 class="font-semibold text-gray-900 flex items-center gap-2">
+            <Icon name="heroicons:arrow-path-rounded-square" class="h-5 w-5 text-primary-600" />
+            ユーザーデータからの再同期
+          </h2>
+          <p class="text-sm text-gray-500 mt-0.5">
+            「メインサポート・サブサポートを設定したのに、メンバー一覧のディレクター逆引きに出てこない」
+            場合の対処です。現在のユーザー情報（組合・メインサポート・サブサポート）をもとにディレクター逆引きを
+            総点検し、反映が漏れていた担当関係を補います（既存データが壊れることはなく、何度実行しても問題ありません）。
+          </p>
+        </div>
+
+        <div v-if="resyncError" class="rounded-lg bg-red-50 border border-red-200 px-4 py-3 flex items-start gap-3">
+          <Icon name="heroicons:exclamation-circle" class="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+          <p class="text-sm text-red-700">{{ resyncError }}</p>
+        </div>
+
+        <div v-if="resyncResult" class="rounded-lg bg-green-50 border border-green-200 px-4 py-3 flex items-start gap-3">
+          <Icon name="heroicons:check-circle" class="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
+          <div class="text-sm text-green-700">
+            <p>{{ resyncResult.synced }}件の担当関係を確認・反映しました。</p>
+            <p v-if="resyncResult.skipped > 0" class="mt-0.5 text-green-600">
+              （組合未設定・脱退済み等のため対象外: {{ resyncResult.skipped }}名）
+            </p>
+          </div>
+        </div>
+
+        <button
+          class="btn-secondary flex items-center gap-2"
+          :disabled="resyncing"
+          @click="runResync"
+        >
+          <Icon v-if="resyncing" name="heroicons:arrow-path" class="h-4 w-4 animate-spin" />
+          <Icon v-else name="heroicons:arrow-path-rounded-square" class="h-4 w-4" />
+          {{ resyncing ? '再同期中...' : 'ユーザーデータから再同期する' }}
         </button>
       </div>
     </template>

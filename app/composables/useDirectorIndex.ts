@@ -207,8 +207,39 @@ export const useDirectorIndex = () => {
     return { removedNames: [...removedNames], touchedRows }
   }
 
+  // 現在のusersコレクション（kumiaiName・mainSupporterUid・subSupporterUid）を正として、
+  // ディレクター逆引きインデックスを総点検・再同期する。何らかの理由で反映が漏れていた
+  // （例: 対象メンバーに組合が未設定のタイミングで担当設定された等）担当関係を、
+  // ユーザーデータの現在値から再構築して埋め合わせる（管理画面から手動実行）
+  const resyncAllFromUsers = async (): Promise<{ synced: number; skipped: number }> => {
+    const users = await fetchUsers()
+    const byUid = new Map(users.map(u => [u.uid, u]))
+
+    let synced = 0
+    let skipped = 0
+    for (const u of users) {
+      if (u.isWithdrawn || !u.kumiaiName) { skipped++; continue }
+      for (const role of ['main', 'sub'] as const) {
+        const supporterUid = role === 'main' ? u.mainSupporterUid : u.subSupporterUid
+        if (!supporterUid) continue
+        const director = byUid.get(supporterUid)
+        if (!director) continue
+        await upsertDirectorAssignment({
+          directorUid:  director.uid,
+          directorName: director.displayName,
+          kumiaiName:   u.kumiaiName,
+          role,
+          memberUid:    u.uid,
+          memberName:   u.displayName,
+        })
+        synced++
+      }
+    }
+    return { synced, skipped }
+  }
+
   return {
     rows, loading, loaded, fetchAll, seedFromStatic, searchByDirector, directorNames,
-    upsertDirectorAssignment, removeMemberFromIndex, cleanupWithdrawnMembers,
+    upsertDirectorAssignment, removeMemberFromIndex, cleanupWithdrawnMembers, resyncAllFromUsers,
   }
 }
