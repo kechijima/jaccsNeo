@@ -37,7 +37,7 @@ const isLinkedToEvent = ref(false)
 watch(isLinkedToEvent, (on) => { if (!on) form.value.linkedEventId = '' })
 
 // 連動先の会議カレンダー（種別「会議」のイベント）がまだ無い場合、その場で
-// 最小限の情報だけで新規作成できるようにする（詳細な設定はカレンダー側で後から編集可能）
+// 繰り返し設定も含めて新規作成できるようにする（場所・説明等の詳細はカレンダー側で後から編集可能）
 const { createEvent } = useEvents()
 const showNewEventForm = ref(false)
 const newEventTitle = ref('')
@@ -45,10 +45,35 @@ const newEventStartAt = ref('')
 const creatingEvent = ref(false)
 const newEventError = ref('')
 
+// 繰り返し設定（カレンダーのイベント作成画面と同じ項目・挙動）
+const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土']
+const recurrenceEnabled   = ref(false)
+const recurrenceFrequency = ref<'weekly' | 'monthly'>('weekly')
+const recurrenceInterval  = ref(1)
+const recurrenceWeekdays  = ref<number[]>([])
+const recurrenceEndDate   = ref('')
+
+// 開始日時を設定した際、曜日が未選択なら開始日の曜日を初期選択しておく
+watch(newEventStartAt, (v) => {
+  if (!v || recurrenceWeekdays.value.length > 0) return
+  recurrenceWeekdays.value = [new Date(v).getDay()]
+})
+
+const toggleRecurrenceWeekday = (day: number) => {
+  recurrenceWeekdays.value = recurrenceWeekdays.value.includes(day)
+    ? recurrenceWeekdays.value.filter(d => d !== day)
+    : [...recurrenceWeekdays.value, day].sort()
+}
+
 const openNewEventForm = () => {
   newEventTitle.value = form.value.type === 'kumiai' ? `${form.value.name} 理事会` : `${form.value.name} 定例会議`
   newEventStartAt.value = ''
   newEventError.value = ''
+  recurrenceEnabled.value = false
+  recurrenceFrequency.value = 'weekly'
+  recurrenceInterval.value = 1
+  recurrenceWeekdays.value = []
+  recurrenceEndDate.value = ''
   showNewEventForm.value = true
 }
 
@@ -63,6 +88,16 @@ const handleCreateMeetingEvent = async () => {
       scope:    'space',
       spaceId:  spaceId.value,
       category: 'meeting',
+      recurrence: recurrenceEnabled.value
+        ? {
+            frequency: recurrenceFrequency.value,
+            interval:  Math.max(1, Number(recurrenceInterval.value) || 1),
+            byWeekdays: recurrenceFrequency.value === 'weekly'
+              ? (recurrenceWeekdays.value.length > 0 ? recurrenceWeekdays.value : [new Date(newEventStartAt.value).getDay()])
+              : undefined,
+            endDate: recurrenceEndDate.value || undefined,
+          }
+        : undefined,
     })
     const events = await fetchEvents().catch(() => [] as EventSummary[])
     meetingEvents.value = events.filter(e => e.category === 'meeting')
@@ -272,7 +307,48 @@ const handleSave = async () => {
                 <label class="block text-xs font-medium text-gray-700 mb-1">初回の開催日時</label>
                 <input v-model="newEventStartAt" type="datetime-local" class="input-field text-sm" />
               </div>
-              <p class="text-xs text-gray-400">繰り返しや詳細な設定は、作成後にカレンダー側の編集画面から行えます。</p>
+
+              <!-- 繰り返し設定 -->
+              <div class="rounded-lg bg-sky-50 border border-sky-100 p-3 space-y-3">
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input v-model="recurrenceEnabled" type="checkbox" class="h-4 w-4 rounded text-primary-600" />
+                  <span class="text-sm font-medium text-gray-700">繰り返しを行う</span>
+                </label>
+
+                <div v-if="recurrenceEnabled" class="space-y-3 pl-6">
+                  <div class="flex items-center gap-2 flex-wrap text-sm text-gray-600">
+                    <span>毎</span>
+                    <input v-model.number="recurrenceInterval" type="number" min="1" class="input-field w-16 py-1 text-sm text-center" />
+                    <select v-model="recurrenceFrequency" class="input-field w-auto py-1 text-sm">
+                      <option value="weekly">週間ごと</option>
+                      <option value="monthly">ヶ月ごと</option>
+                    </select>
+                  </div>
+
+                  <div v-if="recurrenceFrequency === 'weekly'" class="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      v-for="(label, day) in WEEKDAY_LABELS"
+                      :key="day"
+                      type="button"
+                      class="h-8 w-8 rounded-full text-xs font-medium transition"
+                      :class="recurrenceWeekdays.includes(day)
+                        ? 'bg-primary-600 text-white'
+                        : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'"
+                      @click="toggleRecurrenceWeekday(day)"
+                    >{{ label }}</button>
+                  </div>
+                  <p v-else class="text-xs text-gray-500">
+                    開始日と同じ日付（毎月{{ newEventStartAt ? new Date(newEventStartAt).getDate() : '◯' }}日）に繰り返します
+                  </p>
+
+                  <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">繰り返しの終了日（任意）</label>
+                    <input v-model="recurrenceEndDate" type="date" class="input-field text-sm py-1.5 w-auto" />
+                  </div>
+                </div>
+              </div>
+
+              <p class="text-xs text-gray-400">場所・説明等の詳細は、作成後にカレンダー側の編集画面から行えます。</p>
               <p v-if="newEventError" class="text-xs text-red-500">{{ newEventError }}</p>
               <div class="flex items-center justify-end gap-2 pt-1">
                 <button type="button" class="text-xs text-gray-400 hover:text-gray-600" @click="showNewEventForm = false">キャンセル</button>
