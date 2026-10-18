@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useInquiries } from '~/composables/useInquiries'
+import { useInquiryComments } from '~/composables/useInquiryComments'
 import { INQUIRY_STATUS_LABELS } from '~/types/tools'
 import type { Inquiry, InquiryStatus } from '~/types/tools'
 
@@ -70,6 +71,44 @@ const statusBadgeClass = (status: InquiryStatus) => {
 }
 
 const fmt = (ts: any) => ts?.toDate?.().toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) ?? ''
+
+// ── コメント（問い合わせごとに開閉し、開いた時点で取得する） ──────────────
+const expandedIds = ref<Set<string>>(new Set())
+const commentsApi: Record<string, ReturnType<typeof useInquiryComments>> = {}
+const commentDrafts = reactive<Record<string, string>>({})
+const commentSubmittingIds = ref<Set<string>>(new Set())
+
+const getCommentsApi = (id: string) => {
+  if (!commentsApi[id]) commentsApi[id] = useInquiryComments(id)
+  return commentsApi[id]
+}
+
+const toggleComments = async (id: string) => {
+  const next = new Set(expandedIds.value)
+  if (next.has(id)) {
+    next.delete(id)
+  } else {
+    next.add(id)
+    await getCommentsApi(id).fetchInitial()
+  }
+  expandedIds.value = next
+}
+
+const submitComment = async (id: string) => {
+  const content = (commentDrafts[id] ?? '').trim()
+  if (!content) return
+  commentSubmittingIds.value = new Set(commentSubmittingIds.value).add(id)
+  try {
+    await getCommentsApi(id).addComment(content)
+    commentDrafts[id] = ''
+  } finally {
+    const next = new Set(commentSubmittingIds.value)
+    next.delete(id)
+    commentSubmittingIds.value = next
+  }
+}
+
+const commentFmt = (d: Date) => d.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 </script>
 
 <template>
@@ -167,6 +206,58 @@ const fmt = (ts: any) => ts?.toDate?.().toLocaleString('ja-JP', { month: 'numeri
             >
               <Icon name="heroicons:trash" class="h-4 w-4" />
             </button>
+          </div>
+
+          <!-- コメント -->
+          <div class="mt-2 pt-2 border-t border-gray-50">
+            <button
+              type="button"
+              class="text-xs text-gray-400 hover:text-primary-600 transition flex items-center gap-1"
+              @click="toggleComments(i.id)"
+            >
+              <Icon name="heroicons:chat-bubble-left-ellipsis" class="h-3.5 w-3.5" />
+              コメント{{ expandedIds.has(i.id) ? 'を閉じる' : 'を見る' }}
+              <Icon :name="expandedIds.has(i.id) ? 'heroicons:chevron-up' : 'heroicons:chevron-down'" class="h-3 w-3" />
+            </button>
+
+            <div v-if="expandedIds.has(i.id)" class="mt-2 space-y-2">
+              <div v-if="getCommentsApi(i.id).loading.value" class="text-xs text-gray-400 py-2">読み込み中...</div>
+              <template v-else>
+                <button
+                  v-if="getCommentsApi(i.id).hasMore.value"
+                  type="button"
+                  class="text-xs text-primary-600 hover:underline"
+                  :disabled="getCommentsApi(i.id).loadingMore.value"
+                  @click="getCommentsApi(i.id).loadMore()"
+                >
+                  {{ getCommentsApi(i.id).loadingMore.value ? '読み込み中...' : 'もっと見る' }}
+                </button>
+                <div v-if="getCommentsApi(i.id).comments.value.length === 0" class="text-xs text-gray-400 py-1">
+                  コメントはまだありません
+                </div>
+                <div v-for="c in getCommentsApi(i.id).comments.value" :key="c.id" class="rounded-lg bg-gray-50 px-3 py-2">
+                  <p class="text-xs font-semibold text-gray-700">{{ c.authorName }} <span class="font-normal text-gray-400">{{ commentFmt(c.createdAt) }}</span></p>
+                  <p class="text-xs text-gray-600 mt-0.5 whitespace-pre-line">{{ c.content }}</p>
+                </div>
+              </template>
+              <div class="flex items-center gap-2 pt-1">
+                <input
+                  v-model="commentDrafts[i.id]"
+                  type="text"
+                  placeholder="コメントを入力..."
+                  class="flex-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary-300"
+                  @keyup.enter="submitComment(i.id)"
+                />
+                <button
+                  type="button"
+                  class="text-xs text-primary-600 font-medium disabled:opacity-40 shrink-0"
+                  :disabled="!commentDrafts[i.id]?.trim() || commentSubmittingIds.has(i.id)"
+                  @click="submitComment(i.id)"
+                >
+                  送信
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>

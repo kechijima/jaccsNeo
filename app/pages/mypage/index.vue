@@ -6,6 +6,7 @@ import { useAuthStore } from '~/stores/auth'
 import { useGroups } from '~/composables/useGroups'
 import { useThemeColor } from '~/composables/useThemeColor'
 import { useDisplayName } from '~/composables/useDisplayName'
+import { useRequests } from '~/composables/useRequests'
 import type { AppUser } from '~/types/user'
 import type { Group } from '~/types/group'
 
@@ -27,12 +28,56 @@ const canEditName = computed(() => authStore.isSystemAdmin)
 const groups = ref<Group[]>([])
 onMounted(async () => { groups.value = await fetchGroups().catch(() => []) })
 
-// サポート者欄の入力候補（入力ミス防止のため、自由入力の補助として組合員名を提示する）
-const supportPersonSuggestions = ref<string[]>([])
+// サポート者（メイン・サブ）の選択肢
+const allUsers = ref<AppUser[]>([])
 onMounted(async () => {
-  const users = await fetchUsers().catch(() => [])
-  supportPersonSuggestions.value = users.filter(u => !u.isWithdrawn).map(u => u.displayName).filter(Boolean)
+  allUsers.value = (await fetchUsers().catch(() => [])).filter(u => !u.isWithdrawn)
 })
+
+// ── サポート者（メイン・サブ）の変更申請 ──────────────────────────────────
+// mainSupporterUid/subSupporterUidは組織図・EMタイトル自動計算・データ閲覧範囲に
+// 影響する重要な項目のため、他の項目のように即時保存はせず、理事会承認を要する
+// 「サポート者変更」申請（requests/new.vueと同じ仕組み）として送信する
+const { submit: submitRequest } = useRequests()
+const mainSupporterUid = ref('')
+const subSupporterUid = ref('')
+watch(() => user.value?.uid, () => {
+  mainSupporterUid.value = user.value?.mainSupporterUid ?? ''
+  subSupporterUid.value = user.value?.subSupporterUid ?? ''
+}, { immediate: true })
+
+const supporterChanged = computed(() =>
+  mainSupporterUid.value !== (user.value?.mainSupporterUid ?? '') ||
+  subSupporterUid.value !== (user.value?.subSupporterUid ?? ''),
+)
+const supporterSubmitting = ref(false)
+const supporterSubmitted = ref(false)
+const supporterError = ref('')
+
+const submitSupporterChange = async () => {
+  if (!user.value?.uid || !supporterChanged.value) return
+  supporterSubmitting.value = true
+  supporterError.value = ''
+  try {
+    await submitRequest({
+      type: 'supporter_change',
+      payload: {
+        targetUid:         user.value.uid,
+        targetName:        user.value.displayName,
+        mainSupporterUid:  mainSupporterUid.value || undefined,
+        mainSupporterName: allUsers.value.find(u => u.uid === mainSupporterUid.value)?.displayName,
+        subSupporterUid:   subSupporterUid.value || undefined,
+        subSupporterName:  allUsers.value.find(u => u.uid === subSupporterUid.value)?.displayName,
+      },
+    })
+    supporterSubmitted.value = true
+    setTimeout(() => { supporterSubmitted.value = false }, 4000)
+  } catch (e: any) {
+    supporterError.value = e.message ?? '申請の送信に失敗しました'
+  } finally {
+    supporterSubmitting.value = false
+  }
+}
 
 // ログイン中の実ユーザーを優先し、未取得時のみモックデータにフォールバックする
 const mockUser = computed(() =>
@@ -58,7 +103,6 @@ const form = reactive({
   // ビジネス情報
   businessContent: '',
   salaryContent: '',
-  supportPerson: '',
   // 銀行情報（個人）
   resonaAccount: '',
   sbiAccount: '',
@@ -99,7 +143,6 @@ const loadForm = () => {
   form.selfIntro = u.selfIntro ?? ''
   form.businessContent = u.businessContent ?? ''
   form.salaryContent = u.salaryContent ?? ''
-  form.supportPerson = u.supportPerson ?? ''
   form.resonaAccount = u.resonaAccount ?? ''
   form.sbiAccount = u.sbiAccount ?? ''
   form.otherBankName = u.otherBankName ?? ''
@@ -412,12 +455,38 @@ const groupLabel = computed(() => groups.value.find(g => g.id === form.groupId)?
       <template v-if="activeTab === 'business'">
         <h2 class="font-semibold text-gray-900 border-b border-gray-100 pb-2">ビジネス情報</h2>
 
-        <div class="grid grid-cols-1 gap-4">
-          <div>
-            <label class="block text-xs font-medium text-gray-500 mb-1">サポート者</label>
-            <ComboBox v-model="form.supportPerson" :items="supportPersonSuggestions" placeholder="サポート担当者名" />
+        <!-- サポート者（メイン・サブ）: 理事会承認が必要なため、変更は申請として送信する -->
+        <div class="rounded-lg border border-gray-200 p-4 space-y-3">
+          <p class="text-xs font-medium text-gray-500">サポート者</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">メインサポート</label>
+              <SearchableUserSelect v-model="mainSupporterUid" :users="allUsers" placeholder="選択してください" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">サブサポート（任意）</label>
+              <SearchableUserSelect v-model="subSupporterUid" :users="allUsers" placeholder="選択してください" />
+            </div>
           </div>
+          <p v-if="supporterSubmitted" class="text-xs text-green-600 flex items-center gap-1">
+            <Icon name="heroicons:check-circle" class="h-3.5 w-3.5" />
+            変更を申請しました。理事会の承認後に反映されます
+          </p>
+          <p v-if="supporterError" class="text-xs text-red-500">{{ supporterError }}</p>
+          <div class="flex justify-end">
+            <button
+              type="button"
+              class="btn-secondary text-xs !py-1.5"
+              :disabled="!supporterChanged || supporterSubmitting"
+              @click="submitSupporterChange"
+            >
+              <Icon v-if="supporterSubmitting" name="heroicons:arrow-path" class="h-3.5 w-3.5 animate-spin mr-1" />
+              変更を申請する
+            </button>
+          </div>
+        </div>
 
+        <div class="grid grid-cols-1 gap-4">
           <div>
             <label class="block text-xs font-medium text-gray-500 mb-1">ビジネス内容</label>
             <textarea
