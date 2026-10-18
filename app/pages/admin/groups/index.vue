@@ -46,6 +46,23 @@ const groupMemberCount = (groupId: string) => users.value.filter(u => u.groupId 
 const kumiaiMemberCount = (kumiaiId: string) => users.value.filter(u => u.kumiaiId === kumiaiId).length
 const specialTeamMemberCount = (teamId: string) => users.value.filter(u => u.specialTeams?.includes(teamId)).length
 
+// ── 専門チームの所属メンバー一覧（展開表示・名前で絞り込み） ─────────────
+const expandedTeamIds = ref<Set<string>>(new Set())
+const teamMemberQueries = reactive<Record<string, string>>({})
+const toggleTeamMembers = (teamId: string) => {
+  const next = new Set(expandedTeamIds.value)
+  if (next.has(teamId)) next.delete(teamId)
+  else next.add(teamId)
+  expandedTeamIds.value = next
+}
+const specialTeamMembers = (teamId: string) => {
+  const q = (teamMemberQueries[teamId] ?? '').trim().toLowerCase()
+  return users.value
+    .filter(u => u.specialTeams?.includes(teamId) && !u.isWithdrawn)
+    .filter(u => !q || u.displayName.toLowerCase().includes(q))
+    .sort((a, b) => a.displayName.localeCompare(b.displayName, 'ja'))
+}
+
 // ── 専門チーム 追加・編集モーダル（同じフォームを共用） ──────────────────
 const editingTeam = ref<SpecialTeamDef | null>(null)   // nullなら新規追加
 const showTeamModal = ref(false)
@@ -351,16 +368,51 @@ const deleteKumiai = async (g: Group, kumiaiId: string) => {
         専門チームはまだありません
       </div>
       <div v-else class="divide-y divide-gray-50">
-        <div v-for="t in specialTeams" :key="t.id" class="flex items-center justify-between px-5 py-3.5">
-          <div>
-            <p class="text-sm font-medium text-gray-900">{{ t.name }}</p>
-            <p class="text-xs text-gray-400">グループ横断 · {{ specialTeamMemberCount(t.id) }}名</p>
+        <div v-for="t in specialTeams" :key="t.id" class="px-5 py-3.5">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-gray-900">{{ t.name }}</p>
+              <button
+                type="button"
+                class="text-xs text-gray-400 hover:text-primary-600 transition flex items-center gap-0.5"
+                @click="toggleTeamMembers(t.id)"
+              >
+                グループ横断 · {{ specialTeamMemberCount(t.id) }}名
+                <Icon :name="expandedTeamIds.has(t.id) ? 'heroicons:chevron-up' : 'heroicons:chevron-down'" class="h-3 w-3" />
+              </button>
+            </div>
+            <div class="flex items-center gap-3 shrink-0">
+              <button class="text-xs text-primary-600 hover:underline" @click="openEditTeam(t)">編集</button>
+              <button class="text-xs text-gray-300 hover:text-red-500 transition" @click="removeTeam(t)">
+                <Icon name="heroicons:trash" class="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
-          <div class="flex items-center gap-3 shrink-0">
-            <button class="text-xs text-primary-600 hover:underline" @click="openEditTeam(t)">編集</button>
-            <button class="text-xs text-gray-300 hover:text-red-500 transition" @click="removeTeam(t)">
-              <Icon name="heroicons:trash" class="h-3.5 w-3.5" />
-            </button>
+
+          <!-- 所属メンバー一覧（名前で絞り込み可能） -->
+          <div v-if="expandedTeamIds.has(t.id)" class="mt-2.5 pl-1 space-y-2">
+            <div class="relative max-w-xs">
+              <Icon name="heroicons:magnifying-glass" class="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+              <input
+                v-model="teamMemberQueries[t.id]"
+                type="search"
+                placeholder="メンバー名で絞り込み..."
+                class="input-field pl-8 text-xs !py-1.5"
+              />
+            </div>
+            <div v-if="specialTeamMembers(t.id).length === 0" class="text-xs text-gray-400 py-1">
+              該当するメンバーがいません
+            </div>
+            <div v-else class="flex flex-wrap gap-1.5">
+              <NuxtLink
+                v-for="m in specialTeamMembers(t.id)"
+                :key="m.uid"
+                :to="`/team/${m.uid}`"
+                class="badge text-xs bg-gray-100 text-gray-700 hover:bg-primary-50 hover:text-primary-700 transition"
+              >
+                {{ m.displayName }}
+              </NuxtLink>
+            </div>
           </div>
         </div>
       </div>
