@@ -18,30 +18,41 @@ const customerName = computed(() => customer.value?.name ?? '')
 const canEdit = computed(() => customer.value ? canEditCustomer(customer.value.assignedFpId ?? '') : false)
 
 // 各アプリの「対応あり」件数は、この顧客の実際の案件レコード数（cases サブコレクション）
-// から判定する（固定アプリ・新規作成アプリとも同じ基準に統一）
-const { fetchCases } = useServices()
+// から判定する（固定アプリ・新規作成アプリとも同じ基準に統一）。アプリごとに個別取得すると
+// 件数分（最大45件）のFirestoreクエリが並列発生し体感が遅くなるため、全顧客・全アプリ横断の
+// collectionGroupクエリを1回だけ発行し、この顧客のcustomerIdでクライアント側に絞り込む
+const { fetchAllCases } = useServices()
 const caseCounts = ref<Record<string, number>>({})
-await Promise.all(
-  catalog.value.map(async (e) => {
-    try {
-      caseCounts.value[e.key] = (await fetchCases(customerId.value, e.key)).length
-    } catch {
-      caseCounts.value[e.key] = 0
+const loadingCases = ref(true)
+onMounted(async () => {
+  try {
+    const allCases = await fetchAllCases()
+    const counts: Record<string, number> = {}
+    for (const c of allCases) {
+      if (c.customerId !== customerId.value) continue
+      counts[c.serviceType] = (counts[c.serviceType] ?? 0) + 1
     }
-  }),
-)
+    caseCounts.value = counts
+  } catch {
+    caseCounts.value = {}
+  } finally {
+    loadingCases.value = false
+  }
+})
 
 // ── フィルター状態 ────────────────────────────────────────────────────
+const searchQuery = ref('')
 const selectedCategory = ref('')       // '' = すべて
 const onlyWithContent  = ref(false)    // 対応ありのみ
 
 const resetFilters = () => {
+  searchQuery.value = ''
   selectedCategory.value = ''
   onlyWithContent.value  = false
 }
 
 const isFiltering = computed(() =>
-  selectedCategory.value !== '' || onlyWithContent.value
+  searchQuery.value.trim() !== '' || selectedCategory.value !== '' || onlyWithContent.value
 )
 
 // ── サービス行ビルド（実際の案件レコード件数から導出） ──────────────────
@@ -78,6 +89,7 @@ const CATEGORY_DEFS = computed(() => {
 
 // ── フィルタリング済みカテゴリ一覧 ────────────────────────────────────
 const filteredCategories = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
   return CATEGORY_DEFS.value
     .filter(cat => !selectedCategory.value || cat.key === selectedCategory.value)
     .map(cat => {
@@ -85,6 +97,7 @@ const filteredCategories = computed(() => {
         .map(e => buildService(e))
         .filter(svc => {
           if (onlyWithContent.value && svc.status === 'none') return false
+          if (q && !svc.label.toLowerCase().includes(q)) return false
           return true
         })
       return { ...cat, services }
@@ -125,7 +138,7 @@ const statusClass = (status: string) => {
         <h1 class="text-xl font-bold text-gray-900">アプリ連携</h1>
         <p class="text-sm text-gray-500 mt-0.5">
           {{ customerName }} さん ／
-          <span class="text-primary-600 font-medium">対応あり {{ withContentCount }}件</span>
+          <span class="text-primary-600 font-medium">対応あり {{ loadingCases ? '—' : withContentCount }}件</span>
           <span class="text-gray-400"> / 全{{ totalCount }}種</span>
         </p>
       </div>
@@ -133,6 +146,17 @@ const statusClass = (status: string) => {
 
     <!-- ── フィルターエリア ── -->
     <div class="space-y-3">
+
+      <!-- 検索 -->
+      <div class="relative">
+        <Icon name="heroicons:magnifying-glass" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <input
+          v-model="searchQuery"
+          type="search"
+          placeholder="アプリ名で検索..."
+          class="input-field pl-9 text-sm"
+        />
+      </div>
 
       <!-- カテゴリタブ -->
       <div class="flex flex-wrap gap-2">
@@ -196,14 +220,21 @@ const statusClass = (status: string) => {
       </div>
     </div>
 
+    <!-- 読み込み中（対応件数の集計中） -->
+    <div v-if="loadingCases" class="card p-12 text-center">
+      <Icon name="heroicons:arrow-path" class="h-8 w-8 text-gray-300 mx-auto mb-2 animate-spin" />
+      <p class="text-sm text-gray-400">読み込み中...</p>
+    </div>
+
     <!-- フィルター結果なし -->
-    <div v-if="filteredCategories.length === 0" class="card p-12 text-center">
+    <div v-else-if="filteredCategories.length === 0" class="card p-12 text-center">
       <Icon name="heroicons:magnifying-glass" class="h-10 w-10 text-gray-200 mx-auto mb-2" />
       <p class="text-sm text-gray-400">条件に一致するサービスがありません</p>
       <button class="mt-2 text-xs text-primary-600 hover:underline" @click="resetFilters">条件をリセット</button>
     </div>
 
     <!-- カテゴリ別サービス一覧 -->
+    <template v-else>
     <div v-for="cat in filteredCategories" :key="cat.key" class="card overflow-hidden">
       <div class="flex items-center justify-between px-5 py-3 border-b border-gray-100" :class="cat.bgColor">
         <div class="flex items-center gap-2.5">
@@ -240,6 +271,7 @@ const statusClass = (status: string) => {
         </div>
       </div>
     </div>
+    </template>
 
   </div>
 </template>
