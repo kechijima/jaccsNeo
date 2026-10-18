@@ -51,13 +51,6 @@ const adminMenus = [
     description: 'ログイン・削除・承認・権限変更・CSV出力などの重要操作の履歴',
     color: 'text-gray-600 bg-gray-100',
   },
-  {
-    to: '/admin/orphaned-cases',
-    icon: 'heroicons:exclamation-triangle',
-    label: '孤立案件の確認',
-    description: '紐づく顧客データが削除済みで「顧客不明」になっている案件データの確認・削除',
-    color: 'text-orange-600 bg-orange-50',
-  },
   // 「制限コンテンツ（JACCS等）」「CSVインポート管理」「サンプルデータ投入」
   // 「生命保険データ投入」「スペースデータ投入」「ディレクター検索インデックス投入」は
   // 開発・初期データ投入用のメニューのため、運用開始に伴いメニューから非表示にした
