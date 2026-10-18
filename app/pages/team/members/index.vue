@@ -36,6 +36,25 @@ const lookupResults = computed(() => searchByDirector(lookupQuery.value))
 const CORPORATE_NAME_PATTERN = /株式会社|有限会社|合同会社|合資会社|合名会社|一般社団法人|一般財団法人|公益社団法人|公益財団法人|協同組合|事業協同組合|\(株\)|\(有\)|㈱|㈲/
 const personalMemberNames = (names: string[]) => names.filter(n => !CORPORATE_NAME_PATTERN.test(n))
 
+// サポート割合（全体のルール）: メインサポートのみ（サブサポートなし）の場合は100%サポート、
+// メイン・サブ両方いる場合はそれぞれ50%サポートとする。メンバー本人の現在のサポート設定
+// （mainSupporterUid・subSupporterUid）から判定する
+const allUsersRef = ref<AppUser[]>([])
+const userByDisplayName = computed(() => {
+  const map = new Map<string, AppUser>()
+  for (const u of allUsersRef.value) map.set(u.displayName, u)
+  return map
+})
+const supportPercentage = (memberName: string): number | null => {
+  const u = userByDisplayName.value.get(memberName)
+  if (!u) return null
+  const hasMain = !!u.mainSupporterUid
+  const hasSub = !!u.subSupporterUid
+  if (hasMain && hasSub) return 50
+  if (hasMain || hasSub) return 100
+  return null
+}
+
 interface MemberRow {
   uid: string
   name: string
@@ -116,6 +135,7 @@ onMounted(async () => {
     ])
     specialTeams.value = fetchedTeams
     const users = allUsers.filter(u => !u.isWithdrawn)
+    allUsersRef.value = users
 
     const built: GroupRow[] = []
 
@@ -271,7 +291,11 @@ const filteredGroups = computed<GroupRow[]>(() => {
               >{{ DIRECTOR_ROLE_LABELS[r.role] }}</span>
               <span class="text-xs text-gray-400">{{ personalMemberNames(r.memberNames).length }}名</span>
             </div>
-            <p class="text-sm text-gray-600">{{ personalMemberNames(r.memberNames).join('、') }}</p>
+            <div class="flex flex-wrap gap-x-1 gap-y-1 text-sm text-gray-600">
+              <span v-for="(name, i) in personalMemberNames(r.memberNames)" :key="name">
+                {{ name }}<span v-if="supportPercentage(name) !== null" class="text-xs text-gray-400">（{{ supportPercentage(name) }}%サポート）</span><span v-if="i < personalMemberNames(r.memberNames).length - 1">、</span>
+              </span>
+            </div>
           </div>
         </div>
       </div>
