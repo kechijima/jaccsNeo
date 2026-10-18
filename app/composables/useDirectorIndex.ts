@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, writeBatch, type DocumentData } from 'firebase/firestore'
+import { collection, doc, getDocs, addDoc, updateDoc, writeBatch, type DocumentData } from 'firebase/firestore'
 import { DIRECTOR_INDEX_DATA } from '~/data/directorIndexData'
 import type { DirectorIndexRow, DirectorRole } from '~/types/directorIndex'
 import { useUsers } from '~/composables/useUsers'
@@ -51,11 +51,14 @@ export const useDirectorIndex = () => {
     return count
   }
 
-  // ディレクター名で検索（部分一致）— 組合員一覧からの逆引き用
+  // ディレクター名で検索（完全一致）— 組合員一覧からの逆引き用。検索欄は
+  // ディレクター名一覧からの選択式のため、部分一致にすると「岡駿」で検索した際に
+  // 「岡駿一郎」等の別人のデータまで一緒に表示されてしまっていた（データが混ざって
+  // いたわけではなく、検索結果の絞り込みが不十分だったことが原因）
   const searchByDirector = (name: string): DirectorIndexRow[] => {
     const q = name.trim()
     if (!q) return []
-    return rows.value.filter(r => r.directorName.includes(q))
+    return rows.value.filter(r => r.directorName === q)
   }
 
   const directorNames = computed(() => [...new Set(rows.value.map(r => r.directorName))].sort((a, b) => a.localeCompare(b, 'ja')))
@@ -78,9 +81,6 @@ export const useDirectorIndex = () => {
 
     await fetchAll()
 
-    const batch = writeBatch($db)
-    let touched = false
-
     // 既存行はuidが記録されていればuidで、無ければ従来通り名前で特定する
     // （同じ判定基準を除外ループ・既存行検索の両方で使い、同一行を「別の担当」と
     // 誤認して削除対象にしてしまわないようにする。uidが記録されていない過去データ
@@ -88,7 +88,11 @@ export const useDirectorIndex = () => {
     const isSameTarget = (row: DirectorIndexRow) =>
       row.kumiaiName === kumiaiName && (row.directorUid ? row.directorUid === directorUid : row.directorName === directorName)
 
-    // 別の担当（ディレクター・組合）に付いていた場合はそちらから外す
+    // ── フェーズ1: 別の担当（ディレクター・組合）に付いていた場合はそちらから外す ──
+    // 削除・更新のバッチと、後続フェーズ2の更新バッチを完全に分けることで、
+    // 同一ドキュメントに対して1つのバッチ内でdelete/updateが競合すること自体を無くす
+    const removalBatch = writeBatch($db)
+    let removalTouched = false
     for (const row of rows.value) {
       if (row.role !== role) continue
       if (isSameTarget(row)) continue
@@ -98,29 +102,33 @@ export const useDirectorIndex = () => {
       const nextNames = row.memberNames.filter(n => n !== memberName)
       const nextUids = (row.memberUids ?? []).filter(u => u !== memberUid)
       if (nextNames.length === 0) {
-        batch.delete(doc($db, COLLECTION, row.id))
+        removalBatch.delete(doc($db, COLLECTION, row.id))
       } else {
-        batch.update(doc($db, COLLECTION, row.id), { memberNames: nextNames, memberUids: nextUids })
+        removalBatch.update(doc($db, COLLECTION, row.id), { memberNames: nextNames, memberUids: nextUids })
       }
-      touched = true
+      removalTouched = true
+    }
+    if (removalTouched) {
+      await removalBatch.commit()
+      await fetchAll(true)
     }
 
+    // ── フェーズ2: 新しい担当（directorUid × kumiaiName × role）へ付け替える ──
     const existing = rows.value.find(r => r.role === role && isSameTarget(r))
     if (existing) {
       const alreadyByUid = (existing.memberUids ?? []).includes(memberUid)
       const alreadyByName = existing.memberNames.includes(memberName)
       if (!alreadyByUid || !alreadyByName) {
-        batch.update(doc($db, COLLECTION, existing.id), {
+        await updateDoc(doc($db, COLLECTION, existing.id), {
           memberNames: alreadyByName ? existing.memberNames : [...existing.memberNames, memberName],
           memberUids:  alreadyByUid ? (existing.memberUids ?? []) : [...(existing.memberUids ?? []), memberUid],
           directorUid,
           yearMonth:   currentYearMonth(),
         })
-        touched = true
+        await fetchAll(true)
       }
     } else {
-      const newRef = doc(collection($db, COLLECTION))
-      batch.set(newRef, {
+      await addDoc(collection($db, COLLECTION), {
         yearMonth:   currentYearMonth(),
         directorUid,
         directorName,
@@ -129,11 +137,6 @@ export const useDirectorIndex = () => {
         memberNames: [memberName],
         memberUids:  [memberUid],
       })
-      touched = true
-    }
-
-    if (touched) {
-      await batch.commit()
       await fetchAll(true)
     }
   }
