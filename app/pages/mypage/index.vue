@@ -7,6 +7,7 @@ import { useGroups } from '~/composables/useGroups'
 import { useThemeColor } from '~/composables/useThemeColor'
 import { useDisplayName } from '~/composables/useDisplayName'
 import { useRequests } from '~/composables/useRequests'
+import { getAnimalFortune } from '~/utils/animalFortune'
 import type { AppUser } from '~/types/user'
 import type { Group } from '~/types/group'
 
@@ -123,6 +124,9 @@ const form = reactive({
 
 // 日付系（ネイティブの日付ピッカーを使うため「なし」を代入できない項目）
 const DATE_FIELDS = new Set(['joinDate', 'birthday', 'kumiaiJoinDate'])
+
+// 動物占い（パーソナルデータと同じロジックを共用し、誕生日欄の入力に応じて即時反映する）
+const animalFortune = computed(() => getAnimalFortune(form.birthday))
 
 // 初期化
 const loadForm = () => {
@@ -412,6 +416,10 @@ const groupLabel = computed(() => groups.value.find(g => g.id === form.groupId)?
           <div>
             <label class="block text-xs font-medium text-gray-500 mb-1">誕生日</label>
             <input v-model="form.birthday" type="date" class="input-field text-sm" />
+            <p v-if="animalFortune" class="mt-1.5 text-xs text-gray-500 flex items-center gap-1">
+              <span>{{ animalFortune.emoji }}</span>
+              <span>動物占い: <span class="font-medium text-gray-700">{{ animalFortune.animal }}</span>（{{ animalFortune.trait }}）</span>
+            </p>
           </div>
 
           <!-- 組合加入年月 -->
