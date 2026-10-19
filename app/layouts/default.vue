@@ -42,27 +42,72 @@ onBeforeUnmount(() => {
 // 「チーム」メニュー（実績等の統計）は一般ロールには表示しない。
 // 「メンバー一覧」はロールに関わらず全員に表示する
 const navItems = computed(() => [
-  { label: 'ダッシュボード',   icon: 'heroicons:home',                   to: '/dashboard' },
-  { label: 'パーソナルデータ', icon: 'heroicons:identification',         to: '/personal-data' },
-  { label: 'プロダクトアプリ', icon: 'heroicons:squares-2x2',            to: '/services' },
-  { label: '活動報告',         icon: 'heroicons:chat-bubble-left-right', to: '/portal' },
-  { label: '業務ツールアプリ', icon: 'heroicons:wrench-screwdriver',     to: '/tools' },
-  { label: 'カレンダー',       icon: 'heroicons:calendar-days',          to: '/events' },
-  { label: 'リマインダー',     icon: 'heroicons:bell-alert',             to: '/reminders' },
+  { label: 'ダッシュボード',   icon: 'heroicons:home',                   to: '/dashboard',     color: 'sky' },
+  { label: 'パーソナルデータ', icon: 'heroicons:identification',         to: '/personal-data', color: 'emerald' },
+  { label: 'プロダクトアプリ', icon: 'heroicons:squares-2x2',            to: '/services',       color: 'violet' },
+  { label: '活動報告',         icon: 'heroicons:chat-bubble-left-right', to: '/portal',         color: 'amber' },
+  { label: '業務ツールアプリ', icon: 'heroicons:wrench-screwdriver',     to: '/tools',          color: 'cyan' },
+  { label: 'カレンダー',       icon: 'heroicons:calendar-days',          to: '/events',         color: 'rose' },
+  { label: 'リマインダー',     icon: 'heroicons:bell-alert',             to: '/reminders',      color: 'orange' },
   ...(authStore.user?.role !== 'general'
-    ? [{ label: 'チーム', icon: 'heroicons:chart-bar', to: '/team' }]
+    ? [{ label: 'チーム', icon: 'heroicons:chart-bar', to: '/team', color: 'indigo' }]
     : []),
-  { label: 'メンバー一覧',     icon: 'heroicons:users',                  to: '/team/members' },
-  { label: '申請',             icon: 'heroicons:document-check',         to: '/requests' },
+  { label: 'メンバー一覧',     icon: 'heroicons:users',                  to: '/team/members',   color: 'pink' },
+  { label: '申請',             icon: 'heroicons:document-check',         to: '/requests',       color: 'teal' },
 ])
 
-// SPボトムナビ用（項目数を絞り、短いラベルで表示崩れを防ぐ）
+// メニューごとに選択時の背景色を変える（従来は全メニュー共通で水色/primaryだった）。
+// マイページ・通知・検索・管理者設定はnavItemsとは別枠で個別に描画しているため、
+// 同じ色指定方式で扱えるようここにも定義しておく
+const EXTRA_NAV_COLORS: Record<string, string> = {
+  '/mypage':        'fuchsia',
+  '/notifications': 'red',
+  '/search':        'lime',
+  '/admin':         'slate',
+}
+
+// Tailwindは動的に組み立てたクラス名を検出できない（ビルド時にスキャンして
+// 必要なCSSだけ生成する仕組みのため）ため、使う組み合わせをあらかじめ
+// 固定の文字列として列挙しておく
+const NAV_ACTIVE_CLASSES: Record<string, string> = {
+  sky:     'bg-sky-50 text-sky-700',
+  emerald: 'bg-emerald-50 text-emerald-700',
+  violet:  'bg-violet-50 text-violet-700',
+  amber:   'bg-amber-50 text-amber-700',
+  cyan:    'bg-cyan-50 text-cyan-700',
+  rose:    'bg-rose-50 text-rose-700',
+  orange:  'bg-orange-50 text-orange-700',
+  indigo:  'bg-indigo-50 text-indigo-700',
+  pink:    'bg-pink-50 text-pink-700',
+  teal:    'bg-teal-50 text-teal-700',
+  fuchsia: 'bg-fuchsia-50 text-fuchsia-700',
+  red:     'bg-red-50 text-red-700',
+  lime:    'bg-lime-50 text-lime-700',
+  slate:   'bg-slate-100 text-slate-700',
+}
+
+const navActiveClass = (to: string, color: string) =>
+  isActive(to) ? (NAV_ACTIVE_CLASSES[color] ?? 'bg-primary-50 text-primary-700') : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+
+// SPボトムナビは背景なし・文字色のみで選択状態を示すデザインのため、背景色版とは別に文字色のみの組み合わせを列挙する
+const NAV_ACTIVE_TEXT_CLASSES: Record<string, string> = {
+  sky:     'text-sky-600',
+  emerald: 'text-emerald-600',
+  violet:  'text-violet-600',
+  amber:   'text-amber-600',
+  rose:    'text-rose-600',
+}
+
+const mobileNavActiveClass = (to: string, color: string) =>
+  isActive(to) ? (NAV_ACTIVE_TEXT_CLASSES[color] ?? 'text-primary-600') : 'text-gray-500 hover:text-gray-700'
+
+// SPボトムナビ用（項目数を絞り、短いラベルで表示崩れを防ぐ）。colorはnavItemsの同じ行き先と揃える
 const mobileNavItems = [
-  { label: 'ホーム',   icon: 'heroicons:home',                   to: '/dashboard' },
-  { label: 'データ',   icon: 'heroicons:identification',         to: '/personal-data' },
-  { label: 'アプリ',   icon: 'heroicons:squares-2x2',            to: '/services' },
-  { label: '活動報告', icon: 'heroicons:chat-bubble-left-right', to: '/portal' },
-  { label: 'カレンダー', icon: 'heroicons:calendar-days',          to: '/events' },
+  { label: 'ホーム',   icon: 'heroicons:home',                   to: '/dashboard',     color: 'sky' },
+  { label: 'データ',   icon: 'heroicons:identification',         to: '/personal-data', color: 'emerald' },
+  { label: 'アプリ',   icon: 'heroicons:squares-2x2',            to: '/services',       color: 'violet' },
+  { label: '活動報告', icon: 'heroicons:chat-bubble-left-right', to: '/portal',         color: 'amber' },
+  { label: 'カレンダー', icon: 'heroicons:calendar-days',          to: '/events',        color: 'rose' },
 ]
 
 const isActive = (to: string) => route.path.startsWith(to)
@@ -134,7 +179,7 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
           :to="item.to"
           class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
           :class="[
-            isActive(item.to) ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+            navActiveClass(item.to, item.color),
             sidebarCollapsed ? 'justify-center px-0' : '',
           ]"
           :title="sidebarCollapsed ? item.label : undefined"
@@ -148,7 +193,7 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
           to="/mypage"
           class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
           :class="[
-            isActive('/mypage') ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+            navActiveClass('/mypage', EXTRA_NAV_COLORS['/mypage']),
             sidebarCollapsed ? 'justify-center px-0' : '',
           ]"
           :title="sidebarCollapsed ? 'マイページ' : undefined"
@@ -162,7 +207,7 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
           to="/notifications"
           class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
           :class="[
-            isActive('/notifications') ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+            navActiveClass('/notifications', EXTRA_NAV_COLORS['/notifications']),
             sidebarCollapsed ? 'justify-center px-0' : '',
           ]"
           :title="sidebarCollapsed ? '通知' : undefined"
@@ -184,7 +229,7 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
           to="/search"
           class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
           :class="[
-            isActive('/search') ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+            navActiveClass('/search', EXTRA_NAV_COLORS['/search']),
             sidebarCollapsed ? 'justify-center px-0' : '',
           ]"
           :title="sidebarCollapsed ? '検索' : undefined"
@@ -203,7 +248,7 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
             to="/admin"
             class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
             :class="[
-              isActive('/admin') ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+              navActiveClass('/admin', EXTRA_NAV_COLORS['/admin']),
               sidebarCollapsed ? 'justify-center px-0' : '',
             ]"
             :title="sidebarCollapsed ? '管理者設定' : undefined"
@@ -339,9 +384,7 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
           :key="item.to"
           :to="item.to"
           class="flex flex-1 flex-col items-center justify-center gap-0.5 py-2.5 text-xs font-medium transition"
-          :class="isActive(item.to)
-            ? 'text-primary-600'
-            : 'text-gray-500 hover:text-gray-700'"
+          :class="mobileNavActiveClass(item.to, item.color)"
         >
           <Icon :name="item.icon" class="h-5 w-5 mb-0.5" />
           <span>{{ item.label }}</span>
@@ -396,7 +439,7 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
                 <NuxtLink
                   to="/mypage"
                   class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
-                  :class="isActive('/mypage') ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100'"
+                  :class="navActiveClass('/mypage', EXTRA_NAV_COLORS['/mypage'])"
                   @click="isMobileMenuOpen = false"
                 >
                   <Icon name="heroicons:user-circle" class="h-5 w-5 shrink-0" />
@@ -405,7 +448,7 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
                 <NuxtLink
                   to="/reminders"
                   class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
-                  :class="isActive('/reminders') ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100'"
+                  :class="navActiveClass('/reminders', 'orange')"
                   @click="isMobileMenuOpen = false"
                 >
                   <Icon name="heroicons:bell-alert" class="h-5 w-5 shrink-0" />
@@ -414,7 +457,7 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
                 <NuxtLink
                   to="/requests"
                   class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
-                  :class="isActive('/requests') ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100'"
+                  :class="navActiveClass('/requests', 'teal')"
                   @click="isMobileMenuOpen = false"
                 >
                   <Icon name="heroicons:document-check" class="h-5 w-5 shrink-0" />
@@ -424,7 +467,7 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
                   v-if="authStore.user?.role !== 'general'"
                   to="/team"
                   class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
-                  :class="isActive('/team') ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100'"
+                  :class="navActiveClass('/team', 'indigo')"
                   @click="isMobileMenuOpen = false"
                 >
                   <Icon name="heroicons:chart-bar" class="h-5 w-5 shrink-0" />
@@ -433,7 +476,7 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
                 <NuxtLink
                   to="/team/members"
                   class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
-                  :class="isActive('/team/members') ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100'"
+                  :class="navActiveClass('/team/members', 'pink')"
                   @click="isMobileMenuOpen = false"
                 >
                   <Icon name="heroicons:users" class="h-5 w-5 shrink-0" />
@@ -442,7 +485,7 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
                 <NuxtLink
                   to="/tools"
                   class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
-                  :class="isActive('/tools') ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100'"
+                  :class="navActiveClass('/tools', 'cyan')"
                   @click="isMobileMenuOpen = false"
                 >
                   <Icon name="heroicons:wrench-screwdriver" class="h-5 w-5 shrink-0" />
@@ -452,7 +495,7 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
                 <NuxtLink
                   to="/search"
                   class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
-                  :class="isActive('/search') ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100'"
+                  :class="navActiveClass('/search', EXTRA_NAV_COLORS['/search'])"
                   @click="isMobileMenuOpen = false"
                 >
                   <Icon name="heroicons:magnifying-glass" class="h-5 w-5 shrink-0" />
@@ -474,7 +517,7 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
                   <NuxtLink
                     to="/admin"
                     class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
-                    :class="isActive('/admin') ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-100'"
+                    :class="navActiveClass('/admin', EXTRA_NAV_COLORS['/admin'])"
                     @click="isMobileMenuOpen = false"
                   >
                     <Icon name="heroicons:cog-6-tooth" class="h-5 w-5 shrink-0" />
