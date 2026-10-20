@@ -1,19 +1,14 @@
 <script setup lang="ts">
 import { useVideos } from '~/composables/useVideos'
-import { useGroups } from '~/composables/useGroups'
-import { useSpecialTeams } from '~/composables/useSpecialTeams'
+import { useVisibilityScope } from '~/composables/useVisibilityScope'
 import type { ManagedVideo } from '~/types/tools'
-import type { Group } from '~/types/group'
-import type { SpecialTeamDef } from '~/types/specialTeam'
 import { TITLE_OPTIONS } from '~/types/user'
 
 definePageMeta({ middleware: ['auth'] })
 
-const { fetchVideos, createVideo, deleteVideo } = useVideos()
-const { fetchGroups } = useGroups()
-const { fetchAll: fetchSpecialTeams } = useSpecialTeams()
+const { fetchVideos, createVideo, updateVideo, deleteVideo } = useVideos()
+const { groups, specialTeams, ensureLoaded: ensureScopeOptionsLoaded, groupLabel } = useVisibilityScope()
 const { isSystemAdmin } = usePermission()
-const { user: currentUser } = useCurrentUser()
 
 const loading = ref(true)
 const loadError = ref('')
@@ -35,22 +30,6 @@ onMounted(() => {
   if (isSystemAdmin.value) ensureScopeOptionsLoaded()
 })
 
-// 公開範囲の選択肢（グループ・専門チーム）。管理者が動画登録フォームを開いた時に読み込む
-const groups = ref<Group[]>([])
-const specialTeams = ref<SpecialTeamDef[]>([])
-const scopeOptionsLoaded = ref(false)
-const ensureScopeOptionsLoaded = async () => {
-  if (scopeOptionsLoaded.value) return
-  const [g, t] = await Promise.all([fetchGroups().catch(() => []), fetchSpecialTeams().catch(() => [])])
-  groups.value = g
-  specialTeams.value = t
-  scopeOptionsLoaded.value = true
-}
-
-const groupLabel = (id: string) => groups.value.find(g => g.id === id)?.name
-  ?? specialTeams.value.find(t => `team:${t.id}` === id)?.name
-  ?? id
-
 // YouTubeの通常URL・短縮URLを埋め込み用URLに変換する（それ以外はそのままiframeに渡す）
 const toEmbedUrl = (url: string): string => {
   const watchMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/)
@@ -58,8 +37,9 @@ const toEmbedUrl = (url: string): string => {
   return url
 }
 
-// ── 新規動画登録（管理者のみ） ────────────────────────────────────
+// ── 動画の追加・編集（管理者のみ。編集では公開範囲等の「権限」設定も変更できる） ──
 const showForm = ref(false)
+const editingId = ref('')
 const formTitle = ref('')
 const formDescription = ref('')
 const formUrl = ref('')
@@ -68,8 +48,31 @@ const formVisibleGroupIds = ref<string[]>([])
 const formMinTitleLevel = ref('')
 const submitting = ref(false)
 
+const resetForm = () => {
+  editingId.value = ''
+  formTitle.value = ''
+  formDescription.value = ''
+  formUrl.value = ''
+  formGenre.value = ''
+  formVisibleGroupIds.value = []
+  formMinTitleLevel.value = ''
+}
+
 const openForm = async () => {
   await ensureScopeOptionsLoaded()
+  resetForm()
+  showForm.value = true
+}
+
+const openEditForm = async (v: ManagedVideo) => {
+  await ensureScopeOptionsLoaded()
+  editingId.value = v.id
+  formTitle.value = v.title
+  formDescription.value = v.description ?? ''
+  formUrl.value = v.url
+  formGenre.value = v.genre ?? ''
+  formVisibleGroupIds.value = [...(v.visibleGroupIds ?? [])]
+  formMinTitleLevel.value = v.minTitleLevel ?? ''
   showForm.value = true
 }
 
@@ -83,20 +86,20 @@ const submitVideo = async () => {
   if (!formTitle.value.trim() || !formUrl.value.trim() || submitting.value) return
   submitting.value = true
   try {
-    await createVideo({
+    const form = {
       title: formTitle.value.trim(),
       description: formDescription.value.trim() || undefined,
       url: formUrl.value.trim(),
       genre: formGenre.value.trim() || undefined,
       visibleGroupIds: formVisibleGroupIds.value,
       minTitleLevel: formMinTitleLevel.value || undefined,
-    })
-    formTitle.value = ''
-    formDescription.value = ''
-    formUrl.value = ''
-    formGenre.value = ''
-    formVisibleGroupIds.value = []
-    formMinTitleLevel.value = ''
+    }
+    if (editingId.value) {
+      await updateVideo(editingId.value, form)
+    } else {
+      await createVideo(form)
+    }
+    resetForm()
     showForm.value = false
     await load()
   } finally {
@@ -188,7 +191,7 @@ const removeVideo = async (id: string) => {
           @click="submitVideo"
         >
           <Icon v-if="submitting" name="heroicons:arrow-path" class="h-3.5 w-3.5 animate-spin mr-1" />
-          登録する
+          {{ editingId ? '更新する' : '登録する' }}
         </button>
       </div>
     </div>
@@ -215,14 +218,14 @@ const removeVideo = async (id: string) => {
         <div class="p-4">
           <div class="flex items-start justify-between gap-2">
             <p class="font-semibold text-gray-900 text-sm">{{ v.title }}</p>
-            <button
-              v-if="isSystemAdmin || v.createdByUid === currentUser?.uid"
-              type="button"
-              class="text-gray-300 hover:text-red-500 transition shrink-0"
-              @click="removeVideo(v.id)"
-            >
-              <Icon name="heroicons:trash" class="h-4 w-4" />
-            </button>
+            <div v-if="isSystemAdmin" class="flex items-center gap-1 shrink-0">
+              <button type="button" class="text-gray-300 hover:text-primary-600 transition" @click="openEditForm(v)">
+                <Icon name="heroicons:pencil-square" class="h-4 w-4" />
+              </button>
+              <button type="button" class="text-gray-300 hover:text-red-500 transition" @click="removeVideo(v.id)">
+                <Icon name="heroicons:trash" class="h-4 w-4" />
+              </button>
+            </div>
           </div>
           <p v-if="v.genre" class="inline-block mt-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">{{ v.genre }}</p>
           <p v-if="v.description" class="text-sm text-gray-500 mt-1 whitespace-pre-line">{{ v.description }}</p>

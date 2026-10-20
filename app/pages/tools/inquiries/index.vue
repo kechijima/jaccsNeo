@@ -9,6 +9,7 @@ definePageMeta({ middleware: ['auth'] })
 const { fetchInquiries, createInquiry, updateInquiryStatus, deleteInquiry } = useInquiries()
 const { isSystemAdmin, isEm2OrAbove } = usePermission()
 const { user: currentUser } = useCurrentUser()
+// ステータスの変更はシステム管理者のみ（削除は従来通りEM2以上・投稿者本人も可能）
 const canManage = computed(() => isSystemAdmin.value || isEm2OrAbove.value)
 
 const loading = ref(true)
@@ -186,26 +187,24 @@ const commentFmt = (d: Date) => d.toLocaleString('ja-JP', { month: 'numeric', da
           <p class="text-sm text-gray-600 whitespace-pre-line mb-2">{{ i.content }}</p>
           <div class="flex items-center justify-between text-xs text-gray-400">
             <span>{{ i.createdByName }} ・ {{ fmt(i.createdAt) }}</span>
-            <div v-if="canManage" class="flex items-center gap-1.5">
+            <div v-if="canManage || i.createdByUid === currentUser?.uid" class="flex items-center gap-1.5">
               <select
+                v-if="isSystemAdmin"
                 :value="i.status"
                 class="text-xs border border-gray-200 rounded-lg px-1.5 py-1 bg-white"
                 @change="changeStatus(i.id, ($event.target as HTMLSelectElement).value as InquiryStatus)"
               >
                 <option v-for="(label, key) in INQUIRY_STATUS_LABELS" :key="key" :value="key">{{ label }}</option>
               </select>
-              <button type="button" class="text-gray-300 hover:text-red-500 transition" @click="removeInquiry(i.id)">
+              <button
+                v-if="canManage || i.createdByUid === currentUser?.uid"
+                type="button"
+                class="text-gray-300 hover:text-red-500 transition"
+                @click="removeInquiry(i.id)"
+              >
                 <Icon name="heroicons:trash" class="h-4 w-4" />
               </button>
             </div>
-            <button
-              v-else-if="i.createdByUid === currentUser?.uid"
-              type="button"
-              class="text-gray-300 hover:text-red-500 transition"
-              @click="removeInquiry(i.id)"
-            >
-              <Icon name="heroicons:trash" class="h-4 w-4" />
-            </button>
           </div>
 
           <!-- コメント -->

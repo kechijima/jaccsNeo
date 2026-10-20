@@ -45,6 +45,7 @@ export const useInquiries = () => {
   }
 
   const updateInquiryStatus = async (id: string, status: InquiryStatus): Promise<void> => {
+    if (!authStore.isSystemAdmin) throw new Error('権限がありません')
     await updateDoc(doc($db, 'inquiries', id), { status, updatedAt: serverTimestamp() })
   }
 

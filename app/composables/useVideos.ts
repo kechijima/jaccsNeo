@@ -3,12 +3,12 @@
  * videos コレクションを利用する簡易CRUD
  */
 import {
-  collection, doc, addDoc, deleteDoc, getDocs, query, orderBy,
+  collection, doc, addDoc, updateDoc, deleteDoc, getDocs, query, orderBy,
   serverTimestamp, type DocumentData,
 } from 'firebase/firestore'
 import type { ManagedVideo, ManagedVideoForm } from '~/types/tools'
 import type { AppUser } from '~/types/user'
-import { meetsMinTitle } from '~/types/user'
+import { meetsScopeVisibility } from '~/types/user'
 import { useAuthStore } from '~/stores/auth'
 
 const toVideo = (id: string, data: DocumentData): ManagedVideo => ({
@@ -27,13 +27,8 @@ const toVideo = (id: string, data: DocumentData): ManagedVideo => ({
 // 動画の公開範囲（グループ・専門チーム・最低タイトル）を満たしているかどうかを判定する。
 // visibleGroupIdsが未設定・空の場合は制限なし（全員に公開）。システム管理者は
 // 管理目的で常に全件を把握できるよう、呼び出し側でこのチェック自体をスキップする
-export const canViewVideo = (video: ManagedVideo, user: AppUser | null | undefined): boolean => {
-  if (!meetsMinTitle(user?.position, video.minTitleLevel)) return false
-  const groupIds = video.visibleGroupIds ?? []
-  if (groupIds.length === 0) return true
-  if (user?.groupId && groupIds.includes(user.groupId)) return true
-  return (user?.specialTeams ?? []).some(t => groupIds.includes(`team:${t}`))
-}
+export const canViewVideo = (video: ManagedVideo, user: AppUser | null | undefined): boolean =>
+  meetsScopeVisibility(user, video.visibleGroupIds, video.minTitleLevel)
 
 export const useVideos = () => {
   const { $db } = useNuxtApp()
@@ -48,7 +43,10 @@ export const useVideos = () => {
     return all.filter(v => canViewVideo(v, authStore.user))
   }
 
+  // 追加・編集・削除はシステム管理者のみ（公開範囲等の「権限」設定も含め、
+  // 一般ユーザーが変更できてしまわないようクライアント側でも明示的にガードする）
   const createVideo = async (form: ManagedVideoForm): Promise<string> => {
+    if (!authStore.isSystemAdmin) throw new Error('権限がありません')
     const ref = await addDoc(videosCol(), {
       title:           form.title,
       description:     form.description ?? '',
@@ -63,9 +61,22 @@ export const useVideos = () => {
     return ref.id
   }
 
+  const updateVideo = async (id: string, form: ManagedVideoForm): Promise<void> => {
+    if (!authStore.isSystemAdmin) throw new Error('権限がありません')
+    await updateDoc(doc($db, 'videos', id), {
+      title:           form.title,
+      description:     form.description ?? '',
+      url:             form.url,
+      genre:           form.genre ?? '',
+      visibleGroupIds: form.visibleGroupIds ?? [],
+      minTitleLevel:   form.minTitleLevel ?? '',
+    })
+  }
+
   const deleteVideo = async (id: string): Promise<void> => {
+    if (!authStore.isSystemAdmin) throw new Error('権限がありません')
     await deleteDoc(doc($db, 'videos', id))
   }
 
-  return { fetchVideos, createVideo, deleteVideo }
+  return { fetchVideos, createVideo, updateVideo, deleteVideo }
 }

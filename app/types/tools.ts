@@ -65,6 +65,11 @@ export interface ManagedFile {
   url: string
   size: number
   contentType?: string
+  // 公開範囲。未設定・空配列の場合は制限なし（全員に公開）。動画配信と同じ形式
+  // （通常グループはGroupIdを、専門チームは`team:<specialTeamId>`形式の文字列で格納）
+  visibleGroupIds?: string[]
+  // 閲覧に必要な最低タイトル（例: 'EM1'）。未設定なら制限なし。TITLE_OPTIONSの序列で判定する
+  minTitleLevel?: string
   uploadedByUid: string
   uploadedByName: string
   createdAt: Timestamp
@@ -74,4 +79,6 @@ export interface ManagedFileForm {
   title: string
   creatorUid: string
   creatorName: string
+  visibleGroupIds?: string[]
+  minTitleLevel?: string
 }

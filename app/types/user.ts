@@ -26,6 +26,21 @@ export const meetsMinTitle = (position: string | undefined, minTitle: string | u
   return titleLevel(position) >= minLevel
 }
 
+// 動画配信・ファイル管理等、公開範囲（グループ・専門チーム＋最低タイトル）で閲覧制限する
+// 業務ツールアプリ画面の共通判定。visibleGroupIdsは未設定/空配列なら制限なし（全員に公開）。
+// 専門チームは`team:<specialTeamId>`形式の文字列として同じ配列に格納する
+export const meetsScopeVisibility = (
+  user: { groupId?: GroupId; specialTeams?: SpecialTeam[]; position?: string } | null | undefined,
+  visibleGroupIds: string[] | undefined,
+  minTitleLevel: string | undefined,
+): boolean => {
+  if (!meetsMinTitle(user?.position, minTitleLevel)) return false
+  const groupIds = visibleGroupIds ?? []
+  if (groupIds.length === 0) return true
+  if (user?.groupId && groupIds.includes(user.groupId)) return true
+  return (user?.specialTeams ?? []).some(t => groupIds.includes(`team:${t}`))
+}
+
 // グループはFirestoreの groups コレクションで動的に追加できるため、固定の列挙型ではなくstringとする
 export type GroupId = string
 
