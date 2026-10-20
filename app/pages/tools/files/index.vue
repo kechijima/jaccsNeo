@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { useManagedFiles } from '~/composables/useManagedFiles'
+import { useUsers } from '~/composables/useUsers'
 import type { ManagedFile } from '~/types/tools'
+import type { AppUser } from '~/types/user'
 
 definePageMeta({ middleware: ['auth'] })
 
 const { fetchFiles, uploadManagedFile, deleteManagedFile } = useManagedFiles()
+const { fetchUsers } = useUsers()
 const { isSystemAdmin } = usePermission()
 const { user: currentUser } = useCurrentUser()
 
@@ -24,21 +27,44 @@ const load = async () => {
 }
 onMounted(load)
 
-const fileInput = ref<HTMLInputElement | null>(null)
+// ── 新規ファイル登録（管理者のみ） ────────────────────────────────
+const allUsers = ref<AppUser[]>([])
+const showForm = ref(false)
+const formTitle = ref('')
+const formFile = ref<File | null>(null)
+const formCreatorUid = ref('')
 const uploading = ref(false)
 const uploadError = ref('')
 
-const triggerUpload = () => fileInput.value?.click()
+const openForm = async () => {
+  if (allUsers.value.length === 0) {
+    allUsers.value = await fetchUsers().catch(() => [])
+  }
+  formTitle.value = ''
+  formFile.value = null
+  formCreatorUid.value = currentUser.value?.uid ?? ''
+  uploadError.value = ''
+  showForm.value = true
+}
 
-const handleFileChange = async (e: Event) => {
+const handleFileChange = (e: Event) => {
   const input = e.target as HTMLInputElement
-  const file = input.files?.[0]
-  input.value = ''
-  if (!file) return
+  formFile.value = input.files?.[0] ?? null
+}
+
+const submitFile = async () => {
+  const file = formFile.value
+  const creator = allUsers.value.find(u => u.uid === formCreatorUid.value)
+  if (!formTitle.value.trim() || !file || !creator || uploading.value) return
   uploading.value = true
   uploadError.value = ''
   try {
-    await uploadManagedFile(file)
+    await uploadManagedFile(file, {
+      title: formTitle.value.trim(),
+      creatorUid: creator.uid,
+      creatorName: creator.displayName,
+    })
+    showForm.value = false
     await load()
   } catch (err: any) {
     uploadError.value = err.message ?? 'アップロードに失敗しました'
@@ -75,19 +101,42 @@ const fmt = (ts: any) => ts?.toDate?.().toLocaleDateString('ja-JP', { year: 'num
       <div>
         <h1 class="text-xl font-bold text-gray-900">ファイル管理</h1>
       </div>
-      <template v-if="isSystemAdmin">
-        <input ref="fileInput" type="file" class="hidden" @change="handleFileChange" />
-        <button type="button" class="btn-primary text-sm" :disabled="uploading" @click="triggerUpload">
-          <Icon v-if="uploading" name="heroicons:arrow-path" class="h-4 w-4 animate-spin" />
-          <Icon v-else name="heroicons:arrow-up-tray" class="h-4 w-4" />
-          ファイルをアップロード
-        </button>
-      </template>
+      <button v-if="isSystemAdmin && !showForm" type="button" class="btn-primary text-sm" @click="openForm">
+        <Icon name="heroicons:arrow-up-tray" class="h-4 w-4" />
+        ファイルを登録する
+      </button>
     </div>
 
-    <div v-if="uploadError" class="flex items-start gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700">
-      <Icon name="heroicons:exclamation-circle" class="mt-0.5 h-4 w-4 shrink-0" />
-      {{ uploadError }}
+    <!-- 新規登録フォーム -->
+    <div v-if="showForm" class="card p-5 space-y-3">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">タイトル</label>
+        <input v-model="formTitle" type="text" class="input-field" placeholder="タイトルを入力" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">ファイル</label>
+        <input type="file" class="input-field" @change="handleFileChange" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">作成者</label>
+        <SearchableUserSelect v-model="formCreatorUid" :users="allUsers" placeholder="作成者を選択" />
+      </div>
+      <div v-if="uploadError" class="flex items-start gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+        <Icon name="heroicons:exclamation-circle" class="mt-0.5 h-4 w-4 shrink-0" />
+        {{ uploadError }}
+      </div>
+      <div class="flex justify-end gap-2">
+        <button type="button" class="btn-secondary text-sm" @click="showForm = false">キャンセル</button>
+        <button
+          type="button"
+          class="btn-primary text-sm"
+          :disabled="!formTitle.trim() || !formFile || !formCreatorUid || uploading"
+          @click="submitFile"
+        >
+          <Icon v-if="uploading" name="heroicons:arrow-path" class="h-3.5 w-3.5 animate-spin mr-1" />
+          登録する
+        </button>
+      </div>
     </div>
 
     <div v-if="loading" class="card p-12 text-center">
@@ -110,10 +159,10 @@ const fmt = (ts: any) => ts?.toDate?.().toLocaleDateString('ja-JP', { year: 'num
           <Icon name="heroicons:document" class="h-6 w-6 text-gray-400 shrink-0" />
           <div class="flex-1 min-w-0">
             <a :href="f.url" target="_blank" rel="noopener" class="text-sm font-medium text-primary-600 hover:underline truncate block">
-              {{ f.name }}
+              {{ f.title }}
             </a>
             <p class="text-xs text-gray-400 mt-0.5">
-              {{ formatSize(f.size) }} ・ {{ f.uploadedByName }} ・ {{ fmt(f.createdAt) }}
+              {{ f.name }} ・ {{ formatSize(f.size) }} ・ {{ f.uploadedByName }} ・ {{ fmt(f.createdAt) }}
             </p>
           </div>
           <a :href="f.url" target="_blank" rel="noopener" class="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition shrink-0">

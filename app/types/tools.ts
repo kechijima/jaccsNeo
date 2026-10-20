@@ -35,6 +35,12 @@ export interface ManagedVideo {
   title: string
   description?: string
   url: string   // YouTube等の視聴URL（そのままiframe埋め込みで再生する）
+  genre?: string
+  // 公開範囲。未設定・空配列の場合は制限なし（全員に公開）。通常グループはGroupIdを、
+  // 専門チームは`team:<specialTeamId>`形式の文字列を格納し、同じ配列内で区別する
+  visibleGroupIds?: string[]
+  // 視聴に必要な最低タイトル（例: 'EM1'）。未設定なら制限なし。TITLE_OPTIONSの序列で判定する
+  minTitleLevel?: string
   createdByUid: string
   createdByName: string
   createdAt: Timestamp
@@ -44,6 +50,9 @@ export interface ManagedVideoForm {
   title: string
   description?: string
   url: string
+  genre?: string
+  visibleGroupIds?: string[]
+  minTitleLevel?: string
 }
 
 // ===================================================
@@ -51,6 +60,7 @@ export interface ManagedVideoForm {
 // ===================================================
 export interface ManagedFile {
   id: string
+  title: string   // 未設定の過去データはファイル名で代替表示する
   name: string
   url: string
   size: number
@@ -58,4 +68,10 @@ export interface ManagedFile {
   uploadedByUid: string
   uploadedByName: string
   createdAt: Timestamp
+}
+
+export interface ManagedFileForm {
+  title: string
+  creatorUid: string
+  creatorName: string
 }

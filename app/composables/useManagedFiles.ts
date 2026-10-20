@@ -6,12 +6,12 @@ import {
   collection, doc, addDoc, deleteDoc, getDocs, query, orderBy,
   serverTimestamp, type DocumentData,
 } from 'firebase/firestore'
-import type { ManagedFile } from '~/types/tools'
-import { useAuthStore } from '~/stores/auth'
+import type { ManagedFile, ManagedFileForm } from '~/types/tools'
 import { useStorage } from '~/composables/useStorage'
 
 const toManagedFile = (id: string, data: DocumentData): ManagedFile => ({
   id,
+  title:          data.title ?? data.name ?? '',
   name:           data.name ?? '',
   url:            data.url ?? '',
   size:           data.size ?? 0,
@@ -23,7 +23,6 @@ const toManagedFile = (id: string, data: DocumentData): ManagedFile => ({
 
 export const useManagedFiles = () => {
   const { $db } = useNuxtApp()
-  const authStore = useAuthStore()
   const { uploadFile } = useStorage()
 
   const filesCol = () => collection($db, 'files')
@@ -33,16 +32,19 @@ export const useManagedFiles = () => {
     return snap.docs.map(d => toManagedFile(d.id, d.data()))
   }
 
-  const uploadManagedFile = async (file: File): Promise<string> => {
+  // 作成者（creatorUid/creatorName）はアップロード操作者本人とは限らない
+  // （代理登録を想定し、フォームで任意のユーザーを選択できるようにしている）
+  const uploadManagedFile = async (file: File, form: ManagedFileForm): Promise<string> => {
     const path = `tools/files/${Date.now()}_${file.name}`
     const url = await uploadFile(path, file)
     const ref = await addDoc(filesCol(), {
+      title:          form.title,
       name:           file.name,
       url,
       size:           file.size,
       contentType:    file.type,
-      uploadedByUid:  authStore.user?.uid ?? '',
-      uploadedByName: authStore.user?.displayName ?? '',
+      uploadedByUid:  form.creatorUid,
+      uploadedByName: form.creatorName,
       createdAt:      serverTimestamp(),
     })
     return ref.id
