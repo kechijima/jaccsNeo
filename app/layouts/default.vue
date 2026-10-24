@@ -12,7 +12,7 @@ const { open: openHelp } = useHelpDrawer()
 const { isRefreshing, refresh } = useSoftRefresh()
 const { displayName, user } = useCurrentUser()
 const authStore = useAuthStore()
-const route = useRoute()
+const router = useRouter()
 const { subscribeUnreadCount } = useNotifications()
 const { ensureLoaded: ensureGroupLabelsLoaded } = useGroupLabels()
 const { format: formatDisplayName } = useDisplayName()
@@ -86,6 +86,13 @@ const NAV_ACTIVE_CLASSES: Record<string, string> = {
   slate:   'bg-slate-100 text-slate-700',
 }
 
+// 現在のパス。useRoute()（Nuxtの薄いラッパー）の戻り値は、このアプリの
+// vue-router 5系の組み合わせではナビゲーション直後に即座には更新されず、
+// メニューの選択色が1クリック遅れて反映される（2回目のクリックでようやく
+// 反映される）不具合の原因になっていた。useRouter().currentRoute は
+// 同じ条件でも正しく即時に更新されることを確認できたため、そちらを使う
+const currentPath = computed(() => router.currentRoute.value.path)
+
 const navActiveClass = (to: string, color: string) =>
   isActive(to) ? (NAV_ACTIVE_CLASSES[color] ?? 'bg-primary-50 text-primary-700') : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
 
@@ -110,7 +117,7 @@ const mobileNavItems = [
   { label: 'カレンダー', icon: 'heroicons:calendar-days',          to: '/events',        color: 'rose' },
 ]
 
-const isActive = (to: string) => route.path.startsWith(to)
+const isActive = (to: string) => currentPath.value.startsWith(to)
 
 const isMobileMenuOpen = ref(false)
 
