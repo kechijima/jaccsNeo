@@ -212,7 +212,7 @@ const removeSavedSearch = (s: SavedSearch) => {
 }
 
 // ── ページネーション（大量データのため描画件数を制限） ────────────────
-const pageSize = ref(50)
+const pageSize = ref(25)
 const currentPage = ref(1)
 
 const totalPages = computed(() => Math.max(1, Math.ceil(filtered.value.length / pageSize.value)))

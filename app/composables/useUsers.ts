@@ -27,11 +27,22 @@ export const useUsers = () => {
 
   const usersCol = () => collection($db, 'users')
 
+  // 全ユーザー一覧は非常に多くの画面（30箇所以上）から呼ばれるため、セッション内で
+  // キャッシュしてFirestoreの読み取り回数を抑える（Firebaseの課金は読み取り件数に
+  // 比例するため）。ユーザーデータを変更する操作（updateUser等）の後はキャッシュを
+  // 無効化し、次回のfetchUsers呼び出しで最新データを取り直す
+  const usersCache = useState<AppUser[]>('users:list', () => [])
+  const usersCacheLoaded = useState<boolean>('users:loaded', () => false)
+  const invalidateUsersCache = () => { usersCacheLoaded.value = false }
+
   // ===== 全ユーザー一覧 =====
-  const fetchUsers = async (): Promise<AppUser[]> => {
+  const fetchUsers = async (force = false): Promise<AppUser[]> => {
+    if (usersCacheLoaded.value && !force) return usersCache.value
     const q = query(usersCol(), orderBy('displayName', 'asc'))
     const snap = await getDocs(q)
-    return snap.docs.map(d => toAppUser(d.id, d.data()))
+    usersCache.value = snap.docs.map(d => toAppUser(d.id, d.data()))
+    usersCacheLoaded.value = true
+    return usersCache.value
   }
 
   // ===== グループ別ユーザー =====
@@ -127,6 +138,7 @@ export const useUsers = () => {
       )
       await Promise.all([...affectedUids].map(recalcEmTitle))
     }
+    invalidateUsersCache()
   }
 
   // ===== 自分自身のプロフィール更新（マイページ用。本人のみ許可） =====
@@ -138,6 +150,7 @@ export const useUsers = () => {
       updatedBy: uid,
       updatedAt: serverTimestamp(),
     })
+    invalidateUsersCache()
   }
 
   // ===== 他ユーザーのプロフィール更新（システム管理者のみ許可） =====
@@ -148,6 +161,7 @@ export const useUsers = () => {
       updatedBy: authStore.user?.uid,
       updatedAt: serverTimestamp(),
     })
+    invalidateUsersCache()
   }
 
   // ===== ユーザー作成（Firebase Auth + Firestoreプロフィール） =====
@@ -169,6 +183,7 @@ export const useUsers = () => {
     const functions = getFunctions($firebase, 'asia-northeast1')
     const fn = httpsCallable<typeof data, { uid: string }>(functions, 'createAuthUser')
     const result = await fn(data)
+    invalidateUsersCache()
     return result.data.uid
   }
 
@@ -180,6 +195,7 @@ export const useUsers = () => {
     const functions = getFunctions($firebase, 'asia-northeast1')
     const fn = httpsCallable<{ uid: string }, { success: boolean }>(functions, 'deleteAuthUser')
     await fn({ uid })
+    invalidateUsersCache()
   }
 
   return {

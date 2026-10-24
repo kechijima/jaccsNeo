@@ -3,6 +3,23 @@ import { useNuxtApp } from '#app'
 // アップロードが応答なく固まり続けないよう、一定時間で打ち切る
 const UPLOAD_TIMEOUT_MS = 30000
 
+// 画像アップロード（アバター・活動報告・掲示板等）の容量・拡張子制限。
+// Storage容量の圧迫とアップロード時間を抑えるため、JPEG/PNG以外・一定サイズ超は受け付けない。
+// PDF等を含む書類アップロード（保険証券の写し等）は対象外（uploadFileをそのまま使う）
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024 // 5MB
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png']
+const ALLOWED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png']
+
+const validateImageFile = (file: File): void => {
+  const ext = file.name.toLowerCase().match(/\.[^.]+$/)?.[0] ?? ''
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type) || !ALLOWED_IMAGE_EXTENSIONS.includes(ext)) {
+    throw new Error('画像はJPEGまたはPNG形式のみアップロードできます')
+  }
+  if (file.size > MAX_IMAGE_SIZE_BYTES) {
+    throw new Error(`画像サイズは${MAX_IMAGE_SIZE_BYTES / 1024 / 1024}MB以下にしてください`)
+  }
+}
+
 // ファイルアップロードを使うページはごく一部のため、firebase/storageは
 // 実際に必要になった時点で初めて動的import()する（アプリ起動時の
 // JS実行コストに含めない）。Storageインスタンスはモジュールスコープで
@@ -52,7 +69,16 @@ export const useStorage = () => {
     })
   }
 
+  /**
+   * 画像専用のアップロード（JPEG/PNG・5MB以下のみ許可）
+   */
+  const uploadImage = async (path: string, file: File): Promise<string> => {
+    validateImageFile(file)
+    return uploadFile(path, file)
+  }
+
   return {
     uploadFile,
+    uploadImage,
   }
 }

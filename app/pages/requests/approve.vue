@@ -108,6 +108,12 @@ const payloadRows = (r: AppRequest): { label: string; value: string }[] => {
       { label: '対象アプリ', value: (p.appNames ?? []).join('、') || '（なし）' },
     ]
   }
+  if (r.type === 'special_team_join' || r.type === 'special_team_leave') {
+    return [
+      { label: '対象者', value: p.targetName || r.requestedByName },
+      { label: '専門チーム', value: p.teamName ?? '' },
+    ]
+  }
   return []
 }
 
@@ -181,6 +187,18 @@ const applyRequest = async (r: AppRequest): Promise<void> => {
       if (!app) continue
       if (app.staffUids.includes(targetUid)) continue
       await updateAppDef(appId, { staffUids: [...app.staffUids, targetUid] })
+    }
+  } else if (r.type === 'special_team_join') {
+    // 承認時点の最新のspecialTeamsに対象を追加する（他の変更と競合しないよう、
+    // 申請時点ではなく承認時点で対象者を個別に取得し直す）
+    const target = await fetchUser(p.targetUid).catch(() => null)
+    if (target && !target.specialTeams.includes(p.teamId)) {
+      await updateUser(p.targetUid, { specialTeams: [...target.specialTeams, p.teamId] })
+    }
+  } else if (r.type === 'special_team_leave') {
+    const target = await fetchUser(p.targetUid).catch(() => null)
+    if (target) {
+      await updateUser(p.targetUid, { specialTeams: target.specialTeams.filter((t: string) => t !== p.teamId) })
     }
   }
 }

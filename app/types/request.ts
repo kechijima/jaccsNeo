@@ -12,6 +12,8 @@ export type RequestType =
   | 'kumiai_member_withdraw' // 組合員の脱退
   | 'kumiai_dissolve'        // 組合の解体
   | 'app_staff_add'          // プロダクトアプリ担当者への追加
+  | 'special_team_join'      // 専門チームへの加入
+  | 'special_team_leave'     // 専門チームからの脱退
 
 export type RequestStatus = 'pending' | 'approved' | 'rejected'
 
@@ -26,6 +28,8 @@ export const REQUEST_TYPE_LABELS: Record<RequestType, string> = {
   kumiai_member_withdraw:    '組合員の脱退',
   kumiai_dissolve:           '組合の解体',
   app_staff_add:             'プロダクトアプリ担当者への追加',
+  special_team_join:         '専門チームへの加入',
+  special_team_leave:        '専門チームからの脱退',
 }
 
 export const REQUEST_STATUS_LABELS: Record<RequestStatus, string> = {
@@ -102,6 +106,22 @@ export interface AppStaffAddPayload {
   appNames: string[]  // 表示用（承認キュー一覧でアプリを再取得しなくて済むように保持）
 }
 
+// 専門チームへの加入・脱退。対象者は初期値として自分自身が選択されているが、
+// 他のメンバーに変更もできる（app_staff_addと同様の運用）
+export interface SpecialTeamJoinPayload {
+  targetUid: string
+  targetName?: string
+  teamId: string
+  teamName?: string
+}
+
+export interface SpecialTeamLeavePayload {
+  targetUid: string
+  targetName?: string
+  teamId: string
+  teamName?: string
+}
+
 // 準備室の登録はkumiai_createと同じ項目（承認時にstatus:'preparatory'で組合を作成する）
 export type KumiaiPreparatoryCreatePayload = KumiaiCreatePayload
 
@@ -123,6 +143,8 @@ export type RequestPayload =
   | KumiaiMemberWithdrawPayload
   | KumiaiDissolvePayload
   | AppStaffAddPayload
+  | SpecialTeamJoinPayload
+  | SpecialTeamLeavePayload
 
 export interface AppRequest {
   id: string

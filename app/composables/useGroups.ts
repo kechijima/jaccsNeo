@@ -30,8 +30,17 @@ export const useGroups = () => {
   const groupsCol = () => collection($db, 'groups')
   const kumiaiCol = (groupId: GroupId) => collection($db, 'groups', groupId, 'kumiai')
 
+  // グループ・組合一覧は多くの画面から呼ばれ、各グループごとにkumiaiサブコレクションも
+  // 読み取るため、セッション内でキャッシュしてFirestoreの読み取り回数を抑える
+  // （Firebaseの課金は読み取り件数に比例するため）。グループ・組合を変更する操作の後は
+  // キャッシュを無効化し、次回のfetchGroups呼び出しで最新データを取り直す
+  const groupsCache = useState<Group[]>('groups:list', () => [])
+  const groupsCacheLoaded = useState<boolean>('groups:loaded', () => false)
+  const invalidateGroupsCache = () => { groupsCacheLoaded.value = false }
+
   // ===== 全グループ・組合取得（Firestoreに登録された全グループ + 未登録の既定3グループ） =====
-  const fetchGroups = async (): Promise<Group[]> => {
+  const fetchGroups = async (force = false): Promise<Group[]> => {
+    if (groupsCacheLoaded.value && !force) return groupsCache.value
     const groupsSnap = await getDocs(groupsCol())
     const fetchedIds = new Set(groupsSnap.docs.map(d => d.id))
 
@@ -64,6 +73,8 @@ export const useGroups = () => {
       if (bi >= 0) return 1
       return a.name.localeCompare(b.name, 'ja')
     })
+    groupsCache.value = rows
+    groupsCacheLoaded.value = true
     return rows
   }
 
@@ -76,6 +87,7 @@ export const useGroups = () => {
       updatedAt: serverTimestamp(),
     })
     useOperationLog().log('group_create', name).catch(() => {})
+    invalidateGroupsCache()
     return ref.id
   }
 
@@ -86,6 +98,7 @@ export const useGroups = () => {
       ...data,
       updatedAt: serverTimestamp(),
     }, { merge: true })
+    invalidateGroupsCache()
   }
 
   // ===== 組合一覧（グループ指定） =====
@@ -112,6 +125,7 @@ export const useGroups = () => {
       updatedAt: serverTimestamp(),
     })
     useOperationLog().log('kumiai_create', data.name).catch(() => {})
+    invalidateGroupsCache()
     return ref.id
   }
 
@@ -130,12 +144,14 @@ export const useGroups = () => {
     if (data.isDissolved) {
       useOperationLog().log('kumiai_dissolve', `${groupId}/${kumiaiId}`).catch(() => {})
     }
+    invalidateGroupsCache()
   }
 
   // ===== 組合削除 =====
   const deleteKumiai = async (groupId: GroupId, kumiaiId: string): Promise<void> => {
     if (!authStore.isBoard) throw new Error('権限がありません')
     await deleteDoc(doc($db, 'groups', groupId, 'kumiai', kumiaiId))
+    invalidateGroupsCache()
   }
 
   return {

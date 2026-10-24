@@ -7,8 +7,10 @@ import { useUsers } from '~/composables/useUsers'
 import { useAppDefs } from '~/composables/useAppDefs'
 import { useAppCatalog } from '~/composables/useAppCatalog'
 import type { AppCatalogEntry } from '~/composables/useAppCatalog'
+import { useSpecialTeams } from '~/composables/useSpecialTeams'
 import { APP_CATEGORY_DEFS, APP_CATEGORY_LIST } from '~/types/service'
 import type { Group } from '~/types/group'
+import type { SpecialTeamDef } from '~/types/specialTeam'
 import { TITLE_OPTIONS, type AppUser } from '~/types/user'
 import { requestStatusBadge, requestPayloadSummary } from '~/utils/requestSummary'
 
@@ -19,12 +21,14 @@ const { fetchGroups } = useGroups()
 const { fetchUsers } = useUsers()
 const { appDefs } = useAppDefs()
 const { catalog: appCatalog, ensureLoaded: ensureAppCatalogLoaded } = useAppCatalog()
+const { fetchAll: fetchSpecialTeams } = useSpecialTeams()
 const { user: currentUser } = useCurrentUser()
 const route = useRoute()
 const router = useRouter()
 
 const groups = ref<Group[]>([])
 const users = ref<AppUser[]>([])
+const specialTeams = ref<SpecialTeamDef[]>([])
 const resubmitted = ref(false)
 const pastRequests = ref<AppRequest[]>([])
 const pastLoading = ref(true)
@@ -49,9 +53,13 @@ const editSaved  = ref(false)
 const editError  = ref('')
 
 onMounted(async () => {
-  const [g, u] = await Promise.all([fetchGroups().catch(() => []), fetchUsers().catch(() => []), ensureAppCatalogLoaded().catch(() => {})])
+  const [g, u, , st] = await Promise.all([
+    fetchGroups().catch(() => []), fetchUsers().catch(() => []),
+    ensureAppCatalogLoaded().catch(() => {}), fetchSpecialTeams().catch(() => []),
+  ])
   groups.value = g
   users.value = u
+  specialTeams.value = st
   await applyResubmitDraft()
   await loadPastRequests()
 
@@ -196,6 +204,25 @@ const toggleAppStaffAdd = (appDefId: string) => {
 }
 const appStaffAddLabel = (appDefId: string) => appCatalog.value.find(e => e.appDefId === appDefId)?.label ?? appDefId
 
+// ── 専門チームへの加入・脱退（対象者は初期値として自分自身が選択されているが、
+//    他のメンバーに変更もできる。app_staff_addと同様の運用） ──
+const specialTeamJoinForm = reactive({ targetUid: currentUser.value?.uid ?? '', teamId: '' })
+const specialTeamLeaveForm = reactive({ targetUid: currentUser.value?.uid ?? '', teamId: '' })
+// 加入申請では、対象者がまだ所属していない専門チームのみを選択肢にする（重複申請の防止）
+const joinTeamOptions = computed(() => {
+  const target = users.value.find(u => u.uid === specialTeamJoinForm.targetUid)
+  const joined = new Set(target?.specialTeams ?? [])
+  return specialTeams.value.filter(t => !joined.has(t.id))
+})
+// 脱退申請では、対象者が現在実際に所属している専門チームのみを選択肢にする
+const leaveTeamOptions = computed(() => {
+  const target = users.value.find(u => u.uid === specialTeamLeaveForm.targetUid)
+  const joined = new Set(target?.specialTeams ?? [])
+  return specialTeams.value.filter(t => joined.has(t.id))
+})
+watch(() => specialTeamJoinForm.targetUid, () => { specialTeamJoinForm.teamId = '' })
+watch(() => specialTeamLeaveForm.targetUid, () => { specialTeamLeaveForm.teamId = '' })
+
 const note = ref('')
 
 const userOptions = computed(() => users.value.filter(u => !u.isWithdrawn).map(u => ({ uid: u.uid, displayName: u.displayName })))
@@ -213,6 +240,8 @@ const resetForms = () => {
   Object.assign(kumiaiDissolveForm, { groupId: '', kumiaiId: '' })
   appStaffAddForm.appIds = []
   appStaffAddForm.targetUid = currentUser.value?.uid ?? ''
+  Object.assign(specialTeamJoinForm, { targetUid: currentUser.value?.uid ?? '', teamId: '' })
+  Object.assign(specialTeamLeaveForm, { targetUid: currentUser.value?.uid ?? '', teamId: '' })
   note.value = ''
   resubmitted.value = false
 }
@@ -229,6 +258,8 @@ const FORMS_BY_TYPE: Record<RequestType, Record<string, any>> = {
   kumiai_member_withdraw:    memberWithdrawForm,
   kumiai_dissolve:           kumiaiDissolveForm,
   app_staff_add:             appStaffAddForm,
+  special_team_join:         specialTeamJoinForm,
+  special_team_leave:        specialTeamLeaveForm,
 }
 // groupId変更で連動して選択組合(kumiaiId)がリセットされるフォームがあるため、
 // groupIdを先に反映してwatchによるリセットを済ませてからkumiaiIdを反映する
@@ -282,12 +313,18 @@ const isValid = computed(() => {
   if (type.value === 'kumiai_preparatory_create') return !!kumiaiPreparatoryCreateForm.groupId && !!kumiaiPreparatoryCreateForm.name.trim()
   if (type.value === 'kumiai_promote') return !!kumiaiPromoteForm.groupId && !!kumiaiPromoteForm.kumiaiId
   if (type.value === 'group_create') return !!groupCreateForm.name.trim()
-  if (type.value === 'kumiai_member_create') return !!memberCreateForm.lastName.trim() && !!memberCreateForm.firstName.trim() && !!memberCreateForm.email.trim()
+  if (type.value === 'kumiai_member_create') {
+    return !!memberCreateForm.lastName.trim() && !!memberCreateForm.firstName.trim() &&
+      !!memberCreateForm.lastNameKana.trim() && !!memberCreateForm.firstNameKana.trim() &&
+      !!memberCreateForm.email.trim()
+  }
   if (type.value === 'plan_change') return !!planChangeForm.targetUid && !!planChangeForm.newPlan.trim()
   if (type.value === 'supporter_change') return !!supporterChangeForm.targetUid
   if (type.value === 'kumiai_member_withdraw') return !!memberWithdrawForm.targetUid
   if (type.value === 'kumiai_dissolve') return !!kumiaiDissolveForm.groupId && !!kumiaiDissolveForm.kumiaiId
   if (type.value === 'app_staff_add') return !!appStaffAddForm.targetUid && appStaffAddForm.appIds.length > 0
+  if (type.value === 'special_team_join') return !!specialTeamJoinForm.targetUid && !!specialTeamJoinForm.teamId
+  if (type.value === 'special_team_leave') return !!specialTeamLeaveForm.targetUid && !!specialTeamLeaveForm.teamId
   return false
 })
 
@@ -382,6 +419,20 @@ const doSubmit = async () => {
         targetName: users.value.find(u => u.uid === appStaffAddForm.targetUid)?.displayName,
         appIds: [...appStaffAddForm.appIds],
         appNames: appStaffAddForm.appIds.map(appStaffAddLabel),
+      }
+    } else if (type.value === 'special_team_join') {
+      payload = {
+        targetUid: specialTeamJoinForm.targetUid,
+        targetName: users.value.find(u => u.uid === specialTeamJoinForm.targetUid)?.displayName,
+        teamId: specialTeamJoinForm.teamId,
+        teamName: specialTeams.value.find(t => t.id === specialTeamJoinForm.teamId)?.name,
+      }
+    } else if (type.value === 'special_team_leave') {
+      payload = {
+        targetUid: specialTeamLeaveForm.targetUid,
+        targetName: users.value.find(u => u.uid === specialTeamLeaveForm.targetUid)?.displayName,
+        teamId: specialTeamLeaveForm.teamId,
+        teamName: specialTeams.value.find(t => t.id === specialTeamLeaveForm.teamId)?.name,
       }
     }
 
@@ -540,19 +591,19 @@ const doSubmit = async () => {
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1.5">姓 <span class="text-red-500">*</span></label>
-            <input v-model="memberCreateForm.lastName" type="text" placeholder="例: 西島" class="input-field" />
+            <input v-model="memberCreateForm.lastName" type="text" placeholder="例: JACCS" class="input-field" />
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1.5">名 <span class="text-red-500">*</span></label>
-            <input v-model="memberCreateForm.firstName" type="text" placeholder="例: 伸樹" class="input-field" />
+            <input v-model="memberCreateForm.firstName" type="text" placeholder="例: 太郎" class="input-field" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">姓（よみがな）</label>
-            <input v-model="memberCreateForm.lastNameKana" type="text" placeholder="例: ニシジマ" class="input-field" />
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">姓（よみがな） <span class="text-red-500">*</span></label>
+            <input v-model="memberCreateForm.lastNameKana" type="text" placeholder="例: ジャックス" class="input-field" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">名（よみがな）</label>
-            <input v-model="memberCreateForm.firstNameKana" type="text" placeholder="例: ノブキ" class="input-field" />
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">名（よみがな） <span class="text-red-500">*</span></label>
+            <input v-model="memberCreateForm.firstNameKana" type="text" placeholder="例: タロウ" class="input-field" />
           </div>
         </div>
         <div>
@@ -701,6 +752,42 @@ const doSubmit = async () => {
           </template>
           <p class="mt-1.5 text-xs text-gray-400">複数のカテゴリ・アプリを選択できます。承認されると、選択したアプリの担当者にご自身が追加されます。</p>
         </div>
+      </template>
+
+      <!-- 専門チームへの加入 -->
+      <template v-else-if="type === 'special_team_join'">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">対象者 <span class="text-red-500">*</span></label>
+          <SearchableUserSelect v-model="specialTeamJoinForm.targetUid" :users="userOptions" placeholder="対象者を選択..." />
+          <p class="mt-1 text-xs text-gray-400">初期値はご自身です。他のメンバーを加入させたい場合は変更してください。</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">加入する専門チーム <span class="text-red-500">*</span></label>
+          <select v-model="specialTeamJoinForm.teamId" class="input-field">
+            <option value="">選択してください</option>
+            <option v-for="t in joinTeamOptions" :key="t.id" :value="t.id">{{ t.name }}</option>
+          </select>
+          <p v-if="specialTeamJoinForm.targetUid && joinTeamOptions.length === 0" class="mt-1 text-xs text-gray-400">加入できる専門チームがありません（既にすべての専門チームに所属しています）</p>
+        </div>
+        <p class="text-xs text-gray-400">承認されると、対象者が選択した専門チームのメンバーとして登録されます。</p>
+      </template>
+
+      <!-- 専門チームからの脱退 -->
+      <template v-else-if="type === 'special_team_leave'">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">対象者 <span class="text-red-500">*</span></label>
+          <SearchableUserSelect v-model="specialTeamLeaveForm.targetUid" :users="userOptions" placeholder="対象者を選択..." />
+          <p class="mt-1 text-xs text-gray-400">初期値はご自身です。他のメンバーを脱退させたい場合は変更してください。</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">脱退する専門チーム <span class="text-red-500">*</span></label>
+          <select v-model="specialTeamLeaveForm.teamId" class="input-field">
+            <option value="">選択してください</option>
+            <option v-for="t in leaveTeamOptions" :key="t.id" :value="t.id">{{ t.name }}</option>
+          </select>
+          <p v-if="specialTeamLeaveForm.targetUid && leaveTeamOptions.length === 0" class="mt-1 text-xs text-gray-400">対象者が所属している専門チームがありません</p>
+        </div>
+        <p class="text-xs text-gray-400">承認されると、対象者が選択した専門チームから外れます。</p>
       </template>
 
       <!-- 備考 -->

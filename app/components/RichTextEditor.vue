@@ -33,10 +33,11 @@ const props = defineProps<{
 const emit = defineEmits(['update:modelValue', 'submit'])
 
 const { fetchUsers } = useUsers()
-const { uploadFile } = useStorage()
+const { uploadImage } = useStorage()
 const { groups: groupLabelList, getGroupLabel, getGroupColor, ensureLoaded: ensureGroupLabelsLoaded } = useGroupLabels()
 const users = ref<any[]>([])
 const uploadingImage = ref(false)
+const imageUploadError = ref('')
 const imageInputRef = ref<HTMLInputElement>()
 
 onMounted(async () => {
@@ -84,12 +85,15 @@ const readNaturalWidth = (file: File): Promise<number | null> =>
 // 画像ファイルをアップロードしてカーソル位置に挿入する（ツールバー・貼り付け・ドロップ共通）
 const uploadAndInsertImage = async (file: File) => {
   uploadingImage.value = true
+  imageUploadError.value = ''
   try {
     const [url, originalWidth] = await Promise.all([
-      uploadFile(`richtext/${Date.now()}-${file.name}`, file),
+      uploadImage(`richtext/${Date.now()}-${file.name}`, file),
       readNaturalWidth(file),
     ])
     editor.value?.chain().focus().setImage({ src: url, originalWidth } as any).run()
+  } catch (e: any) {
+    imageUploadError.value = e.message ?? '画像のアップロードに失敗しました'
   } finally {
     uploadingImage.value = false
   }
@@ -413,7 +417,7 @@ onBeforeUnmount(() => {
         <Icon v-if="uploadingImage" name="heroicons:arrow-path" class="h-4 w-4 animate-spin" />
         <Icon v-else name="heroicons:photo" class="h-4 w-4" />
       </button>
-      <input ref="imageInputRef" type="file" accept="image/*" class="hidden" @change="handleImageSelect" />
+      <input ref="imageInputRef" type="file" accept="image/jpeg,image/png" class="hidden" @change="handleImageSelect" />
 
       <div class="w-px h-4 bg-gray-300 mx-1"></div>
 
@@ -426,6 +430,8 @@ onBeforeUnmount(() => {
         <Icon name="heroicons:no-symbol" class="h-4 w-4" />
       </button>
     </div>
+
+    <p v-if="imageUploadError" class="px-3 pt-1.5 text-xs text-red-500">{{ imageUploadError }}</p>
 
     <!-- Editor Content -->
     <EditorContent :editor="editor" class="tiptap-container" />

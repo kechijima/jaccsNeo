@@ -30,7 +30,14 @@ export const useSpecialTeams = () => {
 
   const teamsCol = () => collection($db, COLLECTION)
 
-  const fetchAll = async (): Promise<SpecialTeamDef[]> => {
+  // 件数は少ないが複数画面から呼ばれるため、他の一覧系composablesと同様に
+  // セッション内キャッシュでFirestoreの読み取り回数を抑える
+  const teamsCache = useState<SpecialTeamDef[]>('specialTeams:list', () => [])
+  const teamsCacheLoaded = useState<boolean>('specialTeams:loaded', () => false)
+  const invalidateTeamsCache = () => { teamsCacheLoaded.value = false }
+
+  const fetchAll = async (force = false): Promise<SpecialTeamDef[]> => {
+    if (teamsCacheLoaded.value && !force) return teamsCache.value
     const snap = await getDocs(teamsCol())
     const rows = snap.docs.map(d => toTeam(d.id, d.data()))
     const fetchedIds = new Set(rows.map(r => r.id))
@@ -38,6 +45,8 @@ export const useSpecialTeams = () => {
       if (fetchedIds.has(def.id)) continue
       rows.push({ id: def.id, name: def.name, createdAt: null as any, updatedAt: null as any })
     }
+    teamsCache.value = rows
+    teamsCacheLoaded.value = true
     return rows
   }
 
@@ -49,6 +58,7 @@ export const useSpecialTeams = () => {
       createdAt:   serverTimestamp(),
       updatedAt:   serverTimestamp(),
     })
+    invalidateTeamsCache()
     return ref.id
   }
 
@@ -61,11 +71,13 @@ export const useSpecialTeams = () => {
       description: form.description || '',
       updatedAt:   serverTimestamp(),
     }, { merge: true })
+    invalidateTeamsCache()
   }
 
   const deleteTeam = async (id: string): Promise<void> => {
     if (!authStore.isBoard) throw new Error('権限がありません')
     await deleteDoc(doc($db, COLLECTION, id))
+    invalidateTeamsCache()
   }
 
   return { fetchAll, createTeam, updateTeam, deleteTeam }

@@ -16,7 +16,7 @@ definePageMeta({ middleware: ['auth'] })
 const { user } = useCurrentUser()
 const authStore = useAuthStore()
 const { updateMyProfile, fetchUsers } = useUsers()
-const { uploadFile } = useStorage()
+const { uploadImage } = useStorage()
 const { fetchGroups } = useGroups()
 const { format: formatDisplayName } = useDisplayName()
 const { themeColor, ensureLoaded: ensureThemeColorLoaded, setThemeColor } = useThemeColor()
@@ -222,7 +222,7 @@ const handlePhotoSelect = async (e: Event) => {
   try {
     const uid = user.value?.uid ?? 'unknown'
     const path = `avatars/${uid}/${Date.now()}-${file.name}`
-    const url = await uploadFile(path, file)
+    const url = await uploadImage(path, file)
     await updateMyProfile({ avatarUrl: url })
     if (authStore.user) {
       authStore.setUser({ ...authStore.user, avatarUrl: url })
@@ -302,7 +302,7 @@ const groupLabel = computed(() => groups.value.find(g => g.id === form.groupId)?
           <Icon name="heroicons:camera" class="h-3.5 w-3.5" />
           写真変更
         </button>
-        <input ref="photoInputRef" type="file" accept="image/*" class="hidden" @change="handlePhotoSelect" />
+        <input ref="photoInputRef" type="file" accept="image/jpeg,image/png" class="hidden" @change="handlePhotoSelect" />
       </div>
     </div>
 

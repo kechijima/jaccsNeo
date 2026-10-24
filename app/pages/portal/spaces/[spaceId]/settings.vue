@@ -12,7 +12,7 @@ definePageMeta({ middleware: ['auth'] })
 const route = useRoute()
 const spaceId = computed(() => route.params.spaceId as string)
 const { fetchSpace, updateSpace, fetchPost, createPost, updatePost, pinPost } = useSpaces()
-const { uploadFile } = useStorage()
+const { uploadImage } = useStorage()
 const { ensureLoaded: ensureGroupLabelsLoaded } = useGroupLabels()
 const { fetchEvents } = useEvents()
 
@@ -122,7 +122,7 @@ const handleImageSelect = async (e: Event) => {
   imageError.value = ''
   try {
     const path = `spaces/${spaceId.value}/${Date.now()}-${file.name}`
-    form.value.headerImage = await uploadFile(path, file)
+    form.value.headerImage = await uploadImage(path, file)
   } catch (e: any) {
     imageError.value = e.message ?? '画像のアップロードに失敗しました'
   } finally {
@@ -397,7 +397,7 @@ const handleSave = async () => {
             <label class="cursor-pointer flex flex-col items-center gap-1 w-full">
               <Icon name="heroicons:photo" class="h-6 w-6" />
               画像を選択
-              <input ref="imageInputRef" type="file" accept="image/*" class="hidden" @change="handleImageSelect" />
+              <input ref="imageInputRef" type="file" accept="image/jpeg,image/png" class="hidden" @change="handleImageSelect" />
             </label>
           </div>
           <p v-if="imageError" class="text-xs text-red-500 mt-1">{{ imageError }}</p>

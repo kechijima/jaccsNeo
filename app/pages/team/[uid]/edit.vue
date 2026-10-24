@@ -16,7 +16,7 @@ const uid = computed(() => route.params.uid as string)
 
 const authStore = useAuthStore()
 const { fetchUser, updateUserProfile } = useUsers()
-const { uploadFile } = useStorage()
+const { uploadImage } = useStorage()
 const { fetchGroups } = useGroups()
 const { format: formatDisplayName } = useDisplayName()
 
@@ -161,7 +161,7 @@ const handlePhotoSelect = async (e: Event) => {
   photoError.value = ''
   try {
     const path = `avatars/${uid.value}/${Date.now()}-${file.name}`
-    const url = await uploadFile(path, file)
+    const url = await uploadImage(path, file)
     await updateUserProfile(uid.value, { avatarUrl: url })
     if (target.value) target.value = { ...target.value, avatarUrl: url }
   } catch (e: any) {
@@ -254,7 +254,7 @@ const groupLabel = computed(() => groups.value.find(g => g.id === form.groupId)?
             <Icon name="heroicons:camera" class="h-3.5 w-3.5" />
             写真変更
           </button>
-          <input ref="photoInputRef" type="file" accept="image/*" class="hidden" @change="handlePhotoSelect" />
+          <input ref="photoInputRef" type="file" accept="image/jpeg,image/png" class="hidden" @change="handlePhotoSelect" />
         </div>
       </div>
 

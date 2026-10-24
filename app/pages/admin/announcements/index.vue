@@ -12,7 +12,7 @@ const { handleMentionClick } = useMentionClick()
 
 const { user } = useCurrentUser()
 const store = useAnnouncementStore()
-const { uploadFile } = useStorage()
+const { uploadImage } = useStorage()
 const { fetchGroups } = useGroups()
 const { scopeLabel, scopeBadgeClass, ensureLoaded: ensureScopeLoaded } = useAnnouncementScope()
 
@@ -90,7 +90,7 @@ const handleImageSelect = async (e: Event) => {
   imageError.value = ''
   try {
     const path = `announcements/${Date.now()}-${file.name}`
-    form.imageUrl = await uploadFile(path, file)
+    form.imageUrl = await uploadImage(path, file)
   } catch (e: any) {
     imageError.value = e.message ?? '画像のアップロードに失敗しました'
   } finally {
@@ -322,7 +322,7 @@ const fmt = (d: Date) => d.toLocaleDateString('ja-JP', { year: 'numeric', month:
               <label class="cursor-pointer flex flex-col items-center gap-1 w-full">
                 <Icon name="heroicons:photo" class="h-6 w-6" />
                 画像を選択（任意）
-                <input ref="imageInputRef" type="file" accept="image/*" class="hidden" @change="handleImageSelect" />
+                <input ref="imageInputRef" type="file" accept="image/jpeg,image/png" class="hidden" @change="handleImageSelect" />
               </label>
             </div>
             <p v-if="imageError" class="text-xs text-red-500 mt-1">{{ imageError }}</p>
