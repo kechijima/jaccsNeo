@@ -135,7 +135,7 @@ export default defineNuxtConfig({
     manifest: {
       name: 'JACCS Neo',
       short_name: 'JACCS Neo',
-      description: 'FP業務管理ツール',
+      description: '未来設計士業務管理ツール',
       theme_color: '#00afcc',
       background_color: '#ffffff',
       display: 'standalone',
