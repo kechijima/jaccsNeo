@@ -412,7 +412,7 @@ const handleDelete = async () => {
             <dd class="font-medium text-gray-900">{{ caseData.expiryDate }}</dd>
           </div>
           <div>
-            <dt class="text-gray-500">担当FP</dt>
+            <dt class="text-gray-500">担当未来設計士</dt>
             <dd class="font-medium text-gray-900">{{ caseData.assignedFp }}</dd>
           </div>
           <div class="sm:col-span-2">

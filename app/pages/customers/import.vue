@@ -33,7 +33,7 @@ const fieldOptions = [
   { value: 'email', label: 'メールアドレス' },
   { value: 'postalCode', label: '郵便番号' },
   { value: 'address', label: '住所' },
-  { value: 'assignedFpName', label: '担当FP名' },
+  { value: 'assignedFpName', label: '担当未来設計士名' },
 ]
 const mapping = ref<Record<string, string>>({
   '氏名': 'name', 'フリガナ': 'nameKana', '生年月日': 'dob', '性別': 'gender',

@@ -60,7 +60,7 @@ const FIELD_OPTIONS: FieldOption[] = [
   { key: 'referralSource', label: '紹介元',       type: 'text',   getValue: c => c.referralSource ?? '' },
   { key: 'status1',        label: '状況（ワン）', type: 'text',   getValue: c => c.status1 ?? '' },
   { key: 'status2',        label: '状況（ツー）', type: 'text',   getValue: c => c.status2 ?? '' },
-  { key: 'assignedFpName', label: '担当 未来設計士', type: 'text', getValue: c => c.assignedFpName ?? '' },
+  { key: 'assignedFpName', label: '担当未来設計士', type: 'text', getValue: c => c.assignedFpName ?? '' },
   { key: 'companyName',    label: '法人名',       type: 'text',   getValue: c => c.companyName ?? '' },
   { key: 'industry',       label: '業種',         type: 'text',   getValue: c => c.industry ?? '' },
 ]

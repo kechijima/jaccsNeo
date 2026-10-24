@@ -444,7 +444,7 @@ const updateReminder = (idx: number, key: keyof Reminder, value: string) => {
       </h3>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">担当 未来設計士</label>
+          <label class="block text-sm font-medium text-gray-700 mb-1">担当未来設計士</label>
           <ComboBox :model-value="form.assignedFpName ?? ''" :items="assignedFpSuggestions"
             @update:model-value="update('assignedFpName', $event)" />
         </div>

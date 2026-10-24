@@ -20,7 +20,7 @@ const adminMenus = [
     to: '/admin/users',
     icon: 'heroicons:users',
     label: 'ユーザー管理',
-    description: 'FPアカウントの作成・編集・権限設定',
+    description: '未来設計士アカウントの作成・編集・権限設定',
     color: 'text-blue-600 bg-blue-50',
   },
   {

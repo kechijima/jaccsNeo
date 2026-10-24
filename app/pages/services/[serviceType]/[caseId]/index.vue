@@ -117,7 +117,7 @@ const progressRestrictedEntries = computed(() => buildEntries(['contractContent'
           <div v-if="liCase.gender"><dt class="text-gray-500">性別</dt><dd class="font-medium text-gray-900 mt-0.5">{{ liCase.gender }}</dd></div>
           <div v-if="liCase.dob"><dt class="text-gray-500">生年月日</dt><dd class="font-medium text-gray-900 mt-0.5">{{ liCase.dob.replace(/-/g, '/') }}</dd></div>
           <div v-if="liCase.tel"><dt class="text-gray-500">TEL</dt><dd class="font-medium text-gray-900 mt-0.5">{{ liCase.tel }}</dd></div>
-          <div v-if="liCase.assignedFpName"><dt class="text-gray-500">担当 未来設計士</dt><dd class="font-medium text-gray-900 mt-0.5">{{ liCase.assignedFpName }}</dd></div>
+          <div v-if="liCase.assignedFpName"><dt class="text-gray-500">担当未来設計士</dt><dd class="font-medium text-gray-900 mt-0.5">{{ liCase.assignedFpName }}</dd></div>
           <div v-if="liCase.faceToFaceStaffName"><dt class="text-gray-500">面前担当者</dt><dd class="font-medium text-gray-900 mt-0.5">{{ liCase.faceToFaceStaffName }}</dd></div>
           <div v-if="liCase.createdAt"><dt class="text-gray-500">作成日</dt><dd class="font-medium text-gray-900 mt-0.5">{{ formatDateTime(liCase.createdAt) }}</dd></div>
           <div v-if="liCase.updatedAt"><dt class="text-gray-500">更新日</dt><dd class="font-medium text-gray-900 mt-0.5">{{ formatDateTime(liCase.updatedAt) }}</dd></div>

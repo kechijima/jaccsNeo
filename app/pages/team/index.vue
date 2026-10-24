@@ -107,7 +107,7 @@ const maxTotal = computed(() => Math.max(1, ...monthlyTrend.value.map(m => m.tot
         <div class="card p-5">
           <h2 class="font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <Icon name="heroicons:trophy" class="h-5 w-5 text-amber-500" />
-            FP別 生命保険成約件数ランキング（今月）
+            未来設計士別 生命保険成約件数ランキング（今月）
           </h2>
           <div v-if="fpRankingWithBadge.length === 0" class="text-sm text-gray-400 text-center py-6">今月の成約はまだありません</div>
           <div v-else class="space-y-2">

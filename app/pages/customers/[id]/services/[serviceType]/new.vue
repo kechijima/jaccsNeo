@@ -252,7 +252,7 @@ const liForm = reactive<LifeInsuranceCaseInput>({
   recordNumber: '',
 })
 
-// 担当 未来設計士はuidで選択し、表示用の氏名は選択結果から自動的に同期する
+// 担当未来設計士はuidで選択し、表示用の氏名は選択結果から自動的に同期する
 // （同姓同名ユーザーが存在しても、以後の集計・ランキングでuidを使って正しく識別できるようにするため）
 watch(() => liForm.assignedFpUid, (uid) => {
   liForm.assignedFpName = allUsers.value.find(u => u.uid === uid)?.displayName ?? ''
@@ -371,7 +371,7 @@ const handleLiSubmit = async () => {
             <input v-model="liForm.faceToFaceStaffName" type="text" required placeholder="担当者名を入力" class="input-field" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">担当 未来設計士</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">担当未来設計士</label>
             <SearchableUserSelect v-model="liForm.assignedFpUid" :users="allUsers" placeholder="選択してください" />
           </div>
         </div>

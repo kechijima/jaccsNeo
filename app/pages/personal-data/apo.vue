@@ -264,7 +264,7 @@ const apoNote = (c: Customer): string =>
     <div class="card p-5 space-y-4">
       <h2 class="font-semibold text-gray-900 flex items-center gap-2">
         <Icon name="heroicons:users" class="h-5 w-5 text-primary-500" />
-        担当FP別アポ状況
+        担当未来設計士別アポ状況
       </h2>
 
       <div class="space-y-3">
@@ -381,7 +381,7 @@ const apoNote = (c: Customer): string =>
           <thead>
             <tr class="border-b border-gray-100">
               <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">氏名</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">担当FP</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">担当未来設計士</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">日時</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">場所</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">状況</th>

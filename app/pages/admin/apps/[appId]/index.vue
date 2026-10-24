@@ -279,7 +279,7 @@ const CUSTOMER_LOOKUP_FIELDS = [
   { key: 'address',        label: '住所' },
   { key: 'dob',            label: '生年月日' },
   { key: 'employer',       label: '勤務先' },
-  { key: 'assignedFpName', label: '担当FP（担当未来設計士）' },
+  { key: 'assignedFpName', label: '担当未来設計士' },
 ]
 
 const GENERIC_CASE_FIELD_OPTIONS = [

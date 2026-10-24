@@ -294,7 +294,7 @@ const activeServices = computed(() => {
         </h2>
         <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
           <div v-if="customer.assignedFpName">
-            <dt class="text-gray-500">担当FP</dt>
+            <dt class="text-gray-500">担当未来設計士</dt>
             <dd class="font-medium text-gray-900">{{ customer.assignedFpName }}</dd>
           </div>
           <div v-if="customer.relationship">

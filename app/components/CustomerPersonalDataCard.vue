@@ -21,7 +21,7 @@ const entries = computed<Entry[]>(() => {
   push('TEL', c.tel)
   push('メールアドレス', c.email)
   push('住所', c.address)
-  push('担当FP', c.assignedFpName)
+  push('担当未来設計士', c.assignedFpName)
   push('ワン', c.one)
   push('状況（ワン）', c.status1)
   push('ツー', c.two)

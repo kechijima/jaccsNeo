@@ -38,7 +38,7 @@ if (!liCase.value) {
 
 const { show: showToast } = useToast()
 
-// 担当 未来設計士（uid選択。同姓同名ユーザーによる取り違えを防ぐ）
+// 担当未来設計士（uid選択。同姓同名ユーザーによる取り違えを防ぐ）
 const { fetchUsers } = useUsers()
 const allUsers = ref<AppUser[]>([])
 onMounted(async () => { allUsers.value = await fetchUsers().catch(() => []) })
@@ -216,7 +216,7 @@ const handleLiSubmit = async () => {
             <input v-model="liForm.faceToFaceStaffName" type="text" required placeholder="担当者名を入力" class="input-field" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">担当 未来設計士</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">担当未来設計士</label>
             <SearchableUserSelect v-model="liForm.assignedFpUid" :users="allUsers" placeholder="選択してください" />
           </div>
         </div>

@@ -126,7 +126,7 @@ const handleDobReset = async () => {
     <div class="text-center mb-8">
       <img src="/logo.png" alt="" class="w-16 h-16 object-contain mx-auto mb-4" />
       <h1 class="text-2xl font-bold text-gray-900">JACCS Neo</h1>
-      <p class="mt-1 text-sm text-gray-500">FP業務管理システム</p>
+      <p class="mt-1 text-sm text-gray-500">未来設計士業務管理システム</p>
     </div>
 
     <!-- カード -->
