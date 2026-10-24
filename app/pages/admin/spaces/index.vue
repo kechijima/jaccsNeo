@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import type { Space } from '~/types/portal'
 import { useSpaces } from '~/composables/useSpaces'
-import { useGroups } from '~/composables/useGroups'
 
 definePageMeta({ middleware: ['auth', 'admin'] })
 
-const { fetchAllSpaces, createSpace, archiveSpace } = useSpaces()
-const { fetchGroups } = useGroups()
+const { fetchAllSpaces, archiveSpace } = useSpaces()
 
 const typeLabelMap: Record<string, string> = {
   report:  '報告・連絡',
@@ -78,47 +76,6 @@ const toggleArchive = async (id: string) => {
     togglingId.value = null
   }
 }
-
-// ── 固定スペース（掲示板サイドバーの「参加スペース」に表示する7つ）の一括確認・作成 ──
-// 掲示板（portal/index.vue）のFIXED_SIDEBAR_SPACE_NAMESと同じ名前で一致させて
-// 表示する仕組みのため、ここで作る名前はそちらと必ず揃える。既に存在する名前は
-// 何度実行してもスキップされ、上書きされない（安全に再実行できる）
-const FIXED_REPORT_SPACES: { name: string; type: 'board'; groupName?: string }[] = [
-  { name: 'Reteraceグループ理事会報告', type: 'board', groupName: 'Reterace' },
-  { name: 'Miraitoグループ理事会報告',  type: 'board', groupName: 'Miraito' },
-  { name: 'Assetグループ理事会報告',    type: 'board', groupName: 'Asset' },
-  { name: '中央理事会報告',             type: 'board' },
-]
-const creatingFixedSpaces = ref(false)
-const fixedSpacesResult = ref<{ created: string[]; skipped: string[] } | null>(null)
-const fixedSpacesError = ref('')
-
-const ensureFixedReportSpaces = async () => {
-  creatingFixedSpaces.value = true
-  fixedSpacesError.value = ''
-  fixedSpacesResult.value = null
-  try {
-    const groups = await fetchGroups()
-    const existingNames = new Set(allSpaces.value.map(s => s.name))
-    const created: string[] = []
-    const skipped: string[] = []
-    for (const target of FIXED_REPORT_SPACES) {
-      if (existingNames.has(target.name)) {
-        skipped.push(target.name)
-        continue
-      }
-      const groupId = target.groupName ? groups.find(g => g.name === target.groupName)?.id : undefined
-      await createSpace({ name: target.name, type: target.type, groupId })
-      created.push(target.name)
-    }
-    fixedSpacesResult.value = { created, skipped }
-    if (created.length > 0) allSpaces.value = await fetchAllSpaces()
-  } catch (e: any) {
-    fixedSpacesError.value = e.message ?? '固定スペースの作成に失敗しました'
-  } finally {
-    creatingFixedSpaces.value = false
-  }
-}
 </script>
 
 <template>
@@ -144,28 +101,6 @@ const ensureFixedReportSpaces = async () => {
         <Icon name="heroicons:plus" class="h-4 w-4" />
         スペース作成
       </NuxtLink>
-    </div>
-
-    <!-- 固定スペース（掲示板サイドバーの「参加スペース」）一括確認・作成 -->
-    <div class="card p-4 space-y-2.5">
-      <div class="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <p class="text-sm font-semibold text-gray-900">活動報告・理事会報告の固定スペース</p>
-          <p class="text-xs text-gray-400 mt-0.5">
-            掲示板サイドバーの「参加スペース」に表示される7つ（各グループの活動報告・理事会報告＋中央理事会報告）が
-            揃っているか確認し、不足分のみ作成します。既にあるスペースは上書きされないため、何度でも安全に実行できます。
-          </p>
-        </div>
-        <button type="button" class="btn-secondary text-sm shrink-0" :disabled="creatingFixedSpaces" @click="ensureFixedReportSpaces">
-          <Icon v-if="creatingFixedSpaces" name="heroicons:arrow-path" class="h-4 w-4 animate-spin mr-1" />
-          {{ creatingFixedSpaces ? '確認中...' : '確認・作成する' }}
-        </button>
-      </div>
-      <p v-if="fixedSpacesError" class="text-xs text-red-500">{{ fixedSpacesError }}</p>
-      <div v-if="fixedSpacesResult" class="text-xs text-gray-600 space-y-0.5">
-        <p v-if="fixedSpacesResult.created.length > 0" class="text-green-700">作成しました: {{ fixedSpacesResult.created.join('、') }}</p>
-        <p v-if="fixedSpacesResult.skipped.length > 0" class="text-gray-400">既に存在していたためスキップ: {{ fixedSpacesResult.skipped.join('、') }}</p>
-      </div>
     </div>
 
     <!-- 検索 + フィルター -->
