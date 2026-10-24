@@ -171,7 +171,7 @@ const deletePost = async () => {
 
             <!-- 本文（編集モード） -->
             <div v-if="isEditing" class="mt-3 space-y-2">
-              <RichTextEditor v-model="editContent" class="min-h-[160px]" />
+              <RichTextEditor v-model="editContent" class="min-h-[160px]" upload-path-prefix="richtext/posts" />
               <div class="flex justify-end gap-2">
                 <button class="btn-secondary text-sm" @click="isEditing = false">キャンセル</button>
                 <button class="btn-primary text-sm" :disabled="!editContent.trim()" @click="saveEdit">保存する</button>

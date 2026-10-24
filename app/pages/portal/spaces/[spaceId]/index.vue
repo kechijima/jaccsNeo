@@ -422,6 +422,7 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
               <RichTextEditor
                 v-model="newPostContent"
                 placeholder="投稿する..."
+                upload-path-prefix="richtext/posts"
               />
 
               <!-- イベントスペース専用: 開催日時・カレンダー連携 -->
@@ -472,7 +473,7 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
           <div class="divide-y divide-gray-100">
             <div v-for="draft in myDraftsInSpace" :key="draft.id" class="p-4">
               <template v-if="editingPostId === draft.id">
-                <RichTextEditor v-model="editContent" class="min-h-[140px]" />
+                <RichTextEditor v-model="editContent" class="min-h-[140px]" upload-path-prefix="richtext/posts" />
                 <div class="flex justify-end gap-2 mt-2">
                   <button class="btn-secondary text-sm" @click="editingPostId = null">キャンセル</button>
                   <button class="btn-primary text-sm" :disabled="!editContent.trim()" @click="saveEdit">保存する</button>
@@ -603,7 +604,7 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
 
               <!-- 本文（編集モード） -->
               <div v-if="editingPostId === post.id" class="mt-2 space-y-2">
-                <RichTextEditor v-model="editContent" class="min-h-[140px]" />
+                <RichTextEditor v-model="editContent" class="min-h-[140px]" upload-path-prefix="richtext/posts" />
                 <div class="flex justify-end gap-2">
                   <button class="btn-secondary text-sm" @click="editingPostId = null">キャンセル</button>
                   <button class="btn-primary text-sm" :disabled="!editContent.trim()" @click="saveEdit">保存する</button>

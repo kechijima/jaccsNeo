@@ -316,3 +316,27 @@ exports.cleanupOldNotifications = onSchedule({ schedule: '30 3 * * *', timeZone:
     await batch.commit()
   }
 })
+
+// 毎日深夜、活動報告（掲示板投稿・スペースのピン留め投稿）のリッチテキスト本文に
+// 埋め込まれた画像のうち、アップロードから45日以上経過したものをStorageから自動
+// 削除する（ストレージ容量の圧迫を防ぐための運用上の対応）。削除後は投稿本文中の
+// 該当画像を表示できなくなる（本文のHTML自体は変更しない）。対象は
+// richtext/posts/配下のみ（RichTextEditorのupload-path-prefixで、活動報告の
+// 投稿エディターからの画像だけがこのフォルダに保存されるようクライアント側で
+// 分けている）。お知らせ・案件メモ・イベント説明等、他の用途でRichTextEditorから
+// アップロードされた画像（richtext/直下）は保持期限の対象外
+exports.cleanupOldPostImages = onSchedule({ schedule: '0 4 * * *', timeZone: 'Asia/Tokyo' }, async () => {
+  const RETENTION_MS = 45 * 24 * 60 * 60 * 1000
+  const cutoff = Date.now() - RETENTION_MS
+
+  const bucket = admin.storage().bucket()
+  const [files] = await bucket.getFiles({ prefix: 'richtext/posts/' })
+
+  const expired = files.filter((file) => {
+    const created = file.metadata?.timeCreated
+    return created && new Date(created).getTime() < cutoff
+  })
+  if (expired.length === 0) return
+
+  await Promise.all(expired.map(file => file.delete().catch(() => {})))
+})

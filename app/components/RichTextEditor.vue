@@ -28,6 +28,11 @@ const FONT_SIZES = [
 const props = defineProps<{
   modelValue: string
   placeholder?: string
+  // 画像の保存先フォルダ（Storage上のパスプレフィックス）。未指定時は'richtext'。
+  // 活動報告（掲示板投稿）はCloud Functions側で一定期間後に自動削除する対象のため、
+  // 'richtext/posts'を指定して他の用途（お知らせ・案件メモ等、残しておきたい画像）
+  // と保存場所を分けている
+  uploadPathPrefix?: string
 }>()
 
 const emit = defineEmits(['update:modelValue', 'submit'])
@@ -88,7 +93,7 @@ const uploadAndInsertImage = async (file: File) => {
   imageUploadError.value = ''
   try {
     const [url, originalWidth] = await Promise.all([
-      uploadImage(`richtext/${Date.now()}-${file.name}`, file),
+      uploadImage(`${props.uploadPathPrefix ?? 'richtext'}/${Date.now()}-${file.name}`, file),
       readNaturalWidth(file),
     ])
     editor.value?.chain().focus().setImage({ src: url, originalWidth } as any).run()

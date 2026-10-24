@@ -427,7 +427,7 @@ const handleSave = async () => {
           {{ thumbnailError }}
         </div>
 
-        <RichTextEditor v-model="thumbnailContent" placeholder="ピン留めする内容を入力してください..." class="min-h-[140px]" />
+        <RichTextEditor v-model="thumbnailContent" placeholder="ピン留めする内容を入力してください..." class="min-h-[140px]" upload-path-prefix="richtext/posts" />
 
         <div class="flex justify-end">
           <button
