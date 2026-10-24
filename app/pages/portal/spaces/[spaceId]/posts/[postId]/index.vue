@@ -182,7 +182,7 @@ const deletePost = async () => {
           </div>
         </div>
 
-        <!-- リアクション（Good/👍のみ） -->
+        <!-- リアクション（いいね/👍のみ） -->
         <div class="mt-4 pt-4 border-t border-gray-100">
           <div class="flex items-center gap-2 flex-wrap">
             <button
@@ -192,7 +192,7 @@ const deletePost = async () => {
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
               @click="onReaction()"
             >
-              👍 Good<span v-if="(post.reactions?.['👍'] ?? 0) > 0"> {{ post.reactions['👍'] }}</span>
+              👍 いいね<span v-if="(post.reactions?.['👍'] ?? 0) > 0"> {{ post.reactions['👍'] }}</span>
             </button>
 
             <button
@@ -201,14 +201,14 @@ const deletePost = async () => {
               class="text-xs text-gray-400 hover:text-primary-600 hover:underline"
               @click.stop="toggleReactorList()"
             >
-              誰がGoodしたか見る
+              誰がいいねしたか見る
             </button>
           </div>
 
-          <!-- Goodした人の一覧 -->
+          <!-- いいねした人の一覧 -->
           <div v-if="showReactorList" class="mt-2 text-xs text-gray-500">
             <span v-if="reactorsLoading">読み込み中...</span>
-            <span v-else-if="reactorNames.length === 0">まだ誰もGoodしていません</span>
+            <span v-else-if="reactorNames.length === 0">まだ誰もいいねしていません</span>
             <span v-else>{{ reactorNames.join('、') }}</span>
           </div>
         </div>

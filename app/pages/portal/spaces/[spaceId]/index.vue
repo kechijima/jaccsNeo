@@ -621,7 +621,7 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
             </div>
           </div>
 
-          <!-- リアクション（Good/👍のみ） -->
+          <!-- リアクション（いいね/👍のみ） -->
           <div class="px-4 py-2 border-t border-gray-100">
             <div class="flex items-center gap-1.5 flex-wrap">
               <button
@@ -631,7 +631,7 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
                 @click="onReaction(post.id)"
               >
-                👍 Good<span v-if="(post.reactions?.['👍'] ?? 0) > 0"> {{ post.reactions['👍'] }}</span>
+                👍 いいね<span v-if="(post.reactions?.['👍'] ?? 0) > 0"> {{ post.reactions['👍'] }}</span>
               </button>
 
               <button
@@ -640,7 +640,7 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
                 class="text-xs text-gray-400 hover:text-primary-600 hover:underline"
                 @click.stop="toggleReactorList(post.id)"
               >
-                誰がGoodしたか見る
+                誰がいいねしたか見る
               </button>
 
               <NuxtLink
@@ -651,10 +651,10 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
               </NuxtLink>
             </div>
 
-            <!-- Goodした人の一覧 -->
+            <!-- いいねした人の一覧 -->
             <div v-if="reactorListFor === post.id" class="mt-2 text-xs text-gray-500">
               <span v-if="reactorsLoading">読み込み中...</span>
-              <span v-else-if="reactorNames.length === 0">まだ誰もGoodしていません</span>
+              <span v-else-if="reactorNames.length === 0">まだ誰もいいねしていません</span>
               <span v-else>{{ reactorNames.join('、') }}</span>
             </div>
           </div>
