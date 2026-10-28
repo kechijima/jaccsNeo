@@ -94,14 +94,15 @@ const formatDate = (ts: any): string => {
     <!-- ヘッダー -->
     <div class="flex items-center justify-between gap-3">
       <div>
-        <h1 class="text-xl font-bold text-gray-900 flex items-center gap-2">
+        <h1 class="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <Icon name="heroicons:bell" class="h-6 w-6 text-primary-600" />
           通知
           <span
             v-if="unreadCount > 0"
             class="flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold text-white"
           >{{ unreadCount > 9 ? '9+' : unreadCount }}</span>
         </h1>
-        <p class="text-sm text-gray-500 mt-0.5">{{ notifications.length }}件 ／ 未読 {{ unreadCount }}件</p>
+        <p class="mt-1 text-sm text-gray-500">{{ notifications.length }}件 ／ 未読 {{ unreadCount }}件</p>
       </div>
       <button
         v-if="unreadCount > 0"

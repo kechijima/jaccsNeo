@@ -89,11 +89,11 @@ onMounted(async () => {
 
     <!-- ヘッダー -->
     <div>
-      <h1 class="text-xl font-bold text-gray-900 flex items-center gap-2">
-        <Icon name="heroicons:cog-6-tooth" class="h-6 w-6 text-gray-600" />
+      <h1 class="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-2">
+        <Icon name="heroicons:cog-6-tooth" class="h-6 w-6 text-primary-600" />
         管理者設定
       </h1>
-      <p class="text-sm text-gray-500 mt-0.5">システム管理者専用メニュー</p>
+      <p class="mt-1 text-sm text-gray-500">システム管理者専用メニュー</p>
     </div>
 
     <!-- 統計 -->

@@ -99,7 +99,7 @@ const postExcerpt = (p: PostView) => stripHtml(p.content).slice(0, 80).trim()
 <template>
   <div class="p-4 md:p-6 max-w-3xl mx-auto space-y-5">
 
-    <h1 class="text-xl font-bold text-gray-900 flex items-center gap-2">
+    <h1 class="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-2">
       <Icon name="heroicons:magnifying-glass" class="h-6 w-6 text-primary-600" />
       検索
     </h1>
