@@ -112,7 +112,6 @@ const mobileNavActiveClass = (to: string, color: string) =>
 const mobileNavItems = [
   { label: 'ホーム',   icon: 'heroicons:home',                   to: '/dashboard',     color: 'sky' },
   { label: 'データ',   icon: 'heroicons:identification',         to: '/personal-data', color: 'emerald' },
-  { label: 'アプリ',   icon: 'heroicons:squares-2x2',            to: '/services',       color: 'violet' },
   { label: '活動報告', icon: 'heroicons:chat-bubble-left-right', to: '/portal',         color: 'amber' },
   { label: 'カレンダー', icon: 'heroicons:calendar-days',          to: '/events',        color: 'rose' },
 ]
@@ -349,9 +348,6 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
           >
             <Icon name="heroicons:arrow-path" class="h-5 w-5" :class="{ 'animate-spin': isRefreshing }" />
           </button>
-          <NuxtLink to="/services" class="rounded-lg p-2 text-gray-500 hover:bg-gray-100" aria-label="プロダクトアプリ">
-            <Icon name="heroicons:squares-2x2" class="h-5 w-5" />
-          </NuxtLink>
           <NuxtLink to="/search" class="rounded-lg p-2 text-gray-500 hover:bg-gray-100" aria-label="検索">
             <Icon name="heroicons:magnifying-glass" class="h-5 w-5" />
           </NuxtLink>
@@ -454,6 +450,15 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
                 >
                   <Icon name="heroicons:user-circle" class="h-5 w-5 shrink-0" />
                   マイページ
+                </NuxtLink>
+                <NuxtLink
+                  to="/services"
+                  class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
+                  :class="navActiveClass('/services', 'violet')"
+                  @click="isMobileMenuOpen = false"
+                >
+                  <Icon name="heroicons:squares-2x2" class="h-5 w-5 shrink-0" />
+                  プロダクトアプリ
                 </NuxtLink>
                 <NuxtLink
                   to="/reminders"
