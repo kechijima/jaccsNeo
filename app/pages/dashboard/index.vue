@@ -92,9 +92,23 @@ const sortedSpaces = computed(() => {
   return [...favs, ...others]
 })
 const displaySpaces = computed(() => sortedSpaces.value.slice(0, 5))
-// スマホ版は1行あたりの高さを取らないチップ表示にするため、PC版（縦一列・5件まで）
-// より多くのスペースを一度に表示できる
-const mobileDisplaySpaces = computed(() => sortedSpaces.value.slice(0, 10))
+
+// スマホ版は、お気に入り・ピン留めに関わらず主要な7スペースへの導線だけを
+// 大きめのボタンで表示する（スペースが乱立して見づらいとの指摘への対応）。
+// スペース名での一致なので、該当スペースがまだ無い場合はそのボタンを表示しない
+const MOBILE_HOME_SPACE_NAMES = [
+  'Reteraceグループ活動報告',
+  'Miraitoグループ活動報告',
+  'Assetグループ活動報告',
+  'Reteraceグループ理事会報告',
+  'Miraitoグループ理事会報告',
+  'Assetグループ理事会報告',
+  '中央理事会報告',
+]
+const mobileDisplaySpaces = computed(() => {
+  const byName = new Map(sortedSpaces.value.map(s => [s.name, s]))
+  return MOBILE_HOME_SPACE_NAMES.map(name => byName.get(name)).filter((s): s is NonNullable<typeof s> => !!s)
+})
 
 // ── お気に入り（アプリ・掲示板） ────────────────────────────────────────────
 const favoriteApps = computed(() =>
@@ -216,7 +230,7 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
         </NuxtLink>
         <NuxtLink to="/portal" class="flex items-center gap-2 rounded-lg border border-gray-200 p-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-primary-300 transition">
           <Icon name="heroicons:pencil-square" class="h-5 w-5 text-primary-600 shrink-0" />
-          掲示板に投稿
+          <span class="md:hidden">活動報告に投稿</span><span class="hidden md:inline">掲示板に投稿</span>
         </NuxtLink>
         <NuxtLink to="/events" class="flex items-center gap-2 rounded-lg border border-gray-200 p-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-primary-300 transition">
           <Icon name="heroicons:calendar-days" class="h-5 w-5 text-primary-600 shrink-0" />
@@ -360,21 +374,21 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
         <div class="px-4 py-3 border-b border-gray-100">
           <p class="hidden md:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">スペース</p>
 
-          <!-- スマホ版：縦に並べると領域を取りすぎるため、折り返すチップ表示にして
-               一度に多くのスペースへ導線を確保する -->
-          <div class="md:hidden flex flex-wrap gap-1.5">
+          <!-- スマホ版：主要7スペースのみを、タップしやすい大きめのボタンで
+               2列表示する -->
+          <div class="md:hidden grid grid-cols-2 gap-2">
             <NuxtLink
               v-for="space in mobileDisplaySpaces"
               :key="space.id"
               :to="`/portal/spaces/${space.id}`"
-              class="flex items-center gap-1.5 max-w-[48%] rounded-full border border-gray-200 pl-1 pr-2.5 py-1 hover:bg-gray-50 transition"
+              class="flex items-center gap-2 rounded-xl border border-gray-200 p-3 hover:bg-gray-50 transition"
             >
-              <img v-if="space.headerImage" :src="space.headerImage" alt="" class="h-5 w-5 shrink-0 rounded-full object-cover" />
-              <div v-else class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold" :class="space.color">
+              <img v-if="space.headerImage" :src="space.headerImage" alt="" class="h-9 w-9 shrink-0 rounded-full object-cover" />
+              <div v-else class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold" :class="space.color">
                 {{ space.name.charAt(0) }}
               </div>
-              <span class="truncate text-xs font-medium text-gray-700">{{ space.name }}</span>
-              <Icon v-if="space.isFavorite" name="heroicons:star-solid" class="h-2.5 w-2.5 text-amber-400 shrink-0" />
+              <span class="flex-1 min-w-0 truncate text-sm font-medium text-gray-800 leading-tight">{{ space.name }}</span>
+              <Icon v-if="space.isFavorite" name="heroicons:star-solid" class="h-3.5 w-3.5 text-amber-400 shrink-0" />
             </NuxtLink>
           </div>
 

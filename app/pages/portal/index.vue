@@ -27,6 +27,15 @@ onMounted(async () => {
   members.value = await fetchUsers().catch(() => [])
 })
 
+// ── スマホ版：主要グループスペースへのショートカット ────────────────────
+// スペース一覧から探さなくても、タップ数を少なく主要3スペースへ遷移できる
+// ようにする（スペース名での一致。該当スペースが無ければ表示しない）
+const QUICK_GROUP_SPACE_NAMES = ['Reteraceグループ活動報告', 'Miraitoグループ活動報告', 'Assetグループ活動報告']
+const quickGroupSpaces = computed(() => {
+  const byName = new Map(store.spaces.value.map(s => [s.name, s]))
+  return QUICK_GROUP_SPACE_NAMES.map(name => byName.get(name)).filter((s): s is NonNullable<typeof s> => !!s)
+})
+
 // ── 検索・フィルター ──────────────────────────────────────────────────
 const searchQuery    = ref('')
 const filterSpaceId  = ref('')   // '' = すべて
@@ -228,6 +237,22 @@ const upcomingEvents = computed(() =>
       <NuxtLink to="/portal/spaces" class="btn-secondary text-sm flex items-center gap-1.5">
         <Icon name="heroicons:squares-2x2" class="h-4 w-4" />
         スペース一覧
+      </NuxtLink>
+    </div>
+
+    <!-- スマホ版：主要グループスペースへのショートカット -->
+    <div v-if="quickGroupSpaces.length > 0" class="md:hidden grid grid-cols-3 gap-2">
+      <NuxtLink
+        v-for="s in quickGroupSpaces"
+        :key="s.id"
+        :to="`/portal/spaces/${s.id}`"
+        class="flex flex-col items-center gap-1.5 rounded-xl border border-gray-200 p-3 text-center hover:bg-gray-50 transition"
+      >
+        <img v-if="s.headerImage" :src="s.headerImage" alt="" class="h-9 w-9 rounded-full object-cover shrink-0" />
+        <div v-else class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold">
+          {{ s.name.charAt(0) }}
+        </div>
+        <span class="text-[11px] font-medium text-gray-700 leading-tight line-clamp-2">{{ s.name }}</span>
       </NuxtLink>
     </div>
 
