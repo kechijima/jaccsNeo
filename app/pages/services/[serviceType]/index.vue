@@ -169,7 +169,7 @@ const statusClass = (status: string) => {
 
     <!-- ===== パンくず ===== -->
     <div class="flex items-center gap-2 text-sm text-gray-400 flex-wrap">
-      <NuxtLink to="/services" class="hover:text-primary-600 transition-colors">アプリ</NuxtLink>
+      <NuxtLink to="/services" class="hover:text-primary-600 transition-colors">プロダクトアプリ</NuxtLink>
       <Icon name="heroicons:chevron-right" class="h-3 w-3" />
       <span class="text-gray-600 font-medium">{{ serviceLabel }}</span>
     </div>

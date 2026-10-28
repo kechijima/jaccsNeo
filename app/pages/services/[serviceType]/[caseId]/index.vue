@@ -60,7 +60,7 @@ const progressRestrictedEntries = computed(() => buildEntries(['contractContent'
 
     <!-- パンくず -->
     <div class="flex items-center gap-2 text-sm text-gray-400 flex-wrap">
-      <NuxtLink to="/services" class="hover:text-primary-600 transition-colors">アプリ</NuxtLink>
+      <NuxtLink to="/services" class="hover:text-primary-600 transition-colors">プロダクトアプリ</NuxtLink>
       <Icon name="heroicons:chevron-right" class="h-3 w-3" />
       <NuxtLink :to="`/services/${serviceType}`" class="hover:text-primary-600 transition-colors">{{ serviceLabel }}</NuxtLink>
       <Icon name="heroicons:chevron-right" class="h-3 w-3" />

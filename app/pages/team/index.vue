@@ -45,8 +45,11 @@ const maxTotal = computed(() => Math.max(1, ...monthlyTrend.value.map(m => m.tot
     <!-- ヘッダー -->
     <div class="flex items-start justify-between gap-3">
       <div>
-        <h1 class="text-xl font-bold text-gray-900">チームダッシュボード</h1>
-        <p class="text-sm text-gray-500 mt-0.5">{{ currentMonth }}</p>
+        <h1 class="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <Icon name="heroicons:chart-bar" class="h-6 w-6 text-primary-600" />
+          チームダッシュボード
+        </h1>
+        <p class="mt-1 text-sm text-gray-500">{{ currentMonth }}</p>
       </div>
     </div>
 

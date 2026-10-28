@@ -234,8 +234,11 @@ const createEventOnSelectedDay = () => {
     <!-- ヘッダー -->
     <div class="flex items-start justify-between gap-3">
       <div>
-        <h1 class="text-xl font-bold text-gray-900">カレンダー</h1>
-        <p class="text-sm text-gray-500 mt-0.5">スケジュール・出欠管理</p>
+        <h1 class="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <Icon name="heroicons:calendar-days" class="h-6 w-6 text-primary-600" />
+          カレンダー
+        </h1>
+        <p class="mt-1 text-sm text-gray-500">スケジュール・出欠管理</p>
       </div>
       <NuxtLink to="/events/new" class="btn-primary text-sm">
         <Icon name="heroicons:plus" class="h-4 w-4" />

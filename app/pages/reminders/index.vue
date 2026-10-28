@@ -158,15 +158,11 @@ const formatDateTime = (d: Date) =>
 <template>
   <div class="p-4 md:p-6 max-w-4xl mx-auto space-y-5">
 
-    <div class="flex items-center gap-2 text-sm text-gray-400">
-      <span class="text-gray-600">リマインダー一覧</span>
-    </div>
-
     <div class="flex items-start justify-between gap-3 flex-wrap">
       <div>
-        <h1 class="text-xl font-bold text-gray-900 flex items-center gap-2">
+        <h1 class="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-2">
           <Icon name="heroicons:bell-alert" class="h-6 w-6 text-primary-600" />
-          リマインダー一覧
+          リマインダー
         </h1>
         <p class="mt-1 text-sm text-gray-500">顧客情報・各アプリに登録されたリマインダーをまとめて表示します</p>
       </div>

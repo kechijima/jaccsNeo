@@ -27,8 +27,11 @@ const tools = [
   <div class="p-4 md:p-6 max-w-4xl mx-auto space-y-5">
 
     <div>
-      <h1 class="text-xl font-bold text-gray-900">業務ツールアプリ</h1>
-      <p class="text-sm text-gray-500 mt-0.5">利用するツールを選択してください</p>
+      <h1 class="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-2">
+        <Icon name="heroicons:wrench-screwdriver" class="h-6 w-6 text-primary-600" />
+        業務ツールアプリ
+      </h1>
+      <p class="mt-1 text-sm text-gray-500">利用するツールを選択してください</p>
     </div>
 
     <div class="grid md:grid-cols-3 gap-4">

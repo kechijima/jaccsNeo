@@ -231,7 +231,10 @@ const filteredGroups = computed<GroupRow[]>(() => {
     </div>
 
     <div class="flex items-center justify-between gap-3 flex-wrap">
-      <h1 class="text-xl font-bold text-gray-900">メンバー一覧</h1>
+      <h1 class="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-2">
+        <Icon name="heroicons:users" class="h-6 w-6 text-primary-600" />
+        メンバー一覧
+      </h1>
       <div class="flex rounded-lg border border-gray-200 overflow-hidden text-sm shrink-0">
         <button
           type="button"

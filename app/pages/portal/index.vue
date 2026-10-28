@@ -219,8 +219,11 @@ const upcomingEvents = computed(() =>
     <!-- ヘッダー -->
     <div class="flex items-start justify-between gap-3">
       <div>
-        <h1 class="text-xl font-bold text-gray-900">掲示板</h1>
-        <p class="text-sm text-gray-500 mt-0.5">スペースへの投稿・活動報告</p>
+        <h1 class="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <Icon name="heroicons:chat-bubble-left-right" class="h-6 w-6 text-primary-600" />
+          活動報告
+        </h1>
+        <p class="mt-1 text-sm text-gray-500">スペースへの投稿・活動報告</p>
       </div>
       <NuxtLink to="/portal/spaces" class="btn-secondary text-sm flex items-center gap-1.5">
         <Icon name="heroicons:squares-2x2" class="h-4 w-4" />

@@ -103,7 +103,7 @@ const deletePost = async () => {
     <!-- パンくず -->
     <div class="flex items-center justify-between gap-3 flex-wrap">
       <div class="flex items-center gap-2 text-sm text-gray-400 flex-wrap">
-        <NuxtLink to="/portal">掲示板</NuxtLink>
+        <NuxtLink to="/portal">活動報告</NuxtLink>
         <Icon name="heroicons:chevron-right" class="h-3 w-3" />
         <NuxtLink :to="`/portal/spaces/${spaceId}`">{{ space?.name ?? 'スペース' }}</NuxtLink>
         <Icon name="heroicons:chevron-right" class="h-3 w-3" />

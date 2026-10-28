@@ -80,11 +80,11 @@ const handleResubmit = (r: AppRequest) => {
     <!-- ヘッダー -->
     <div class="flex items-start justify-between gap-3">
       <div>
-        <h1 class="text-xl font-bold text-gray-900 flex items-center gap-2">
+        <h1 class="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-2">
           <Icon name="heroicons:document-check" class="h-6 w-6 text-primary-600" />
           申請
         </h1>
-        <p class="text-sm text-gray-500 mt-0.5">組合・グループ登録、プラン変更、サポート者変更などの申請</p>
+        <p class="mt-1 text-sm text-gray-500">組合・グループ登録、プラン変更、サポート者変更などの申請</p>
       </div>
       <div class="flex items-center gap-2 shrink-0">
         <NuxtLink v-if="canSeeApprovalList" to="/requests/approve" class="btn-secondary text-sm flex items-center gap-1.5">
