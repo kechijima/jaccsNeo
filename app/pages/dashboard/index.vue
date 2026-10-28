@@ -142,10 +142,11 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
           {{ now.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }) }}
         </p>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 flex-wrap">
         <!-- ホーム画面デザイン比較用の一時切り替え（お知らせ・アプリ・スペースの
-             コントラストがはっきりした配色案との見比べ用。保存はされない） -->
-        <div class="hidden sm:flex items-center rounded-lg border border-gray-200 bg-white p-0.5 text-xs font-medium shrink-0">
+             コントラストがはっきりした配色案との見比べ用。保存はされない。
+             スマホ版でも見比べられるよう常時表示する） -->
+        <div class="flex items-center rounded-lg border border-gray-200 bg-white p-0.5 text-xs font-medium shrink-0">
           <button
             type="button"
             class="rounded-md px-2.5 py-1 transition"
