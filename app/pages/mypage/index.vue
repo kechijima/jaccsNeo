@@ -4,7 +4,7 @@ import { useUsers } from '~/composables/useUsers'
 import { useStorage } from '~/composables/useStorage'
 import { useAuthStore } from '~/stores/auth'
 import { useGroups } from '~/composables/useGroups'
-import { useThemeColor } from '~/composables/useThemeColor'
+import { useColorMode } from '~/composables/useColorMode'
 import { useDisplayName } from '~/composables/useDisplayName'
 import { useRequests } from '~/composables/useRequests'
 import { getAnimalFortune } from '~/utils/animalFortune'
@@ -19,8 +19,8 @@ const { updateMyProfile, fetchUsers } = useUsers()
 const { uploadImage } = useStorage()
 const { fetchGroups } = useGroups()
 const { format: formatDisplayName } = useDisplayName()
-const { themeColor, ensureLoaded: ensureThemeColorLoaded, setThemeColor } = useThemeColor()
-ensureThemeColorLoaded()
+const { colorMode, ensureLoaded: ensureColorModeLoaded, setColorMode } = useColorMode()
+ensureColorModeLoaded()
 
 // 氏名欄は、空欄のまま保存すると「なし」が入ってしまう不具合の再発防止も兼ね、
 // システム管理者以外は変更できないようにする（登録時に設定された氏名を維持する）
@@ -306,30 +306,30 @@ const groupLabel = computed(() => groups.value.find(g => g.id === form.groupId)?
       </div>
     </div>
 
-    <!-- 表示設定（配色） -->
+    <!-- 表示設定（ライト/ダークモード） -->
     <div class="card p-5 flex items-center justify-between gap-4 flex-wrap">
       <div>
         <h2 class="font-semibold text-gray-900">表示設定</h2>
-        <p class="text-xs text-gray-400 mt-0.5">アプリ全体の配色を切り替えます</p>
+        <p class="text-xs text-gray-400 mt-0.5">画面の表示モードを切り替えます</p>
       </div>
       <div class="flex items-center gap-2">
         <button
           type="button"
           class="flex items-center gap-2 rounded-lg border-2 px-3 py-2 text-sm font-medium transition"
-          :class="themeColor === 'blue' ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-500 hover:border-gray-300'"
-          @click="setThemeColor('blue')"
+          :class="colorMode === 'light' ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-500 hover:border-gray-300'"
+          @click="setColorMode('light')"
         >
-          <span class="h-4 w-4 rounded-full bg-blue-500 shrink-0" />
-          青系
+          <Icon name="heroicons:sun" class="h-4 w-4 shrink-0" />
+          ライト
         </button>
         <button
           type="button"
           class="flex items-center gap-2 rounded-lg border-2 px-3 py-2 text-sm font-medium transition"
-          :class="themeColor === 'yellow' ? 'border-amber-400 bg-amber-50 text-amber-700' : 'border-gray-200 text-gray-500 hover:border-gray-300'"
-          @click="setThemeColor('yellow')"
+          :class="colorMode === 'dark' ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-500 hover:border-gray-300'"
+          @click="setColorMode('dark')"
         >
-          <span class="h-4 w-4 rounded-full bg-amber-500 shrink-0" />
-          黄色系
+          <Icon name="heroicons:moon" class="h-4 w-4 shrink-0" />
+          ダーク
         </button>
       </div>
     </div>

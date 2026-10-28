@@ -108,8 +108,8 @@ export interface AppUser {
   favoriteAppIds?:   string[]
   favoriteSpaceIds?: string[]
 
-  // ── 表示設定 ──────────────────────────────────────────────────────────
-  themeColor?: 'blue' | 'yellow'
+  // ── 表示設定（ライト/ダーク）。旧配色設定(themeColor: 'blue'|'yellow')は廃止 ──────
+  colorMode?: 'light' | 'dark'
 
   // ── 通知設定（種別ごとにアプリ内通知を受け取るかどうか。未設定時は全てtrue扱い） ──
   notificationPrefs?: NotificationPrefs

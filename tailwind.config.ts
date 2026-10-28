@@ -1,6 +1,9 @@
 import type { Config } from 'tailwindcss'
 
 export default {
+  // マイページの表示設定（ライト/ダーク）で<html>に'dark'クラスを付け外しすることで
+  // 切り替える。OS設定（prefers-color-scheme）には連動させず、常にユーザーの選択を優先する
+  darkMode: 'class',
   content: [
     './app/**/*.{vue,js,ts}',
     './app/components/**/*.{vue,js,ts}',

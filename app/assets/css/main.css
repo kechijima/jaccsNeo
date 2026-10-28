@@ -18,11 +18,10 @@
     overscroll-behavior-y: none;
   }
 
-  /* テーマカラー（青系/黄色系）。ユーザー設定に応じて<html>のdata-themeを
-     切り替えることで、既存のbg-primary-600等のクラスの実際の色を変更する */
-  /* 青系はブランドカラー #00AFCC を基準に生成 */
-  :root,
-  :root[data-theme='blue'] {
+  /* ブランドカラー #00AFCC を基準に生成したプライマリカラー（CSS変数経由）。
+     以前はユーザー設定で青系/黄色系を切り替えられたが、その機能は廃止し
+     常にこの配色を使う（表示設定はライト/ダークモードの切り替えに置き換えた） */
+  :root {
     --color-primary-50:  242 251 252;
     --color-primary-100: 225 246 249;
     --color-primary-200: 189 237 245;
@@ -34,20 +33,6 @@
     --color-primary-800: 6 92 106;
     --color-primary-900: 6 66 76;
     --color-primary-950: 5 40 46;
-  }
-
-  :root[data-theme='yellow'] {
-    --color-primary-50:  255 251 235;
-    --color-primary-100: 254 243 199;
-    --color-primary-200: 253 230 138;
-    --color-primary-300: 252 211 77;
-    --color-primary-400: 251 191 36;
-    --color-primary-500: 245 158 11;
-    --color-primary-600: 217 119 6;
-    --color-primary-700: 180 83 9;
-    --color-primary-800: 146 64 14;
-    --color-primary-900: 120 53 15;
-    --color-primary-950: 69 26 3;
   }
 }
 
@@ -75,6 +60,76 @@
   .badge {
     @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
   }
+}
+
+/* ===== ダークモード =====
+   <html>に'dark'クラスが付いている間、アプリ全体で多用されているグレー系の
+   背景・文字・枠線ユーティリティクラスの実際の色を一括で上書きする。
+   個別のコンポーネントにdark:バリアントを1つ1つ追加する代わりに、既存クラスの
+   セレクタをそのまま流用することで、ファイルを横断して書き換えずに全画面へ
+   反映させている（バッジ等の色付き背景は、単体のチップとして視認性を保てる
+   ため個別対応はしていない） */
+.dark {
+  color-scheme: dark;
+}
+.dark body {
+  @apply bg-gray-900;
+}
+.dark .card {
+  @apply bg-gray-800 ring-gray-700;
+}
+.dark .btn-secondary {
+  @apply bg-gray-800 text-gray-200 ring-gray-600 hover:bg-gray-700;
+}
+.dark .input-field {
+  @apply border-gray-600 bg-gray-800 text-gray-100 placeholder-gray-500;
+}
+.dark .bg-white {
+  background-color: rgb(31 41 55) /* gray-800 */ !important;
+}
+.dark .bg-gray-50 {
+  background-color: rgb(17 24 39) /* gray-900 */ !important;
+}
+.dark .bg-gray-100 {
+  background-color: rgb(31 41 55) /* gray-800 */ !important;
+}
+.dark .text-gray-900 {
+  color: rgb(243 244 246) /* gray-100 */ !important;
+}
+.dark .text-gray-800 {
+  color: rgb(229 231 235) /* gray-200 */ !important;
+}
+.dark .text-gray-700 {
+  color: rgb(209 213 219) /* gray-300 */ !important;
+}
+.dark .text-gray-600 {
+  color: rgb(156 163 175) /* gray-400 */ !important;
+}
+.dark .text-gray-500 {
+  color: rgb(156 163 175) /* gray-400 */ !important;
+}
+.dark .text-gray-400 {
+  color: rgb(107 114 128) /* gray-500 */ !important;
+}
+.dark .border-gray-100,
+.dark .border-gray-200,
+.dark .border-gray-300 {
+  border-color: rgb(55 65 81) /* gray-700 */ !important;
+}
+.dark .divide-gray-50 > :not([hidden]) ~ :not([hidden]),
+.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgb(55 65 81) /* gray-700 */ !important;
+}
+.dark .hover\:bg-gray-50:hover,
+.dark .hover\:bg-gray-100:hover {
+  background-color: rgb(55 65 81) /* gray-700 */ !important;
+}
+.dark .ring-gray-200 {
+  --tw-ring-color: rgb(55 65 81) /* gray-700 */ !important;
+}
+.dark .shadow-sm,
+.dark .shadow {
+  --tw-shadow-color: transparent;
 }
 
 /* v-htmlで表示される投稿・コメント等に含まれる@メンション（Tiptapが出力するspan）は
