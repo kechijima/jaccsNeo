@@ -27,20 +27,26 @@ export const usePushNotifications = () => {
   // 不具合の原因切り分け用に、同等の判定を1つずつ行い、失敗した項目を保持する
   const unsupportedReasons = useState<string[]>('push:unsupportedReasons', () => [])
 
-  const checkIndexedDbOpenable = (): Promise<boolean> => {
-    if (typeof indexedDB === 'undefined') return Promise.resolve(false)
+  // 成功可否に加え、失敗時はDOMExceptionの name/message をそのまま返す
+  // （「ブロックされている」とひとくちに言っても原因は様々なため、ブラウザが
+  // 報告する実際のエラー内容を画面にそのまま出して切り分けの手がかりにする）
+  const checkIndexedDbOpenable = (): Promise<{ ok: boolean; detail?: string }> => {
+    if (typeof indexedDB === 'undefined') return Promise.resolve({ ok: false, detail: 'indexedDBが存在しません' })
     return new Promise((resolve) => {
       try {
         const req = indexedDB.open('__fcm_support_check__')
         req.onsuccess = () => {
           req.result.close()
           indexedDB.deleteDatabase('__fcm_support_check__')
-          resolve(true)
+          resolve({ ok: true })
         }
-        req.onerror = () => resolve(false)
-        req.onblocked = () => resolve(false)
-      } catch {
-        resolve(false)
+        req.onerror = () => {
+          const err = req.error
+          resolve({ ok: false, detail: err ? `${err.name}: ${err.message}` : '不明なエラー' })
+        }
+        req.onblocked = () => resolve({ ok: false, detail: 'blocked（他のタブ等で古いバージョンが開いたままの可能性があります）' })
+      } catch (e: any) {
+        resolve({ ok: false, detail: e?.name ? `${e.name}: ${e.message}` : String(e) })
       }
     })
   }
@@ -57,10 +63,15 @@ export const usePushNotifications = () => {
     if (typeof PushSubscription === 'undefined' || !('getKey' in PushSubscription.prototype)) {
       reasons.push('PushSubscription.getKey に非対応です')
     }
-    if (!(await checkIndexedDbOpenable())) {
-      reasons.push('IndexedDBを開けません（プライベートブラウジング中か、端末・ブラウザのストレージ設定で制限されている可能性があります）')
+    const idbResult = await checkIndexedDbOpenable()
+    if (!idbResult.ok) {
+      reasons.push(`IndexedDBを開けません（プライベートブラウジング中か、端末・ブラウザのストレージ設定で制限されている可能性があります）／詳細: ${idbResult.detail ?? '不明'}`)
     }
-    return reasons.length > 0 ? reasons : ['原因不明（firebase/messagingのisSupported()がfalseを返しましたが、個別チェックはすべて通過しました）']
+    // Android端末のアプリ内ブラウザ（WebView）で開いている場合はUser-Agentに
+    // 'wv' が含まれる。通常のChromeブラウザではなくWebView埋め込みだと、
+    // ストレージ関連のAPIが一部制限されることがあるため切り分け材料として表示する
+    reasons.push(`参考: User-Agent = ${navigator.userAgent}`)
+    return reasons
   }
 
   const checkSupport = async (): Promise<boolean> => {
