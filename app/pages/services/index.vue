@@ -176,16 +176,25 @@ const filteredCategories = computed(() => {
             :key="svc.key"
             :to="`/services/${svc.key}`"
             class="card p-4 hover:shadow-md transition group flex flex-col gap-3"
+            :class="{ 'opacity-60': svc.isSuspended }"
           >
             <!-- アイコン + ラベル -->
             <div class="flex items-start justify-between gap-2">
+              <img
+                v-if="svc.iconUrl"
+                :src="svc.iconUrl"
+                alt=""
+                class="h-9 w-9 rounded-xl object-cover shrink-0 border border-gray-100"
+              />
               <div
+                v-else
                 class="inline-flex items-center justify-center h-9 w-9 rounded-xl shrink-0"
                 :class="cat.meta.bgColor"
               >
                 <Icon :name="cat.meta.icon" class="h-5 w-5" :class="cat.meta.color" />
               </div>
               <div class="flex items-center gap-1.5 shrink-0">
+                <span v-if="svc.isSuspended" class="badge text-xs bg-red-100 text-red-700">取扱い停止</span>
                 <span v-if="svc.isCustom" class="badge text-xs bg-primary-100 text-primary-700">新規</span>
                 <span
                   class="badge text-xs"

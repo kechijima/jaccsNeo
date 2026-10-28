@@ -4,6 +4,7 @@ import { useAppDefs } from '~/composables/useAppDefs'
 import { useUsers } from '~/composables/useUsers'
 import { useOperationLog } from '~/composables/useOperationLog'
 import { useSpecialTeams } from '~/composables/useSpecialTeams'
+import { useStorage } from '~/composables/useStorage'
 import { SERVICE_LABELS, STATUS_LABELS, APP_CATEGORY_LIST } from '~/types/service'
 import { readCsvFile, parseCsv, guessFieldType } from '~/utils/csv'
 import type { AppUser } from '~/types/user'
@@ -21,6 +22,7 @@ const OTHER_SERVICE_TYPE_OPTIONS = Object.entries(SERVICE_LABELS)
 const { fetchOne, update, remove, appDefs: allAppDefs, fetchAll: fetchAllAppDefs } = useAppDefs()
 const { fetchUsers } = useUsers()
 const { fetchAll: fetchSpecialTeams } = useSpecialTeams()
+const { uploadImage } = useStorage()
 
 const loading = ref(true)
 const loadError = ref('')
@@ -36,7 +38,30 @@ const staleAlertDaysInput = ref('')
 const staleAlertStatuses = ref<string[]>([])
 const linkedAppIds = ref<string[]>([])
 const isPublished = ref(true)
+const isSuspended = ref(false)
+const iconUrl = ref('')
 const users = ref<AppUser[]>([])
+
+// ── アイコン画像アップロード ─────────────────────────────────────
+const iconInputRef = ref<HTMLInputElement>()
+const uploadingIcon = ref(false)
+const iconError = ref('')
+const handleIconSelect = async (e: Event) => {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  uploadingIcon.value = true
+  iconError.value = ''
+  try {
+    const path = `appDefs/${appId.value}/icon-${Date.now()}-${file.name}`
+    iconUrl.value = await uploadImage(path, file)
+  } catch (e: any) {
+    iconError.value = e.message ?? 'アイコン画像のアップロードに失敗しました'
+  } finally {
+    uploadingIcon.value = false
+    if (iconInputRef.value) iconInputRef.value.value = ''
+  }
+}
+const removeIcon = () => { iconUrl.value = '' }
 
 // 他のアプリ（ルックアップ・関連レコード一覧・連動アプリの参照先候補）
 const otherAppDefs = computed(() => allAppDefs.value.filter(a => a.id !== appId.value && a.isPublished))
@@ -78,6 +103,8 @@ onMounted(async () => {
       staleAlertStatuses.value = [...(app.staleAlertStatuses ?? ['consulting', 'considering'])]
       linkedAppIds.value = [...(app.linkedAppIds ?? [])]
       isPublished.value = app.isPublished
+      isSuspended.value = app.isSuspended ?? false
+      iconUrl.value = app.iconUrl ?? ''
       fields.value = app.fields.map((f) => {
         const copy: CanvasField = { ...f, options: [...f.options] }
         if (f.defaultValues) copy.defaultValues = [...f.defaultValues]
@@ -91,7 +118,7 @@ onMounted(async () => {
     // 初期値の代入自体を変更扱いしないよう、読み込み完了後に監視を開始する
     watch(
       [fields, appName, appDescription, ownerUids, staffUids, staffSpecialTeamIds, sourceServiceType, category,
-       staleAlertDaysInput, staleAlertStatuses, linkedAppIds, isPublished],
+       staleAlertDaysInput, staleAlertStatuses, linkedAppIds, isPublished, isSuspended, iconUrl],
       () => { isDirty.value = true },
       { deep: true },
     )
@@ -672,6 +699,10 @@ const submitSettings = async () => {
       staleAlertStatuses: staleAlertDays ? staleAlertStatuses.value : undefined,
       linkedAppIds: linkedAppIds.value,
       isPublished: isPublished.value,
+      isSuspended: isSuspended.value,
+      // 削除時に空文字を明示的に送る（undefinedだとstripUndefinedで更新対象から
+      // 除外されてしまい、Firestore側の値がクリアされず古いiconUrlが残ってしまうため）
+      iconUrl: iconUrl.value,
     })
     isDirty.value = false
     showSettings.value = false
@@ -727,6 +758,7 @@ const handleDeleteApp = async () => {
             class="badge text-[10px] shrink-0"
             :class="isPublished ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
           >{{ isPublished ? '公開中' : '下書き' }}</span>
+          <span v-if="isSuspended" class="badge text-[10px] shrink-0 bg-red-100 text-red-700">取扱い停止</span>
         </h1>
       </div>
       <div class="flex items-center gap-2 shrink-0">
@@ -1476,6 +1508,51 @@ const handleDeleteApp = async () => {
                 :class="isPublished ? 'translate-x-6' : 'translate-x-1'"
               />
             </button>
+          </div>
+
+          <div class="flex items-center justify-between rounded-lg border border-gray-200 p-3">
+            <div>
+              <p class="text-sm font-medium text-gray-800">取扱い停止</p>
+              <p class="text-xs text-gray-500 mt-0.5">
+                {{ isSuspended ? '取扱い停止中です（既存の案件は引き続き閲覧・編集できますが、新規登録は受け付けません）' : '通常通り新規登録を受け付けています' }}
+              </p>
+            </div>
+            <button
+              type="button"
+              class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0"
+              :class="isSuspended ? 'bg-red-500' : 'bg-gray-200'"
+              @click="isSuspended = !isSuspended"
+            >
+              <span
+                class="inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform"
+                :class="isSuspended ? 'translate-x-6' : 'translate-x-1'"
+              />
+            </button>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">アイコン画像（任意）</label>
+            <p class="text-xs text-gray-400 mb-2">未設定の場合は、カテゴリに応じたアイコンが自動的に使われます</p>
+            <div class="flex items-center gap-3">
+              <div v-if="iconUrl" class="relative h-12 w-12 shrink-0">
+                <img :src="iconUrl" alt="" class="h-12 w-12 rounded-xl object-cover border border-gray-200" />
+                <button
+                  type="button"
+                  class="absolute -top-1.5 -right-1.5 rounded-full bg-black/60 p-0.5 text-white hover:bg-black/80 transition"
+                  title="画像を削除"
+                  @click="removeIcon"
+                >
+                  <Icon name="heroicons:x-mark" class="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <label class="btn-secondary text-xs cursor-pointer" :class="{ 'opacity-50 pointer-events-none': uploadingIcon }">
+                <Icon v-if="uploadingIcon" name="heroicons:arrow-path" class="h-3.5 w-3.5 animate-spin mr-1" />
+                <Icon v-else name="heroicons:photo" class="h-3.5 w-3.5 mr-1" />
+                {{ iconUrl ? '画像を変更' : '画像を選択' }}
+                <input ref="iconInputRef" type="file" accept="image/jpeg,image/png" class="hidden" @change="handleIconSelect" />
+              </label>
+            </div>
+            <p v-if="iconError" class="mt-1.5 text-xs text-red-500">{{ iconError }}</p>
           </div>
 
           <div>

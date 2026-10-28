@@ -44,6 +44,11 @@ export interface AppDef {
   staleAlertStatuses?: string[]  // アラート対象のステータス。未設定時は既定で「相談中」「検討中」
   linkedAppIds?: string[]    // 連動アプリ（同じ顧客に対して、ボタン一つで案件を作成できる他のAppDefのID）
   isPublished: boolean     // 公開（利用可能）かどうか。falseの場合は下書き扱い
+  // 取扱い停止。true の場合、既存の案件データは引き続き閲覧・編集できるが、
+  // 新規の案件登録（「アプリ」一覧・ダッシュボードのクイックアクション等すべての入口）は
+  // 受け付けない。isPublishedとは独立した状態（公開中のまま取扱い停止にできる）
+  isSuspended?: boolean
+  iconUrl?: string         // カスタムアイコン画像（未設定時はcategoryから導出するheroiconを使う）
   createdBy: string
   createdAt: Timestamp
   updatedAt: Timestamp

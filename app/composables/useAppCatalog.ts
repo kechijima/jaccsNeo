@@ -7,6 +7,8 @@ export interface AppCatalogEntry {
   category: string
   appDefId?: string
   isCustom: boolean   // 固定18アプリ＋生命保険に含まれない、新規作成されたアプリかどうか
+  iconUrl?: string    // カスタムアイコン画像（AppDef連携があり設定されている場合のみ）
+  isSuspended: boolean // 取扱い停止中かどうか（AppDef連携がない固定アプリは常にfalse）
 }
 
 // 固定サービス種別（生命保険＋既存18アプリ）と、アプリ管理（AppDef）で作成された
@@ -34,6 +36,8 @@ export const useAppCatalog = () => {
         category: linkedDef?.category || SERVICE_CATEGORY_MAP[key] || 'その他',
         appDefId: linkedDef?.id,
         isCustom: false,
+        iconUrl: linkedDef?.iconUrl,
+        isSuspended: linkedDef?.isSuspended ?? false,
       }
     })
 
@@ -45,6 +49,8 @@ export const useAppCatalog = () => {
         category: a.category && APP_CATEGORY_LIST.includes(a.category) ? a.category : 'その他',
         appDefId: a.id,
         isCustom: true,
+        iconUrl: a.iconUrl,
+        isSuspended: a.isSuspended ?? false,
       }))
 
     return [...baseline, ...custom]

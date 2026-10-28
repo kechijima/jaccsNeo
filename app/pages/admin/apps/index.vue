@@ -195,6 +195,7 @@ const submitCreate = async () => {
                 class="badge text-[10px] shrink-0"
                 :class="app.isPublished ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
               >{{ app.isPublished ? '公開中' : '下書き' }}</span>
+              <span v-if="app.isSuspended" class="badge text-[10px] shrink-0 bg-red-100 text-red-700">取扱い停止</span>
               <span
                 v-if="app.category"
                 class="badge text-[10px] shrink-0 flex items-center gap-1"

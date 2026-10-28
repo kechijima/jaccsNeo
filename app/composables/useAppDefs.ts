@@ -42,6 +42,8 @@ const toAppDef = (id: string, data: DocumentData): AppDef => ({
   staleAlertStatuses: data.staleAlertStatuses,
   linkedAppIds: data.linkedAppIds ?? [],
   isPublished: data.isPublished ?? true,
+  isSuspended: data.isSuspended ?? false,
+  iconUrl: data.iconUrl,
   createdBy: data.createdBy ?? '',
   createdAt: toDate(data.createdAt),
   updatedAt: toDate(data.updatedAt),

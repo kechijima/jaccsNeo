@@ -56,7 +56,7 @@ const isFiltering = computed(() =>
 )
 
 // ── サービス行ビルド（実際の案件レコード件数から導出） ──────────────────
-const buildService = (entry: { key: string; label: string }) => {
+const buildService = (entry: { key: string; label: string; isSuspended: boolean }) => {
   const count = caseCounts.value[entry.key] ?? 0
   return {
     key: entry.key,
@@ -64,6 +64,7 @@ const buildService = (entry: { key: string; label: string }) => {
     status: count > 0 ? 'active' : 'none',
     statusLabel: count > 0 ? `${count}件` : '対応なし',
     date: '',
+    isSuspended: entry.isSuspended,
   }
 }
 
@@ -255,12 +256,13 @@ const statusClass = (status: string) => {
             class="flex items-center gap-3 min-w-0 flex-1"
           >
             <span class="badge text-xs shrink-0" :class="statusClass(svc.status)">{{ svc.statusLabel }}</span>
+            <span v-if="svc.isSuspended" class="badge text-xs shrink-0 bg-red-100 text-red-700">取扱い停止</span>
             <span class="text-sm font-medium text-gray-900 truncate group-hover:text-primary-600 transition-colors">{{ svc.label }}</span>
             <span v-if="svc.date" class="text-xs text-gray-400 shrink-0 hidden sm:inline">{{ svc.date }}</span>
             <Icon name="heroicons:chevron-right" class="h-3.5 w-3.5 text-gray-300 shrink-0 ml-auto" />
           </NuxtLink>
           <NuxtLink
-            v-if="canEdit"
+            v-if="canEdit && !svc.isSuspended"
             :to="`/customers/${customerId}/services/${svc.key}/new`"
             class="ml-2 shrink-0 inline-flex items-center gap-1 rounded-lg bg-primary-50 px-2.5 py-1.5 text-xs font-semibold text-primary-600 hover:bg-primary-100 transition-colors"
             @click.stop
@@ -268,6 +270,15 @@ const statusClass = (status: string) => {
             <Icon name="heroicons:plus" class="h-3.5 w-3.5" />
             追加
           </NuxtLink>
+          <span
+            v-else-if="canEdit && svc.isSuspended"
+            class="ml-2 shrink-0 inline-flex items-center gap-1 rounded-lg bg-gray-100 px-2.5 py-1.5 text-xs font-semibold text-gray-400 cursor-not-allowed"
+            title="このアプリは取扱い停止中のため、新規登録を受け付けていません"
+            @click.stop
+          >
+            <Icon name="heroicons:lock-closed" class="h-3.5 w-3.5" />
+            停止中
+          </span>
         </div>
       </div>
     </div>

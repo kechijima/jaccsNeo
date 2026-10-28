@@ -64,6 +64,8 @@ const error = ref('')
 const { getPublishedByServiceType } = useAppDefs()
 const appDef = ref<AppDef | null>(null)
 const customFieldValues = ref<Record<string, string | string[]>>({})
+// 取扱い停止中のアプリは、生命保険専用フォームも含めて新規案件登録を受け付けない
+const isSuspended = computed(() => appDef.value?.isSuspended ?? false)
 
 // 新規登録時のみ、アプリ管理で設定した初期値をフィールドビルダー項目に反映する
 // （編集画面には適用しない。既に値が入っている項目は上書きしない）
@@ -88,8 +90,9 @@ const applyFieldDefaults = () => {
 }
 
 onMounted(async () => {
+  // 取扱い停止チェックのため、生命保険（固定アプリ）も含めて連携AppDefを取得する
+  appDef.value = await getPublishedByServiceType(serviceType.value).catch(() => null)
   if (!isLifeInsurance.value) {
-    appDef.value = await getPublishedByServiceType(serviceType.value).catch(() => null)
     applyFieldDefaults()
   }
 })
@@ -350,9 +353,21 @@ const handleLiSubmit = async () => {
     <h1 class="text-xl font-bold text-gray-900">{{ serviceLabel }} — 案件登録</h1>
 
     <!-- ========================================================= -->
+    <!-- 取扱い停止中：新規登録を受け付けない                          -->
+    <!-- ========================================================= -->
+    <div v-if="isSuspended" class="card p-8 text-center space-y-3">
+      <Icon name="heroicons:exclamation-triangle" class="h-10 w-10 text-red-400 mx-auto" />
+      <p class="font-semibold text-gray-800">{{ serviceLabel }}は現在取扱いを停止しています</p>
+      <p class="text-sm text-gray-500">新規の案件登録は受け付けていません。既存の案件データは引き続き閲覧・編集できます。</p>
+      <NuxtLink :to="`/customers/${customerId}/services/${serviceType}`" class="btn-secondary inline-flex">
+        一覧へ戻る
+      </NuxtLink>
+    </div>
+
+    <!-- ========================================================= -->
     <!-- 生命保険：専用フォーム                                       -->
     <!-- ========================================================= -->
-    <form v-if="isLifeInsurance" class="space-y-5" @submit.prevent="handleLiSubmit">
+    <form v-else-if="isLifeInsurance" class="space-y-5" @submit.prevent="handleLiSubmit">
 
       <div v-if="liError" class="flex items-start gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700">
         <Icon name="heroicons:exclamation-circle" class="mt-0.5 h-4 w-4 shrink-0" />
