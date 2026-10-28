@@ -5,6 +5,7 @@ import { NOTIFICATION_PREF_LABELS } from '~/types/notification'
 import type { NotificationPrefs } from '~/types/notification'
 import type { AppUser } from '~/types/user'
 import { usePushNotifications } from '~/composables/usePushNotifications'
+import { useAppearance, DEFAULT_PRIMARY_COLOR } from '~/composables/useAppearance'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -12,6 +13,14 @@ const { user } = useCurrentUser()
 const { updateMyProfile } = useUsers()
 const { sendPasswordReset } = useAuth()
 const authStore = useAuthStore()
+
+// ── 表示設定（ライト/ダーク・メインカラー） ───────────────────────────────
+const { colorMode, primaryColor, ensureLoaded: ensureAppearanceLoaded, setColorMode, setPrimaryColor } = useAppearance()
+ensureAppearanceLoaded()
+
+const PRESET_COLORS = ['#00AFCC', '#2563EB', '#7C3AED', '#DB2777', '#DC2626', '#EA580C', '#16A34A', '#0F172A']
+const isCustomColor = computed(() => !PRESET_COLORS.some(c => c.toLowerCase() === primaryColor.value.toLowerCase()))
+const onCustomColorChange = (e: Event) => setPrimaryColor((e.target as HTMLInputElement).value)
 
 // ── push通知（端末への通知） ─────────────────────────────────────────────
 const { status: pushStatus, syncStatus: syncPushStatus, enablePush, disablePush } = usePushNotifications()
@@ -84,13 +93,81 @@ const handlePasswordReset = async () => {
     <div class="flex items-center gap-2 text-sm text-gray-400">
       <NuxtLink to="/mypage">マイページ</NuxtLink>
       <Icon name="heroicons:chevron-right" class="h-3 w-3" />
-      <span class="text-gray-600">設定</span>
+      <span class="text-gray-600">個人設定</span>
     </div>
 
-    <h1 class="text-xl font-bold text-gray-900 flex items-center gap-2">
+    <h1 class="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-2">
       <Icon name="heroicons:cog-6-tooth" class="h-6 w-6 text-primary-600" />
-      設定
+      個人設定
     </h1>
+
+    <!-- 表示設定 -->
+    <div class="card p-5">
+      <h2 class="font-semibold text-gray-900 flex items-center gap-2 mb-1">
+        <Icon name="heroicons:swatch" class="h-5 w-5 text-primary-600" />
+        表示設定
+      </h2>
+      <p class="text-xs text-gray-400 mb-4">画面の表示モードとメインカラーを設定します</p>
+
+      <div class="space-y-4">
+        <div>
+          <p class="text-xs font-medium text-gray-500 mb-2">表示モード</p>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              class="flex items-center gap-2 rounded-lg border-2 px-3 py-2 text-sm font-medium transition"
+              :class="colorMode === 'light' ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-500 hover:border-gray-300'"
+              @click="setColorMode('light')"
+            >
+              <Icon name="heroicons:sun" class="h-4 w-4 shrink-0" />
+              ライト
+            </button>
+            <button
+              type="button"
+              class="flex items-center gap-2 rounded-lg border-2 px-3 py-2 text-sm font-medium transition"
+              :class="colorMode === 'dark' ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-500 hover:border-gray-300'"
+              @click="setColorMode('dark')"
+            >
+              <Icon name="heroicons:moon" class="h-4 w-4 shrink-0" />
+              ダーク
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <p class="text-xs font-medium text-gray-500 mb-2">メインカラー</p>
+          <div class="flex items-center gap-2.5 flex-wrap">
+            <button
+              v-for="c in PRESET_COLORS"
+              :key="c"
+              type="button"
+              class="h-8 w-8 rounded-full transition"
+              :class="primaryColor.toLowerCase() === c.toLowerCase() ? 'ring-2 ring-offset-2 ring-gray-900' : 'ring-1 ring-inset ring-black/10 hover:scale-110'"
+              :style="{ backgroundColor: c }"
+              :aria-label="c"
+              @click="setPrimaryColor(c)"
+            />
+            <label
+              class="relative h-8 w-8 rounded-full cursor-pointer flex items-center justify-center overflow-hidden transition"
+              :class="isCustomColor ? 'ring-2 ring-offset-2 ring-gray-900' : 'border-2 border-dashed border-gray-300 hover:border-gray-400'"
+              :style="isCustomColor ? { backgroundColor: primaryColor } : {}"
+              title="カスタムカラーを選択"
+            >
+              <Icon v-if="!isCustomColor" name="heroicons:plus" class="h-4 w-4 text-gray-400" />
+              <input type="color" :value="primaryColor" class="absolute inset-0 h-full w-full opacity-0 cursor-pointer" @change="onCustomColorChange" />
+            </label>
+          </div>
+          <button
+            v-if="primaryColor.toLowerCase() !== DEFAULT_PRIMARY_COLOR.toLowerCase()"
+            type="button"
+            class="mt-2 text-xs text-gray-400 hover:text-gray-600 underline"
+            @click="setPrimaryColor(DEFAULT_PRIMARY_COLOR)"
+          >
+            既定の色に戻す
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- push通知 -->
     <div class="card p-5">

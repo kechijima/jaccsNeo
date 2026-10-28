@@ -2,7 +2,7 @@
 import { useAuthStore } from '~/stores/auth'
 import { useNotifications } from '~/composables/useNotifications'
 import { useGroupLabels } from '~/composables/useGroupLabels'
-import { useColorMode } from '~/composables/useColorMode'
+import { useAppearance } from '~/composables/useAppearance'
 import { useHelpDrawer } from '~/composables/useHelpDrawer'
 import { useDisplayName } from '~/composables/useDisplayName'
 import { useSoftRefresh } from '~/composables/useSoftRefresh'
@@ -16,8 +16,8 @@ const router = useRouter()
 const { subscribeUnreadCount } = useNotifications()
 const { ensureLoaded: ensureGroupLabelsLoaded } = useGroupLabels()
 const { format: formatDisplayName } = useDisplayName()
-const { ensureLoaded: ensureColorModeLoaded } = useColorMode()
-onMounted(() => { ensureGroupLabelsLoaded(); ensureColorModeLoaded() })
+const { ensureLoaded: ensureAppearanceLoaded } = useAppearance()
+onMounted(() => { ensureGroupLabelsLoaded(); ensureAppearanceLoaded() })
 
 // F5・Ctrl+R等での誤ったページ更新や、ブラウザを閉じてしまうことへの注意喚起。
 // ページ側のJavaScriptでリロード自体を禁止することはブラウザの仕様上できない

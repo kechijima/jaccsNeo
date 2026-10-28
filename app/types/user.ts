@@ -108,8 +108,9 @@ export interface AppUser {
   favoriteAppIds?:   string[]
   favoriteSpaceIds?: string[]
 
-  // ── 表示設定（ライト/ダーク）。旧配色設定(themeColor: 'blue'|'yellow')は廃止 ──────
+  // ── 表示設定（ライト/ダーク、メインカラー）。旧配色設定(themeColor: 'blue'|'yellow')は廃止 ──
   colorMode?: 'light' | 'dark'
+  primaryColor?: string  // ユーザーごとのメインカラー（#RRGGBB）。未設定時はブランドカラー(#00AFCC)
 
   // ── 通知設定（種別ごとにアプリ内通知を受け取るかどうか。未設定時は全てtrue扱い） ──
   notificationPrefs?: NotificationPrefs
