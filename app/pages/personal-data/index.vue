@@ -4,6 +4,7 @@ import { useSavedSearchStore } from '~/composables/useSavedSearchStore'
 import { useDataScope } from '~/composables/useDataScope'
 import { useOperationLog } from '~/composables/useOperationLog'
 import { exportApoToCsv, downloadCsv } from '~/utils/csvCustomer'
+import { getAnimalFortune } from '~/utils/animalFortune'
 import type { Customer } from '~/types/customer'
 import type { FilterOperator, FilterCondition, SavedSearch } from '~/types/savedSearch'
 
@@ -522,6 +523,7 @@ const statusColor = (s: string) => {
               <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">氏名</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">性別</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">生年月日</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">動物占い</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">電話</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">住所</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">ステータス</th>
@@ -543,6 +545,13 @@ const statusColor = (s: string) => {
               </td>
               <td class="px-4 py-3 text-gray-600 text-xs whitespace-nowrap">{{ c.gender ?? '—' }}</td>
               <td class="px-4 py-3 text-gray-600 text-xs whitespace-nowrap">{{ c.dob?.replace(/-/g, '/') ?? '—' }}</td>
+              <td class="px-4 py-3 text-gray-600 text-xs whitespace-nowrap">
+                <span v-if="getAnimalFortune(c.dob)" class="inline-flex items-center gap-1">
+                  <span>{{ getAnimalFortune(c.dob)!.emoji }}</span>
+                  <span>{{ getAnimalFortune(c.dob)!.animal }}</span>
+                </span>
+                <span v-else class="text-gray-300">—</span>
+              </td>
               <td class="px-4 py-3 text-gray-600 text-xs whitespace-nowrap">{{ c.tel ?? '—' }}</td>
               <td class="px-4 py-3 text-gray-500 text-xs max-w-[160px]">
                 <span class="line-clamp-1">{{ c.address ?? '—' }}</span>
@@ -611,6 +620,7 @@ const statusColor = (s: string) => {
         <div class="grid grid-cols-2 gap-1 text-xs text-gray-500 mb-3">
           <div v-if="c.tel"><Icon name="heroicons:phone" class="h-3 w-3 inline mr-1" />{{ c.tel }}</div>
           <div v-if="c.dob"><Icon name="heroicons:calendar" class="h-3 w-3 inline mr-1" />{{ c.dob?.replace(/-/g, '/') }}</div>
+          <div v-if="getAnimalFortune(c.dob)">{{ getAnimalFortune(c.dob)!.emoji }} {{ getAnimalFortune(c.dob)!.animal }}</div>
           <div v-if="c.address" class="col-span-2 truncate"><Icon name="heroicons:map-pin" class="h-3 w-3 inline mr-1" />{{ c.address }}</div>
           <div v-if="nextReminder(c)" class="col-span-2 text-rose-600">
             <Icon name="heroicons:bell-alert" class="h-3 w-3 inline mr-1" />

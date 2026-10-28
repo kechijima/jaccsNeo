@@ -349,6 +349,9 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
           >
             <Icon name="heroicons:arrow-path" class="h-5 w-5" :class="{ 'animate-spin': isRefreshing }" />
           </button>
+          <NuxtLink to="/services" class="rounded-lg p-2 text-gray-500 hover:bg-gray-100" aria-label="プロダクトアプリ">
+            <Icon name="heroicons:squares-2x2" class="h-5 w-5" />
+          </NuxtLink>
           <NuxtLink to="/search" class="rounded-lg p-2 text-gray-500 hover:bg-gray-100" aria-label="検索">
             <Icon name="heroicons:magnifying-glass" class="h-5 w-5" />
           </NuxtLink>
