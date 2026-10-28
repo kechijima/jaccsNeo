@@ -31,7 +31,16 @@ export const usePushNotifications = () => {
   // （「ブロックされている」とひとくちに言っても原因は様々なため、ブラウザが
   // 報告する実際のエラー内容を画面にそのまま出して切り分けの手がかりにする）
   const checkIndexedDbOpenable = (): Promise<{ ok: boolean; detail?: string }> => {
-    if (typeof indexedDB === 'undefined') return Promise.resolve({ ok: false, detail: 'indexedDBが存在しません' })
+    // 正規のChromeでも window.indexedDB が未定義になるのは、通常はそのサイト専用の
+    // 「Cookie とサイトデータ」権限が「ブロック」に設定されている場合（全体設定が
+    // 「許可」でも、サイトごとの例外設定で上書きされていることがある）。原因の仮説と
+    // 次に確認すべき操作を具体的に案内する
+    if (typeof indexedDB === 'undefined') {
+      return Promise.resolve({
+        ok: false,
+        detail: 'window.indexedDB が未定義です。Chromeのアドレスバー左のサイト情報アイコン→「Cookie とサイトデータ」が、このサイトだけ「ブロック」になっている可能性が高いです。「許可」に変更のうえ、ページを再読み込みしてお試しください',
+      })
+    }
     return new Promise((resolve) => {
       try {
         const req = indexedDB.open('__fcm_support_check__')
