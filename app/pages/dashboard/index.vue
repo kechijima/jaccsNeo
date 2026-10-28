@@ -103,6 +103,23 @@ const favoriteSpaces = computed(() =>
 )
 const hasFavorites = computed(() => favoriteApps.value.length > 0 || favoriteSpaces.value.length > 0)
 
+// ── ホーム画面デザイン比較（お知らせ赤・アプリ青・スペース緑のコントラストが
+// はっきりした配色案）。ボタンで切り替えて見比べられるようにするためのもので、
+// 現状はFirestoreに保存しない一時的な表示切り替え（リロードで淡いデザインに戻る）
+const boldDesign = ref(false)
+const BOLD_HEADER_BG: Record<'red' | 'blue' | 'green', string> = {
+  red:   'bg-red-500',
+  blue:  'bg-blue-600',
+  green: 'bg-green-600',
+}
+const sectionHeaderClass = (color: 'red' | 'blue' | 'green') =>
+  boldDesign.value
+    ? [BOLD_HEADER_BG[color], 'text-white']
+    : ['border-b border-gray-100', 'text-gray-900']
+const sectionLinkClass = computed(() =>
+  boldDesign.value ? 'text-white/90 hover:text-white underline' : 'text-primary-600 hover:underline',
+)
+
 // ── 通知バッジ ──────────────────────────────────────────────────────────────
 const unreadNotifCount = ref(0)
 let unsubscribeNotifCount: (() => void) | null = null
@@ -126,6 +143,26 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
         </p>
       </div>
       <div class="flex items-center gap-2">
+        <!-- ホーム画面デザイン比較用の一時切り替え（お知らせ・アプリ・スペースの
+             コントラストがはっきりした配色案との見比べ用。保存はされない） -->
+        <div class="hidden sm:flex items-center rounded-lg border border-gray-200 bg-white p-0.5 text-xs font-medium shrink-0">
+          <button
+            type="button"
+            class="rounded-md px-2.5 py-1 transition"
+            :class="!boldDesign ? 'bg-gray-100 text-gray-700' : 'text-gray-400 hover:text-gray-600'"
+            @click="boldDesign = false"
+          >
+            淡い
+          </button>
+          <button
+            type="button"
+            class="rounded-md px-2.5 py-1 transition"
+            :class="boldDesign ? 'bg-gray-900 text-white' : 'text-gray-400 hover:text-gray-600'"
+            @click="boldDesign = true"
+          >
+            はっきり
+          </button>
+        </div>
         <!-- スマホでは検索は常設のスマホヘッダーに移動したためここでは非表示（PCはサイドバーと重複するが常設のクイックアクションとして残す）。
              マニュアルはPCヘッダー右上（日付の横）に移動したためここには置かない -->
         <NuxtLink
@@ -225,11 +262,15 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
 
       <!-- ===== 1. お知らせ ===== -->
       <div class="card overflow-hidden flex flex-col">
-        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 class="font-bold text-gray-900 flex items-center gap-2">
-            <Icon name="heroicons:megaphone" class="h-5 w-5 text-amber-500" />
+        <div class="flex items-center justify-between px-5 py-4" :class="sectionHeaderClass('red')">
+          <h2 class="font-bold flex items-center gap-2">
+            <Icon name="heroicons:megaphone" class="h-5 w-5" :class="boldDesign ? 'text-white' : 'text-amber-500'" />
             お知らせ
-            <span v-if="allAnnouncements.length > 0" class="ml-1 flex h-5 px-1.5 items-center justify-center rounded-full bg-primary-500 text-[10px] font-bold text-white min-w-[20px]">
+            <span
+              v-if="allAnnouncements.length > 0"
+              class="ml-1 flex h-5 px-1.5 items-center justify-center rounded-full text-[10px] font-bold min-w-[20px]"
+              :class="boldDesign ? 'bg-white/25 text-white' : 'bg-primary-500 text-white'"
+            >
               {{ allAnnouncements.length }}
             </span>
           </h2>
@@ -269,12 +310,12 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
 
       <!-- ===== 2. アプリ ===== -->
       <div class="card overflow-hidden flex flex-col">
-        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 class="font-bold text-gray-900 flex items-center gap-2">
-            <Icon name="heroicons:squares-2x2" class="h-5 w-5 text-green-600" />
+        <div class="flex items-center justify-between px-5 py-4" :class="sectionHeaderClass('blue')">
+          <h2 class="font-bold flex items-center gap-2">
+            <Icon name="heroicons:squares-2x2" class="h-5 w-5" :class="boldDesign ? 'text-white' : 'text-green-600'" />
             アプリ
           </h2>
-          <NuxtLink to="/services" class="text-xs text-primary-600 hover:underline">一覧</NuxtLink>
+          <NuxtLink to="/services" class="text-xs" :class="sectionLinkClass">一覧</NuxtLink>
         </div>
 
         <div class="flex-1 p-4">
@@ -302,12 +343,12 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
 
       <!-- ===== 3. スペース（掲示板） ===== -->
       <div class="card overflow-hidden flex flex-col">
-        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 class="font-bold text-gray-900 flex items-center gap-2">
-            <Icon name="heroicons:chat-bubble-left-right" class="h-5 w-5 text-indigo-600" />
+        <div class="flex items-center justify-between px-5 py-4" :class="sectionHeaderClass('green')">
+          <h2 class="font-bold flex items-center gap-2">
+            <Icon name="heroicons:chat-bubble-left-right" class="h-5 w-5" :class="boldDesign ? 'text-white' : 'text-indigo-600'" />
             掲示板
           </h2>
-          <NuxtLink to="/portal" class="text-xs text-primary-600 hover:underline">すべて</NuxtLink>
+          <NuxtLink to="/portal" class="text-xs" :class="sectionLinkClass">すべて</NuxtLink>
         </div>
 
         <!-- ピン留めスペース -->
