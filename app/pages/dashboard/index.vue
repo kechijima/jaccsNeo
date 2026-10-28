@@ -80,7 +80,7 @@ const decorateSpace = (s: any) => ({
   postCount: s.postCount ?? 0,
   isFavorite: favoriteSpaceIds.value.includes(s.id),
 })
-const displaySpaces = computed(() => {
+const sortedSpaces = computed(() => {
   const favs = portalStore.spaces.value
     .filter(s => favoriteSpaceIds.value.includes(s.id))
     .map(decorateSpace)
@@ -89,8 +89,12 @@ const displaySpaces = computed(() => {
     .slice()
     .sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0))
     .map(decorateSpace)
-  return [...favs, ...others].slice(0, 5)
+  return [...favs, ...others]
 })
+const displaySpaces = computed(() => sortedSpaces.value.slice(0, 5))
+// スマホ版は1行あたりの高さを取らないチップ表示にするため、PC版（縦一列・5件まで）
+// より多くのスペースを一度に表示できる
+const mobileDisplaySpaces = computed(() => sortedSpaces.value.slice(0, 10))
 
 // ── お気に入り（アプリ・掲示板） ────────────────────────────────────────────
 const favoriteApps = computed(() =>
@@ -314,7 +318,7 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
         <div class="flex items-center justify-between px-5 py-4" :class="sectionHeaderClass('blue')">
           <h2 class="font-bold flex items-center gap-2">
             <Icon name="heroicons:squares-2x2" class="h-5 w-5" :class="boldDesign ? 'text-white' : 'text-green-600'" />
-            アプリ
+            <span class="md:hidden">プロダクトアプリ</span><span class="hidden md:inline">アプリ</span>
           </h2>
           <NuxtLink to="/services" class="text-xs" :class="sectionLinkClass">一覧</NuxtLink>
         </div>
@@ -347,15 +351,35 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
         <div class="flex items-center justify-between px-5 py-4" :class="sectionHeaderClass('green')">
           <h2 class="font-bold flex items-center gap-2">
             <Icon name="heroicons:chat-bubble-left-right" class="h-5 w-5" :class="boldDesign ? 'text-white' : 'text-indigo-600'" />
-            掲示板
+            <span class="md:hidden">活動報告</span><span class="hidden md:inline">掲示板</span>
           </h2>
           <NuxtLink to="/portal" class="text-xs" :class="sectionLinkClass">すべて</NuxtLink>
         </div>
 
         <!-- ピン留めスペース -->
         <div class="px-4 py-3 border-b border-gray-100">
-          <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">スペース</p>
-          <div class="space-y-1">
+          <p class="hidden md:block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">スペース</p>
+
+          <!-- スマホ版：縦に並べると領域を取りすぎるため、折り返すチップ表示にして
+               一度に多くのスペースへ導線を確保する -->
+          <div class="md:hidden flex flex-wrap gap-1.5">
+            <NuxtLink
+              v-for="space in mobileDisplaySpaces"
+              :key="space.id"
+              :to="`/portal/spaces/${space.id}`"
+              class="flex items-center gap-1.5 max-w-[48%] rounded-full border border-gray-200 pl-1 pr-2.5 py-1 hover:bg-gray-50 transition"
+            >
+              <img v-if="space.headerImage" :src="space.headerImage" alt="" class="h-5 w-5 shrink-0 rounded-full object-cover" />
+              <div v-else class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold" :class="space.color">
+                {{ space.name.charAt(0) }}
+              </div>
+              <span class="truncate text-xs font-medium text-gray-700">{{ space.name }}</span>
+              <Icon v-if="space.isFavorite" name="heroicons:star-solid" class="h-2.5 w-2.5 text-amber-400 shrink-0" />
+            </NuxtLink>
+          </div>
+
+          <!-- PC版：従来通り縦一列（5件まで） -->
+          <div class="hidden md:block space-y-1">
             <NuxtLink
               v-for="space in displaySpaces"
               :key="space.id"
