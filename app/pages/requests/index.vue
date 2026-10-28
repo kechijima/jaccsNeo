@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useRequests } from '~/composables/useRequests'
+import { useRequestApprovers } from '~/composables/useRequestApprovers'
 import { REQUEST_TYPE_LABELS, REQUEST_STATUS_LABELS } from '~/types/request'
 import { useAuthStore } from '~/stores/auth'
 import type { AppRequest } from '~/types/request'
@@ -8,7 +9,12 @@ import { requestStatusBadge, requestPayloadSummary } from '~/utils/requestSummar
 definePageMeta({ middleware: ['auth'] })
 
 const { fetchMine, setResubmitDraft } = useRequests()
+const { canApproveAny, fetchAll: fetchApprovers } = useRequestApprovers()
 const authStore = useAuthStore()
+const { user: currentUser } = useCurrentUser()
+
+await fetchApprovers()
+const canSeeApprovalList = computed(() => canApproveAny(currentUser.value?.uid, authStore.isSystemAdmin, authStore.isBoard))
 
 const loading = ref(true)
 const loadError = ref('')
@@ -81,9 +87,9 @@ const handleResubmit = (r: AppRequest) => {
         <p class="text-sm text-gray-500 mt-0.5">組合・グループ登録、プラン変更、サポート者変更などの申請</p>
       </div>
       <div class="flex items-center gap-2 shrink-0">
-        <NuxtLink v-if="authStore.isBoard" to="/requests/approve" class="btn-secondary text-sm flex items-center gap-1.5">
+        <NuxtLink v-if="canSeeApprovalList" to="/requests/approve" class="btn-secondary text-sm flex items-center gap-1.5">
           <Icon name="heroicons:clipboard-document-check" class="h-4 w-4" />
-          承認キュー
+          申請一覧
         </NuxtLink>
         <NuxtLink to="/requests/new" class="btn-primary text-sm flex items-center gap-1.5">
           <Icon name="heroicons:plus" class="h-4 w-4" />

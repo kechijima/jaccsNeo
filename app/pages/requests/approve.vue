@@ -7,11 +7,15 @@ import { useDirectorIndex } from '~/composables/useDirectorIndex'
 import { useOperationLog } from '~/composables/useOperationLog'
 import { useAppDefs } from '~/composables/useAppDefs'
 import { useSpaces } from '~/composables/useSpaces'
+import { useRequestApprovers } from '~/composables/useRequestApprovers'
 import { REQUEST_TYPE_LABELS, REQUEST_STATUS_LABELS } from '~/types/request'
 import { requestPayloadSummary } from '~/utils/requestSummary'
 import type { AppRequest } from '~/types/request'
 
-definePageMeta({ middleware: ['auth', 'board-or-above'] })
+// 申請ごとの承認権限（/admin/request-approvers で設定）があるため、従来のように
+// 理事会メンバー以上のみに画面全体を閉じるのではなく、authのみに緩め、承認できる
+// 申請が1件もない場合のみ画面内でアクセス不可メッセージを表示する
+definePageMeta({ middleware: ['auth'] })
 
 const { requests, loading, fetchAll, markReviewed } = useRequests()
 const { createGroup, createKumiai, updateKumiai } = useGroups()
@@ -22,8 +26,14 @@ const { upsertDirectorAssignment, removeMemberFromIndex } = useDirectorIndex()
 const { log: logOperation } = useOperationLog()
 const { fetchOne: fetchAppDef, update: updateAppDef } = useAppDefs()
 const { createSpace } = useSpaces()
+const { canApprove, canApproveAny, fetchAll: fetchApprovers } = useRequestApprovers()
+const { isSystemAdmin, isBoardOrAbove } = usePermission()
+const { user: currentUser } = useCurrentUser()
 
-await fetchAll()
+await Promise.all([fetchAll(), fetchApprovers()])
+
+const hasAccess = computed(() => canApproveAny(currentUser.value?.uid, isSystemAdmin.value, isBoardOrAbove.value))
+const canApproveRequest = (r: AppRequest) => canApprove(r.type, currentUser.value?.uid, isSystemAdmin.value, isBoardOrAbove.value)
 
 const filterStatus = ref<'pending' | 'approved' | 'rejected' | 'all'>('pending')
 const filteredRequests = computed(() => {
@@ -220,6 +230,7 @@ const syncDirectorIndexForSupporters = async (
 }
 
 const handleApprove = async (r: AppRequest) => {
+  if (!canApproveRequest(r)) return
   if (!confirm(`「${REQUEST_TYPE_LABELS[r.type]}」の申請を承認しますか？`)) return
   processingId.value = r.id
   actionError.value = ''
@@ -247,6 +258,7 @@ const handleApprove = async (r: AppRequest) => {
 }
 
 const handleReject = async (r: AppRequest) => {
+  if (!canApproveRequest(r)) return
   const reason = prompt('却下理由を入力してください（空欄でも可）') ?? ''
   if (reason === null) return
   processingId.value = r.id
@@ -274,12 +286,12 @@ const handleReject = async (r: AppRequest) => {
     <div class="flex items-center gap-2 text-sm text-gray-400">
       <NuxtLink to="/requests">申請</NuxtLink>
       <Icon name="heroicons:chevron-right" class="h-3 w-3" />
-      <span class="text-gray-600">承認キュー</span>
+      <span class="text-gray-600">申請一覧</span>
     </div>
 
     <h1 class="text-xl font-bold text-gray-900 flex items-center gap-2">
       <Icon name="heroicons:clipboard-document-check" class="h-6 w-6 text-primary-600" />
-      承認キュー
+      申請一覧
     </h1>
 
     <div v-if="actionError" class="flex items-start gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700">
@@ -287,6 +299,14 @@ const handleReject = async (r: AppRequest) => {
       {{ actionError }}
     </div>
 
+    <!-- 承認権限が1件もない場合 -->
+    <div v-if="!hasAccess" class="card p-16 text-center">
+      <Icon name="heroicons:lock-closed" class="h-12 w-12 text-gray-200 mx-auto mb-3" />
+      <p class="text-gray-400 font-medium">承認権限のある申請種別がありません</p>
+      <p class="text-xs text-gray-400 mt-1">承認担当者への設定が必要な場合はシステム管理者にご相談ください</p>
+    </div>
+
+    <template v-else>
     <!-- フィルタータブ -->
     <div class="flex items-center gap-2 flex-wrap">
       <button
@@ -334,23 +354,27 @@ const handleReject = async (r: AppRequest) => {
           承認者: {{ r.reviewedByName }}（{{ REQUEST_STATUS_LABELS[r.status] }} · {{ fmt(r.reviewedAt) }}）
         </p>
 
-        <div v-if="r.status === 'pending'" class="mt-4 flex justify-end gap-2">
-          <button
-            class="btn-secondary text-sm text-red-600"
-            :disabled="processingId === r.id"
-            @click="handleReject(r)"
-          >却下</button>
-          <button
-            class="btn-primary text-sm"
-            :disabled="processingId === r.id"
-            @click="handleApprove(r)"
-          >
-            <Icon v-if="processingId === r.id" name="heroicons:arrow-path" class="h-4 w-4 animate-spin mr-1" />
-            承認する
-          </button>
+        <div v-if="r.status === 'pending'" class="mt-4 flex items-center justify-end gap-2">
+          <p v-if="!canApproveRequest(r)" class="text-xs text-gray-400">この申請種別の承認権限がありません</p>
+          <template v-else>
+            <button
+              class="btn-secondary text-sm text-red-600"
+              :disabled="processingId === r.id"
+              @click="handleReject(r)"
+            >却下</button>
+            <button
+              class="btn-primary text-sm"
+              :disabled="processingId === r.id"
+              @click="handleApprove(r)"
+            >
+              <Icon v-if="processingId === r.id" name="heroicons:arrow-path" class="h-4 w-4 animate-spin mr-1" />
+              承認する
+            </button>
+          </template>
         </div>
       </div>
     </div>
+    </template>
 
   </div>
 </template>

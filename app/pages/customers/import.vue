@@ -91,7 +91,7 @@ const handleImport = async () => {
 
     <!-- ヘッダー -->
     <div class="flex items-center gap-3">
-      <NuxtLink to="/personal-data" class="text-sm text-gray-400 hover:text-gray-600">← パーソナルデータ</NuxtLink>
+      <NuxtLink to="/personal-data" class="text-sm text-gray-400 hover:text-gray-600">← 顧客情報</NuxtLink>
     </div>
     <h1 class="text-xl font-bold text-gray-900 flex items-center gap-2">
       <Icon name="heroicons:arrow-up-tray" class="h-6 w-6 text-primary-600" />
@@ -307,7 +307,7 @@ const handleImport = async () => {
             </div>
           </div>
           <NuxtLink to="/personal-data" class="btn-primary inline-flex">
-            パーソナルデータを確認する
+            顧客情報を確認する
           </NuxtLink>
         </div>
       </div>

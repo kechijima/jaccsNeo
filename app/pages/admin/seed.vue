@@ -283,7 +283,7 @@ const runSeed = async () => {
       </button>
       <NuxtLink v-if="done" to="/personal-data" class="btn-secondary flex items-center gap-2">
         <Icon name="heroicons:users" class="h-4 w-4" />
-        パーソナルデータで確認
+        顧客情報で確認
       </NuxtLink>
     </div>
 

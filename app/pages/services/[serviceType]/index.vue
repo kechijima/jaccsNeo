@@ -197,7 +197,7 @@ const statusClass = (status: string) => {
       </div>
       <NuxtLink to="/personal-data" class="btn-secondary text-sm flex items-center gap-1.5">
         <Icon name="heroicons:identification" class="h-4 w-4" />
-        パーソナルデータへ
+        顧客情報へ
       </NuxtLink>
     </div>
 

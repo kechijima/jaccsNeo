@@ -316,7 +316,7 @@ const handleImport = async () => {
         <h2 class="font-semibold text-gray-900">フィールドマッピング設定</h2>
         <p class="text-sm text-gray-500">
           CSVの列とシステムのフィールドを対応付けてください。
-          「★顧客名」は既存のパーソナルデータの氏名と完全一致で照合するために必須です。
+          「★顧客名」は既存の顧客情報の氏名と完全一致で照合するために必須です。
         </p>
 
         <div class="overflow-x-auto">

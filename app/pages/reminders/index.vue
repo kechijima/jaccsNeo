@@ -77,7 +77,7 @@ const reminderItems = computed<ReminderItem[]>(() => {
         id: `customer-${c.id}-${i}`,
         date,
         label: r.label || '（内容未設定）',
-        sourceLabel: 'パーソナルデータ',
+        sourceLabel: '顧客情報',
         sourceIcon: 'heroicons:identification',
         sourceColor: 'bg-blue-50 text-blue-700',
         subjectName: c.name,
@@ -168,7 +168,7 @@ const formatDateTime = (d: Date) =>
           <Icon name="heroicons:bell-alert" class="h-6 w-6 text-primary-600" />
           リマインダー一覧
         </h1>
-        <p class="mt-1 text-sm text-gray-500">パーソナルデータ・各アプリに登録されたリマインダーをまとめて表示します</p>
+        <p class="mt-1 text-sm text-gray-500">顧客情報・各アプリに登録されたリマインダーをまとめて表示します</p>
       </div>
     </div>
 

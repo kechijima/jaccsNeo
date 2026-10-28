@@ -110,7 +110,7 @@ const postExcerpt = (p: PostView) => stripHtml(p.content).slice(0, 80).trim()
       <input
         v-model="query"
         type="search"
-        placeholder="組合員・パーソナルデータ・掲示板の投稿を検索..."
+        placeholder="組合員・顧客情報・掲示板の投稿を検索..."
         class="input-field pl-9"
         autofocus
       />
@@ -120,7 +120,7 @@ const postExcerpt = (p: PostView) => stripHtml(p.content).slice(0, 80).trim()
     <div v-if="!loading && q && (customerScopeError || postFetchError || userFetchError)" class="flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-700">
       <Icon name="heroicons:exclamation-triangle" class="mt-0.5 h-4 w-4 shrink-0" />
       <span>
-        <template v-if="customerScopeError">パーソナルデータ、</template>
+        <template v-if="customerScopeError">顧客情報、</template>
         <template v-if="userFetchError">組合員情報、</template>
         <template v-if="postFetchError">掲示板の投稿、</template>
         の取得に失敗したため、検索結果に含まれていない可能性があります。再読み込みしてお試しください。
@@ -137,7 +137,7 @@ const postExcerpt = (p: PostView) => stripHtml(p.content).slice(0, 80).trim()
     <div v-else-if="!q" class="card p-16 text-center">
       <Icon name="heroicons:magnifying-glass" class="h-12 w-12 text-gray-200 mx-auto mb-3" />
       <p class="text-gray-400 font-medium">検索したいキーワードを入力してください</p>
-      <p class="text-xs text-gray-400 mt-1">組合員のプロフィール・パーソナルデータ・掲示板の投稿から横断的に検索できます</p>
+      <p class="text-xs text-gray-400 mt-1">組合員のプロフィール・顧客情報・掲示板の投稿から横断的に検索できます</p>
     </div>
 
     <!-- 該当なし -->
@@ -181,7 +181,7 @@ const postExcerpt = (p: PostView) => stripHtml(p.content).slice(0, 80).trim()
       <div v-if="customerResults.length > 0" class="space-y-2">
         <h2 class="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
           <Icon name="heroicons:identification" class="h-4 w-4 text-gray-400" />
-          パーソナルデータ（{{ customerResults.length }}件）
+          顧客情報（{{ customerResults.length }}件）
         </h2>
         <div class="card overflow-hidden">
           <div class="divide-y divide-gray-50">

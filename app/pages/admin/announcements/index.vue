@@ -176,7 +176,7 @@ const fmt = (d: Date) => d.toLocaleDateString('ja-JP', { year: 'numeric', month:
           <Icon name="heroicons:megaphone" class="h-6 w-6 text-primary-600" />
           お知らせ管理
         </h1>
-        <p class="text-sm text-gray-500 mt-0.5">掲示板とは別に、ダッシュボードに表示するお知らせをグループ別に公開します</p>
+        <p class="text-sm text-gray-500 mt-0.5">掲示板とは別に、ホームに表示するお知らせをグループ別に公開します</p>
       </div>
       <button class="btn-primary text-sm flex items-center gap-1.5" @click="openCreate">
         <Icon name="heroicons:plus" class="h-4 w-4" />

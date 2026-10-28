@@ -291,7 +291,7 @@ const statusColor = (s: string) => {
       <div>
         <h1 class="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-2">
           <Icon name="heroicons:identification" class="h-6 w-6 text-primary-600" />
-          パーソナルデータ
+          顧客情報
         </h1>
         <p class="mt-1 text-sm text-gray-500">顧客の詳細情報管理・CSV連携</p>
       </div>

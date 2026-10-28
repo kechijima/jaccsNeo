@@ -114,7 +114,7 @@ const filteredCategories = computed(() => {
         </p>
         <div class="mt-2 flex items-center gap-1 text-xs text-gray-400">
           <Icon name="heroicons:clipboard-document-list" class="h-3.5 w-3.5" />
-          全サービス合計
+          全プロダクト合計
         </div>
       </div>
       <div class="card p-4 col-span-1">
@@ -128,7 +128,7 @@ const filteredCategories = computed(() => {
         </div>
       </div>
       <div class="card p-4 col-span-1">
-        <p class="text-xs text-gray-500 font-medium">サービス種別</p>
+        <p class="text-xs text-gray-500 font-medium">プロダクト種別</p>
         <p class="mt-1 text-2xl font-bold text-gray-900">
           {{ catalog.length }}<span class="text-sm font-normal text-gray-500 ml-1">種</span>
         </p>
@@ -153,7 +153,7 @@ const filteredCategories = computed(() => {
     <div class="space-y-6">
       <div v-if="filteredCategories.length === 0" class="card p-12 text-center">
         <Icon name="heroicons:magnifying-glass" class="h-10 w-10 text-gray-200 mx-auto mb-2" />
-        <p class="text-gray-400">条件に一致するサービスが見つかりませんでした</p>
+        <p class="text-gray-400">条件に一致するプロダクトが見つかりませんでした</p>
       </div>
 
       <div v-for="cat in filteredCategories" :key="cat.label">

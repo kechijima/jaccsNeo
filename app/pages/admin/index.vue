@@ -6,7 +6,7 @@ const adminMenus = [
     to: '/admin/announcements',
     icon: 'heroicons:megaphone',
     label: 'お知らせ管理',
-    description: 'ダッシュボードに表示するグループ別お知らせの作成・公開設定',
+    description: 'ホームに表示するグループ別お知らせの作成・公開設定',
     color: 'text-teal-600 bg-teal-50',
   },
   {
@@ -40,9 +40,16 @@ const adminMenus = [
   {
     to: '/requests/approve',
     icon: 'heroicons:clipboard-document-check',
-    label: '申請承認キュー',
+    label: '申請一覧',
     description: '組合・グループ登録、プラン変更、サポート者変更などの申請を承認',
     color: 'text-emerald-600 bg-emerald-50',
+  },
+  {
+    to: '/admin/request-approvers',
+    icon: 'heroicons:key',
+    label: '申請承認権限の設定',
+    description: '申請種別ごとに承認できる担当者を指定（未設定の種別は理事会メンバー以上が承認）',
+    color: 'text-rose-600 bg-rose-50',
   },
   {
     to: '/admin/operation-logs',

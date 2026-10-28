@@ -42,8 +42,8 @@ onBeforeUnmount(() => {
 // 「チーム」メニュー（実績等の統計）は一般ロールには表示しない。
 // 「メンバー一覧」はロールに関わらず全員に表示する
 const navItems = computed(() => [
-  { label: 'ダッシュボード',   icon: 'heroicons:home',                   to: '/dashboard',     color: 'sky' },
-  { label: 'パーソナルデータ', icon: 'heroicons:identification',         to: '/personal-data', color: 'emerald' },
+  { label: 'ホーム',           icon: 'heroicons:home',                   to: '/dashboard',     color: 'sky' },
+  { label: '顧客情報',         icon: 'heroicons:identification',         to: '/personal-data', color: 'emerald' },
   { label: 'プロダクトアプリ', icon: 'heroicons:squares-2x2',            to: '/services',       color: 'violet' },
   { label: '活動報告',         icon: 'heroicons:chat-bubble-left-right', to: '/portal',         color: 'amber' },
   { label: '業務ツールアプリ', icon: 'heroicons:wrench-screwdriver',     to: '/tools',          color: 'cyan' },

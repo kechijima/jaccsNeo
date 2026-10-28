@@ -36,7 +36,7 @@ const fmt = (d: Date) => d.toLocaleDateString('ja-JP', { year: 'numeric', month:
 
     <!-- パンくず -->
     <div class="flex items-center gap-2 text-sm text-gray-400">
-      <NuxtLink to="/dashboard">ダッシュボード</NuxtLink>
+      <NuxtLink to="/dashboard">ホーム</NuxtLink>
       <Icon name="heroicons:chevron-right" class="h-3 w-3" />
       <span class="text-gray-600">お知らせ</span>
     </div>
@@ -51,7 +51,7 @@ const fmt = (d: Date) => d.toLocaleDateString('ja-JP', { year: 'numeric', month:
     <div v-else-if="error || !announcement" class="card p-12 text-center">
       <Icon name="heroicons:exclamation-circle" class="h-8 w-8 text-red-300 mx-auto mb-2" />
       <p class="text-sm text-red-500">{{ error }}</p>
-      <NuxtLink to="/dashboard" class="mt-4 inline-block text-sm text-primary-600 hover:underline">ダッシュボードに戻る</NuxtLink>
+      <NuxtLink to="/dashboard" class="mt-4 inline-block text-sm text-primary-600 hover:underline">ホームに戻る</NuxtLink>
     </div>
 
     <template v-else>

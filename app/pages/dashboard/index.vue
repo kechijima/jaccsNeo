@@ -45,7 +45,7 @@ const announcementExcerpt = (html: string) => {
 
 // ── アプリ shortcuts ───────────────────────────────────────────────────────
 const appShortcuts = [
-  { label: 'パーソナルデータ', icon: 'heroicons:identification', to: '/personal-data',           color: 'bg-indigo-50 text-indigo-600' },
+  { label: '顧客情報',         icon: 'heroicons:identification', to: '/personal-data',           color: 'bg-indigo-50 text-indigo-600' },
   { label: '生命保険',    icon: 'heroicons:shield-check',     to: '/services/lifeInsurance',   color: 'bg-blue-50 text-blue-600' },
   { label: '火災保険',    icon: 'heroicons:home-modern',      to: '/services/fireInsurance',   color: 'bg-orange-50 text-orange-600' },
   { label: '不動産売買',  icon: 'heroicons:building-office',  to: '/services/realEstateSale',  color: 'bg-amber-50 text-amber-600' },

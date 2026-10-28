@@ -36,14 +36,14 @@ const entries = computed<Entry[]>(() => {
     <div class="flex items-center justify-between mb-1">
       <h2 class="font-semibold text-gray-900 flex items-center gap-2">
         <Icon name="heroicons:identification" class="h-5 w-5 text-primary-600" />
-        パーソナルデータ
+        顧客情報
       </h2>
       <NuxtLink :to="`/customers/${customer.id}`" class="text-xs text-primary-600 hover:underline shrink-0">
         詳しく見る・編集する
       </NuxtLink>
     </div>
-    <p class="text-xs text-gray-400 mb-4">このアプリでは読み取り専用です。編集はパーソナルデータ画面で行ってください。</p>
-    <div v-if="entries.length === 0" class="text-sm text-gray-400 text-center py-4">登録されているパーソナルデータがありません</div>
+    <p class="text-xs text-gray-400 mb-4">このアプリでは読み取り専用です。編集は顧客情報画面で行ってください。</p>
+    <div v-if="entries.length === 0" class="text-sm text-gray-400 text-center py-4">登録されている顧客情報がありません</div>
     <dl v-else class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
       <div v-for="e in entries" :key="e.label">
         <dt class="text-gray-500">{{ e.label }}</dt>

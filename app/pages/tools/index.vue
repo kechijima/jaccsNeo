@@ -9,7 +9,7 @@ const tools = [
     to: '/tools/inquiries',
   },
   {
-    label: '動画配信',
+    label: '動画管理',
     description: '研修・案内動画を共有します',
     icon: 'heroicons:play-circle',
     to: '/tools/videos',

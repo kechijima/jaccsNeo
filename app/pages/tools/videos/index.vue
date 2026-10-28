@@ -120,12 +120,12 @@ const removeVideo = async (id: string) => {
     <div class="flex items-center gap-2 text-sm text-gray-400">
       <NuxtLink to="/tools">業務ツールアプリ</NuxtLink>
       <Icon name="heroicons:chevron-right" class="h-3 w-3" />
-      <span class="text-gray-600">動画配信</span>
+      <span class="text-gray-600">動画管理</span>
     </div>
 
     <div class="flex items-start justify-between gap-3">
       <div>
-        <h1 class="text-xl font-bold text-gray-900">動画配信</h1>
+        <h1 class="text-xl font-bold text-gray-900">動画管理</h1>
       </div>
       <button v-if="isSystemAdmin && !showForm" type="button" class="btn-primary text-sm" @click="openForm">
         <Icon name="heroicons:plus" class="h-4 w-4" />

@@ -67,7 +67,7 @@ const maxTotal = computed(() => Math.max(1, ...monthlyTrend.value.map(m => m.tot
             </div>
             <div>
               <p class="text-2xl font-bold text-gray-900">{{ g.newPersonalData }}</p>
-              <p class="text-xs text-gray-500">新規パーソナルデータ</p>
+              <p class="text-xs text-gray-500">新規顧客情報</p>
             </div>
             <div>
               <p class="text-2xl font-bold text-gray-900">{{ g.activityReports }}</p>

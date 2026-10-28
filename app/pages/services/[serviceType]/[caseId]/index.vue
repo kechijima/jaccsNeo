@@ -102,7 +102,7 @@ const progressRestrictedEntries = computed(() => buildEntries(['contractContent'
               <Icon name="heroicons:identification" class="h-4 w-4" />
               顧客詳細
             </NuxtLink>
-            <span v-else class="badge text-xs bg-gray-100 text-gray-400">パーソナルデータ未連携</span>
+            <span v-else class="badge text-xs bg-gray-100 text-gray-400">顧客情報未連携</span>
             <NuxtLink
               :to="`/services/${serviceType}/${caseId}/edit`"
               class="btn-primary text-sm flex items-center gap-1.5"

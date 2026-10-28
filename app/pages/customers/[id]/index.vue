@@ -84,7 +84,7 @@ const activeServices = computed(() => {
         <div>
           <div class="flex items-center gap-2 mb-1">
             <NuxtLink to="/personal-data" class="text-sm text-gray-400 hover:text-gray-600">
-              ← パーソナルデータ一覧
+              ← 顧客情報一覧
             </NuxtLink>
           </div>
           <h1 class="text-2xl font-bold text-gray-900">{{ customer.name }}</h1>

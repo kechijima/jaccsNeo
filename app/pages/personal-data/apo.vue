@@ -206,7 +206,7 @@ const apoNote = (c: Customer): string =>
       <div>
         <div class="flex items-center gap-2">
           <NuxtLink to="/personal-data" class="text-sm text-gray-400 hover:text-gray-600 flex items-center gap-1">
-            <Icon name="heroicons:chevron-left" class="h-4 w-4" />パーソナルデータ
+            <Icon name="heroicons:chevron-left" class="h-4 w-4" />顧客情報
           </NuxtLink>
         </div>
         <h1 class="text-xl font-bold text-gray-900 mt-1 flex items-center gap-2">

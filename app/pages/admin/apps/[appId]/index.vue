@@ -1328,7 +1328,7 @@ const handleDeleteApp = async () => {
             <label class="block text-xs font-medium text-gray-600">参照元</label>
             <select v-model="selectedField.lookupSource" class="input-field text-sm">
               <option value="">選択してください</option>
-              <option value="customer">顧客情報（パーソナルデータ）</option>
+              <option value="customer">顧客情報</option>
               <option value="app">他のアプリ（同じ顧客の案件）</option>
             </select>
 
@@ -1353,7 +1353,7 @@ const handleDeleteApp = async () => {
               </select>
             </template>
             <p class="text-xs text-gray-400 leading-relaxed">
-              同じ顧客の最新の案件（またはパーソナルデータ）から値を読み込んで自動入力します（読み取り専用）。
+              同じ顧客の最新の案件（または顧客情報）から値を読み込んで自動入力します（読み取り専用）。
             </p>
           </div>
 

@@ -36,7 +36,7 @@ const handleSubmit = async () => {
 <template>
   <div class="p-4 md:p-6 max-w-3xl mx-auto">
     <div class="mb-6">
-      <NuxtLink to="/personal-data" class="text-sm text-gray-400 hover:text-gray-600">← パーソナルデータ</NuxtLink>
+      <NuxtLink to="/personal-data" class="text-sm text-gray-400 hover:text-gray-600">← 顧客情報</NuxtLink>
       <h1 class="mt-1 text-xl font-bold text-gray-900">顧客登録</h1>
     </div>
 

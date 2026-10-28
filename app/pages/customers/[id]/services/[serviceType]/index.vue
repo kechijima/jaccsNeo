@@ -112,7 +112,7 @@ const PROGRESS_RESTRICTED_KEYS: (keyof typeof LIFE_INSURANCE_FIELD_LABELS)[] = [
 
     <!-- パンくず -->
     <div class="flex items-center gap-2 text-sm text-gray-400 flex-wrap">
-      <NuxtLink to="/personal-data">パーソナルデータ</NuxtLink>
+      <NuxtLink to="/personal-data">顧客情報</NuxtLink>
       <Icon name="heroicons:chevron-right" class="h-3 w-3" />
       <NuxtLink :to="`/customers/${customerId}`">{{ customerName }}</NuxtLink>
       <Icon name="heroicons:chevron-right" class="h-3 w-3" />

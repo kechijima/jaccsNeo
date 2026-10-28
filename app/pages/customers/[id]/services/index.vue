@@ -125,7 +125,7 @@ const statusClass = (status: string) => {
 
     <!-- パンくず -->
     <div class="flex items-center gap-2 text-sm text-gray-400">
-      <NuxtLink to="/personal-data">パーソナルデータ</NuxtLink>
+      <NuxtLink to="/personal-data">顧客情報</NuxtLink>
       <Icon name="heroicons:chevron-right" class="h-3 w-3" />
       <NuxtLink :to="`/customers/${customerId}`">{{ customerName }}</NuxtLink>
       <Icon name="heroicons:chevron-right" class="h-3 w-3" />
@@ -229,7 +229,7 @@ const statusClass = (status: string) => {
     <!-- フィルター結果なし -->
     <div v-else-if="filteredCategories.length === 0" class="card p-12 text-center">
       <Icon name="heroicons:magnifying-glass" class="h-10 w-10 text-gray-200 mx-auto mb-2" />
-      <p class="text-sm text-gray-400">条件に一致するサービスがありません</p>
+      <p class="text-sm text-gray-400">条件に一致するプロダクトがありません</p>
       <button class="mt-2 text-xs text-primary-600 hover:underline" @click="resetFilters">条件をリセット</button>
     </div>
 
