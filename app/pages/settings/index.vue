@@ -23,7 +23,7 @@ const isCustomColor = computed(() => !PRESET_COLORS.some(c => c.toLowerCase() ==
 const onCustomColorChange = (e: Event) => setPrimaryColor((e.target as HTMLInputElement).value)
 
 // ── push通知（端末への通知） ─────────────────────────────────────────────
-const { status: pushStatus, syncStatus: syncPushStatus, enablePush, disablePush } = usePushNotifications()
+const { status: pushStatus, unsupportedReasons, syncStatus: syncPushStatus, enablePush, disablePush } = usePushNotifications()
 onMounted(syncPushStatus)
 
 // ── 通知設定 ─────────────────────────────────────────────────────────────
@@ -178,7 +178,10 @@ const handlePasswordReset = async () => {
       <p class="text-xs text-gray-400 mb-4">この端末（ブラウザ）がアプリを開いていないときでも、新着メンションやコメントなどを通知として受け取れるようにします</p>
 
       <div v-if="pushStatus === 'unsupported'" class="rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-500">
-        この端末・ブラウザはpush通知に対応していません
+        <p>この端末・ブラウザはpush通知に対応していません</p>
+        <ul v-if="unsupportedReasons.length > 0" class="mt-2 space-y-1 text-xs text-gray-400 list-disc list-inside">
+          <li v-for="(reason, i) in unsupportedReasons" :key="i">{{ reason }}</li>
+        </ul>
       </div>
       <div v-else-if="pushStatus === 'denied'" class="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700">
         通知がブロックされています。ブラウザの設定からこのサイトの通知を許可してください

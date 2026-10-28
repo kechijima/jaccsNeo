@@ -22,16 +22,60 @@ export const usePushNotifications = () => {
     () => 'idle',
   )
 
+  // firebase/messagingのisSupported()は「対応していない」という結果しか返さず、
+  // どの条件で非対応と判定されたかが分からない。端末を問わず非対応と表示される
+  // 不具合の原因切り分け用に、同等の判定を1つずつ行い、失敗した項目を保持する
+  const unsupportedReasons = useState<string[]>('push:unsupportedReasons', () => [])
+
+  const checkIndexedDbOpenable = (): Promise<boolean> => {
+    if (typeof indexedDB === 'undefined') return Promise.resolve(false)
+    return new Promise((resolve) => {
+      try {
+        const req = indexedDB.open('__fcm_support_check__')
+        req.onsuccess = () => {
+          req.result.close()
+          indexedDB.deleteDatabase('__fcm_support_check__')
+          resolve(true)
+        }
+        req.onerror = () => resolve(false)
+        req.onblocked = () => resolve(false)
+      } catch {
+        resolve(false)
+      }
+    })
+  }
+
+  const diagnoseUnsupported = async (): Promise<string[]> => {
+    const reasons: string[] = []
+    if (!('Notification' in window)) reasons.push('Notification API に非対応です')
+    if (!('serviceWorker' in navigator)) reasons.push('Service Worker に非対応です')
+    if (!('PushManager' in window)) reasons.push('PushManager に非対応です（ブラウザ設定でプッシュサービスが無効になっている場合があります）')
+    if (!navigator.cookieEnabled) reasons.push('Cookieが無効になっています（ブラウザまたは端末の設定でブロックされています）')
+    if (typeof ServiceWorkerRegistration === 'undefined' || !('showNotification' in ServiceWorkerRegistration.prototype)) {
+      reasons.push('ServiceWorkerRegistration.showNotification に非対応です')
+    }
+    if (typeof PushSubscription === 'undefined' || !('getKey' in PushSubscription.prototype)) {
+      reasons.push('PushSubscription.getKey に非対応です')
+    }
+    if (!(await checkIndexedDbOpenable())) {
+      reasons.push('IndexedDBを開けません（プライベートブラウジング中か、端末・ブラウザのストレージ設定で制限されている可能性があります）')
+    }
+    return reasons.length > 0 ? reasons : ['原因不明（firebase/messagingのisSupported()がfalseを返しましたが、個別チェックはすべて通過しました）']
+  }
+
   const checkSupport = async (): Promise<boolean> => {
     if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in navigator)) {
       status.value = 'unsupported'
+      unsupportedReasons.value = typeof window === 'undefined' ? [] : await diagnoseUnsupported()
       return false
     }
     const { isSupported } = await import('firebase/messaging')
     if (!(await isSupported())) {
       status.value = 'unsupported'
+      unsupportedReasons.value = await diagnoseUnsupported()
       return false
     }
+    unsupportedReasons.value = []
     return true
   }
 
@@ -124,5 +168,5 @@ export const usePushNotifications = () => {
     }
   }
 
-  return { status, syncStatus, enablePush, disablePush }
+  return { status, unsupportedReasons, syncStatus, enablePush, disablePush }
 }
