@@ -111,7 +111,7 @@ const mobileNavActiveClass = (to: string, color: string) =>
 // SPボトムナビ用（項目数を絞り、短いラベルで表示崩れを防ぐ）。colorはnavItemsの同じ行き先と揃える
 const mobileNavItems = [
   { label: 'ホーム',   icon: 'heroicons:home',                   to: '/dashboard',     color: 'sky' },
-  { label: 'データ',   icon: 'heroicons:identification',         to: '/personal-data', color: 'emerald' },
+  { label: '顧客情報', icon: 'heroicons:identification',         to: '/personal-data', color: 'emerald' },
   { label: '活動報告', icon: 'heroicons:chat-bubble-left-right', to: '/portal',         color: 'amber' },
   { label: 'カレンダー', icon: 'heroicons:calendar-days',          to: '/events',        color: 'rose' },
 ]
