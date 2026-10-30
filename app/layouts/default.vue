@@ -6,6 +6,8 @@ import { useAppearance } from '~/composables/useAppearance'
 import { useHelpDrawer } from '~/composables/useHelpDrawer'
 import { useDisplayName } from '~/composables/useDisplayName'
 import { useSoftRefresh } from '~/composables/useSoftRefresh'
+import { usePushNotifications } from '~/composables/usePushNotifications'
+import type { Notification } from '~/types/notification'
 
 const { logout } = useAuth()
 const { open: openHelp } = useHelpDrawer()
@@ -13,11 +15,12 @@ const { isRefreshing, refresh } = useSoftRefresh()
 const { displayName, user } = useCurrentUser()
 const authStore = useAuthStore()
 const router = useRouter()
-const { subscribeUnreadCount } = useNotifications()
+const { subscribeNotifications, subscribeUnreadCount, markAsRead, markAllAsRead } = useNotifications()
 const { ensureLoaded: ensureGroupLabelsLoaded } = useGroupLabels()
 const { format: formatDisplayName } = useDisplayName()
 const { ensureLoaded: ensureAppearanceLoaded } = useAppearance()
-onMounted(() => { ensureGroupLabelsLoaded(); ensureAppearanceLoaded() })
+const { ensureRegistered: ensurePushRegistered } = usePushNotifications()
+onMounted(() => { ensureGroupLabelsLoaded(); ensureAppearanceLoaded(); ensurePushRegistered() })
 
 // F5・Ctrl+R等での誤ったページ更新や、ブラウザを閉じてしまうことへの注意喚起。
 // ページ側のJavaScriptでリロード自体を禁止することはブラウザの仕様上できない
@@ -148,6 +151,34 @@ onMounted(() => {
 })
 onBeforeUnmount(() => unsubscribeNotifCount?.())
 
+// ── ベルアイコンの通知ドロップダウン ─────────────────────────────────
+// PCサイドバー・SPヘッダーどちらのベルも同じ状態・同じパネル内容を使う
+// （片方しか画面に表示されないため、状態を共有しても問題ない）
+const recentNotifications = ref<Notification[]>([])
+let unsubscribeNotifList: (() => void) | null = null
+onMounted(() => {
+  unsubscribeNotifList = subscribeNotifications((list) => { recentNotifications.value = list })
+})
+onBeforeUnmount(() => unsubscribeNotifList?.())
+
+const notifDropdownOpen = ref(false)
+const unreadNotifications = computed(() => recentNotifications.value.filter(n => !n.isRead).slice(0, 10))
+
+const formatNotifDate = (ts: any): string => {
+  const d: Date = ts?.toDate?.() ?? (ts instanceof Date ? ts : new Date(ts))
+  return d.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+const handleNotifClick = async (n: Notification) => {
+  notifDropdownOpen.value = false
+  await markAsRead(n.id).catch(() => {})
+  await navigateTo(n.linkUrl || '/notifications')
+}
+
+const handleMarkAllRead = async () => {
+  await markAllAsRead().catch(() => {})
+}
+
 </script>
 
 <template>
@@ -209,26 +240,66 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
         </NuxtLink>
 
         <!-- 通知 -->
-        <NuxtLink
-          to="/notifications"
-          class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
-          :class="[
-            navActiveClass('/notifications', EXTRA_NAV_COLORS['/notifications']),
-            sidebarCollapsed ? 'justify-center px-0' : '',
-          ]"
-          :title="sidebarCollapsed ? '通知' : undefined"
-        >
-          <div class="relative">
-            <Icon name="heroicons:bell" class="h-5 w-5 shrink-0" />
-            <span
-              v-if="notificationCount > 0"
-              class="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white"
-            >
-              {{ notificationCount > 9 ? '9+' : notificationCount }}
-            </span>
+        <div class="relative">
+          <button
+            type="button"
+            class="w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
+            :class="[
+              navActiveClass('/notifications', EXTRA_NAV_COLORS['/notifications']),
+              sidebarCollapsed ? 'justify-center px-0' : '',
+            ]"
+            :title="sidebarCollapsed ? '通知' : undefined"
+            @click="notifDropdownOpen = !notifDropdownOpen"
+          >
+            <div class="relative">
+              <Icon name="heroicons:bell" class="h-5 w-5 shrink-0" />
+              <span
+                v-if="notificationCount > 0"
+                class="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white"
+              >
+                {{ notificationCount > 9 ? '9+' : notificationCount }}
+              </span>
+            </div>
+            <span v-if="!sidebarCollapsed">通知</span>
+          </button>
+
+          <div v-if="notifDropdownOpen" class="fixed inset-0 z-40" @click="notifDropdownOpen = false" />
+          <div
+            v-if="notifDropdownOpen"
+            class="absolute left-full top-0 ml-2 z-50 w-80 max-w-[calc(100vw-2rem)] rounded-xl bg-white shadow-xl border border-gray-200 overflow-hidden"
+          >
+            <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+              <p class="text-sm font-semibold text-gray-800">通知</p>
+              <button v-if="unreadNotifications.length > 0" type="button" class="text-xs text-primary-600 hover:text-primary-700" @click="handleMarkAllRead">
+                すべて既読にする
+              </button>
+            </div>
+            <div class="max-h-80 overflow-y-auto">
+              <div v-if="unreadNotifications.length === 0" class="py-8 text-center text-sm text-gray-400">
+                未読の通知はありません
+              </div>
+              <button
+                v-for="n in unreadNotifications"
+                :key="n.id"
+                type="button"
+                class="w-full flex gap-3 px-4 py-3 border-b border-gray-50 text-left hover:bg-gray-50 transition"
+                @click="handleNotifClick(n)"
+              >
+                <div class="w-2 h-2 rounded-full mt-1.5 shrink-0 bg-primary-500" />
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium text-gray-800 truncate">{{ n.title }}</p>
+                  <p class="text-xs text-gray-500 mt-0.5 truncate">{{ n.body }}</p>
+                  <p class="text-xs text-gray-400 mt-0.5">{{ formatNotifDate(n.createdAt) }}</p>
+                </div>
+              </button>
+            </div>
+            <div class="border-t border-gray-100 py-2 px-4">
+              <NuxtLink to="/notifications" class="block text-center text-xs text-primary-600 hover:text-primary-800 py-1 font-medium" @click="notifDropdownOpen = false">
+                すべての通知を見る
+              </NuxtLink>
+            </div>
           </div>
-          <span v-if="!sidebarCollapsed">通知</span>
-        </NuxtLink>
+        </div>
 
         <!-- 検索 -->
         <NuxtLink
@@ -348,15 +419,54 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
           >
             <Icon name="heroicons:arrow-path" class="h-5 w-5" :class="{ 'animate-spin': isRefreshing }" />
           </button>
-          <NuxtLink to="/notifications" class="relative rounded-lg p-2 text-gray-500 hover:bg-gray-100">
-            <Icon name="heroicons:bell" class="h-5 w-5" />
-            <span
-              v-if="notificationCount > 0"
-              class="absolute top-1 right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white"
+          <div class="relative">
+            <button type="button" class="relative rounded-lg p-2 text-gray-500 hover:bg-gray-100" @click="notifDropdownOpen = !notifDropdownOpen">
+              <Icon name="heroicons:bell" class="h-5 w-5" />
+              <span
+                v-if="notificationCount > 0"
+                class="absolute top-1 right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white"
+              >
+                {{ notificationCount > 9 ? '9+' : notificationCount }}
+              </span>
+            </button>
+
+            <div v-if="notifDropdownOpen" class="fixed inset-0 z-40" @click="notifDropdownOpen = false" />
+            <div
+              v-if="notifDropdownOpen"
+              class="absolute top-full right-0 mt-2 z-50 w-80 max-w-[calc(100vw-2rem)] rounded-xl bg-white shadow-xl border border-gray-200 overflow-hidden"
             >
-              {{ notificationCount > 9 ? '9+' : notificationCount }}
-            </span>
-          </NuxtLink>
+              <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                <p class="text-sm font-semibold text-gray-800">通知</p>
+                <button v-if="unreadNotifications.length > 0" type="button" class="text-xs text-primary-600 hover:text-primary-700" @click="handleMarkAllRead">
+                  すべて既読にする
+                </button>
+              </div>
+              <div class="max-h-80 overflow-y-auto">
+                <div v-if="unreadNotifications.length === 0" class="py-8 text-center text-sm text-gray-400">
+                  未読の通知はありません
+                </div>
+                <button
+                  v-for="n in unreadNotifications"
+                  :key="n.id"
+                  type="button"
+                  class="w-full flex gap-3 px-4 py-3 border-b border-gray-50 text-left hover:bg-gray-50 transition"
+                  @click="handleNotifClick(n)"
+                >
+                  <div class="w-2 h-2 rounded-full mt-1.5 shrink-0 bg-primary-500" />
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-gray-800 truncate">{{ n.title }}</p>
+                    <p class="text-xs text-gray-500 mt-0.5 truncate">{{ n.body }}</p>
+                    <p class="text-xs text-gray-400 mt-0.5">{{ formatNotifDate(n.createdAt) }}</p>
+                  </div>
+                </button>
+              </div>
+              <div class="border-t border-gray-100 py-2 px-4">
+                <NuxtLink to="/notifications" class="block text-center text-xs text-primary-600 hover:text-primary-800 py-1 font-medium" @click="notifDropdownOpen = false">
+                  すべての通知を見る
+                </NuxtLink>
+              </div>
+            </div>
+          </div>
           <button
             type="button"
             class="rounded-lg p-2 text-gray-500 hover:bg-gray-100"

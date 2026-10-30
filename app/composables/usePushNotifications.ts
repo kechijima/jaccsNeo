@@ -110,6 +110,36 @@ export const usePushNotifications = () => {
         : 'idle'
   }
 
+  // サービスワーカー登録→VAPIDキー確認→トークン取得→fcmTokensへ保存、という
+  // コア処理。許可ダイアログを出す明示的な有効化（enablePush）と、既に許可済みの
+  // 場合にアプリ起動時に静かに呼ぶ自動再登録（ensureRegistered）の両方から使う
+  const registerToken = async (uid: string): Promise<'ok' | 'no-vapid-key' | 'no-token'> => {
+    const { getMessaging, getToken, onMessage } = await import('firebase/messaging')
+    const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: PUSH_SCOPE })
+    const messaging = getMessaging()
+    const vapidKey = String(config.public.firebaseVapidKey ?? '').trim()
+    if (!vapidKey) {
+      console.error('FIREBASE_VAPID_KEY が設定されていません')
+      return 'no-vapid-key'
+    }
+
+    const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: registration })
+    if (!token) return 'no-token'
+
+    await updateDoc(doc($db, 'users', uid), {
+      fcmTokens: arrayUnion(token),
+      updatedAt: serverTimestamp(),
+    })
+
+    // フォアグラウンド（このタブを開いている間）はOS通知が自動表示されないため、トーストで代替表示する
+    onMessage(messaging, (payload) => {
+      const title = payload.notification?.title ?? '通知'
+      const body = payload.notification?.body ?? ''
+      showToast(body ? `${title}: ${body}` : title, 5000)
+    })
+    return 'ok'
+  }
+
   // 通知の許可をリクエストし、許可されればFCMトークンを取得してFirestoreへ保存する
   const enablePush = async (): Promise<void> => {
     if (!(await checkSupport())) {
@@ -130,40 +160,41 @@ export const usePushNotifications = () => {
         return
       }
 
-      const { getMessaging, getToken, onMessage } = await import('firebase/messaging')
-      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: PUSH_SCOPE })
-      const messaging = getMessaging()
-      const vapidKey = String(config.public.firebaseVapidKey ?? '').trim()
-      if (!vapidKey) {
-        console.error('FIREBASE_VAPID_KEY が設定されていません')
+      const result = await registerToken(uid)
+      if (result === 'no-vapid-key') {
         showToast('push通知の設定が未完了です（VAPIDキー未設定）')
         status.value = 'idle'
         return
       }
-
-      const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: registration })
-      if (!token) {
+      if (result === 'no-token') {
         status.value = 'idle'
         return
       }
 
-      await updateDoc(doc($db, 'users', uid), {
-        fcmTokens: arrayUnion(token),
-        updatedAt: serverTimestamp(),
-      })
       status.value = 'granted'
       showToast('push通知を有効にしました')
-
-      // フォアグラウンド（このタブを開いている間）はOS通知が自動表示されないため、トーストで代替表示する
-      onMessage(messaging, (payload) => {
-        const title = payload.notification?.title ?? '通知'
-        const body = payload.notification?.body ?? ''
-        showToast(body ? `${title}: ${body}` : title, 5000)
-      })
     } catch (e) {
       console.error('push通知の有効化に失敗しました', e)
       status.value = 'idle'
       showToast('push通知の有効化に失敗しました')
+    }
+  }
+
+  // 通知の許可が既に得られている場合、確認ダイアログを出さずに静かにトークンを
+  // 再登録する。アプリ起動のたびに呼ぶことを想定しており、FCMトークンの有効期限
+  // 切れ・ローテーションで気づかないうちにpushが届かなくなる事故を防ぐ
+  // （成功時もトーストは出さない＝毎回の起動で表示されてしまうのを避ける）
+  const ensureRegistered = async (): Promise<void> => {
+    const uid = authStore.user?.uid
+    if (!uid) return
+    if (typeof window === 'undefined' || typeof Notification === 'undefined') return
+    if (Notification.permission !== 'granted') return
+    if (!(await checkSupport())) return
+    try {
+      await registerToken(uid)
+      status.value = 'granted'
+    } catch (e) {
+      console.warn('push通知トークンの自動再登録に失敗しました', e)
     }
   }
 
@@ -188,5 +219,5 @@ export const usePushNotifications = () => {
     }
   }
 
-  return { status, unsupportedReasons, syncStatus, enablePush, disablePush }
+  return { status, unsupportedReasons, syncStatus, enablePush, ensureRegistered, disablePush }
 }
