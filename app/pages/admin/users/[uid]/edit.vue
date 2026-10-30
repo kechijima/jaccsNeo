@@ -6,17 +6,21 @@ import { useGroups } from '~/composables/useGroups'
 import { useSpecialTeams } from '~/composables/useSpecialTeams'
 import { useOperationLog } from '~/composables/useOperationLog'
 import { useDirectorIndex } from '~/composables/useDirectorIndex'
+import { useStorage } from '~/composables/useStorage'
+import { useAuthStore } from '~/stores/auth'
 
 definePageMeta({ middleware: ['auth', 'admin'] })
 
 const route = useRoute()
 const uid = computed(() => route.params.uid as string)
 
-const { fetchUser, updateUser, fetchUsers, deleteAuthUser } = useUsers()
+const { fetchUser, updateUser, updateUserProfile, fetchUsers, deleteAuthUser } = useUsers()
 const { fetchGroups } = useGroups()
 const { fetchAll: fetchSpecialTeams } = useSpecialTeams()
 const { sendPasswordReset } = useAuth()
 const { upsertDirectorAssignment } = useDirectorIndex()
+const { uploadImage } = useStorage()
+const authStore = useAuthStore()
 
 const loading = ref(false)
 const error = ref('')
@@ -61,6 +65,30 @@ const displayName = computed(() => `${form.value.lastName.trim()}${form.value.fi
 const originalRole = ref<UserRole | null>(null)
 const originalName = ref('')
 
+// ── アイコン画像（システム管理者が個別にアップロードできる） ───────────────
+const avatarUrl = ref('')
+const photoInputRef = ref<HTMLInputElement>()
+const uploadingPhoto = ref(false)
+const photoError = ref('')
+
+const handlePhotoSelect = async (e: Event) => {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  uploadingPhoto.value = true
+  photoError.value = ''
+  try {
+    const path = `avatars/${uid.value}/${Date.now()}-${file.name}`
+    const url = await uploadImage(path, file)
+    await updateUserProfile(uid.value, { avatarUrl: url })
+    avatarUrl.value = url
+  } catch (e: any) {
+    photoError.value = e.message ?? '写真のアップロードに失敗しました'
+  } finally {
+    uploadingPhoto.value = false
+    if (photoInputRef.value) photoInputRef.value.value = ''
+  }
+}
+
 onMounted(async () => {
   loading.value = true
   try {
@@ -74,6 +102,7 @@ onMounted(async () => {
     if (user) {
       originalRole.value = user.role
       originalName.value = user.displayName
+      avatarUrl.value = user.avatarUrl ?? ''
       // 姓名未設定（姓名分割対応より前に作成されたユーザー）の場合、保存済みの
       // displayNameをそのまま「姓」欄へ引き継ぐ。これにより、このまま何も
       // 変更せず保存してもdisplayNameが空になってしまうことを防ぐ
@@ -227,6 +256,28 @@ const toggleSpecialTeam = (team: string) => {
     </div>
 
     <h1 class="text-xl font-bold text-gray-900">ユーザー編集</h1>
+
+    <!-- アイコン画像 -->
+    <div v-if="authStore.isSystemAdmin" class="card p-5 flex items-center gap-4">
+      <div class="relative shrink-0">
+        <UserAvatar :avatar-url="avatarUrl" :display-name="displayName" :group-id="form.groupId" size="lg" />
+        <div v-if="uploadingPhoto" class="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
+          <Icon name="heroicons:arrow-path" class="h-5 w-5 text-white animate-spin" />
+        </div>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-medium text-gray-900">アイコン画像</p>
+        <p class="text-xs text-gray-400 mt-0.5">JPEG・PNG、5MBまで</p>
+        <p v-if="photoError" class="text-xs text-red-500 mt-1">{{ photoError }}</p>
+      </div>
+      <div class="shrink-0">
+        <button type="button" class="btn-secondary text-xs flex items-center gap-1" :disabled="uploadingPhoto" @click="photoInputRef?.click()">
+          <Icon name="heroicons:camera" class="h-3.5 w-3.5" />
+          画像を変更
+        </button>
+        <input ref="photoInputRef" type="file" accept="image/jpeg,image/png" class="hidden" @change="handlePhotoSelect" />
+      </div>
+    </div>
 
     <form class="card p-6 space-y-5" @submit.prevent="handleSubmit">
 
