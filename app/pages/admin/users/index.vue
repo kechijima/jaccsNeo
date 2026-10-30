@@ -108,10 +108,16 @@ const openDetail = (u: any) => { selectedUser.value = u }
         <h1 class="text-xl font-bold text-gray-900">ユーザー管理</h1>
         <p class="text-sm text-gray-500 mt-0.5">{{ users.length }}名表示中（全{{ activeUserCount }}名）</p>
       </div>
-      <NuxtLink to="/admin/users/new" class="btn-primary text-sm flex items-center gap-1.5">
-        <Icon name="heroicons:user-plus" class="h-4 w-4" />
-        ユーザー追加
-      </NuxtLink>
+      <div class="flex items-center gap-2">
+        <NuxtLink to="/admin/users/import" class="btn-secondary text-sm flex items-center gap-1.5">
+          <Icon name="heroicons:arrow-up-tray" class="h-4 w-4" />
+          CSVインポート
+        </NuxtLink>
+        <NuxtLink to="/admin/users/new" class="btn-primary text-sm flex items-center gap-1.5">
+          <Icon name="heroicons:user-plus" class="h-4 w-4" />
+          ユーザー追加
+        </NuxtLink>
+      </div>
     </div>
 
     <!-- 検索 + フィルター -->
