@@ -124,12 +124,36 @@ export const usePushNotifications = () => {
     await ensureRegistered()
   }
 
+  // navigator.serviceWorker.register()は登録の「開始」が完了した時点で解決し、
+  // Service Workerが実際に有効化（active）されるのを待ってくれない。このSWは
+  // ページ自体のスコープとは別の専用スコープ（PUSH_SCOPE）に登録しているため、
+  // ページを制御するSWを待つ navigator.serviceWorker.ready も使えない
+  // （別スコープのSWはそもそもこのページを制御しないため）。有効化前に
+  // pushManager.subscribe()（getToken内部で呼ばれる）を実行すると
+  // 「AbortError: ... no active Service Worker」で失敗するため、この
+  // registration自体が active になるまで明示的に待つ
+  const waitForServiceWorkerActive = (registration: ServiceWorkerRegistration): Promise<void> => {
+    if (registration.active) return Promise.resolve()
+    const worker = registration.installing ?? registration.waiting
+    if (!worker) return Promise.resolve()
+    return new Promise((resolve) => {
+      const onStateChange = () => {
+        if (worker.state === 'activated') {
+          worker.removeEventListener('statechange', onStateChange)
+          resolve()
+        }
+      }
+      worker.addEventListener('statechange', onStateChange)
+    })
+  }
+
   // サービスワーカー登録→VAPIDキー確認→トークン取得→fcmTokensへ保存、という
   // コア処理。許可ダイアログを出す明示的な有効化（enablePush）と、既に許可済みの
   // 場合にアプリ起動時に静かに呼ぶ自動再登録（ensureRegistered）の両方から使う
   const registerToken = async (uid: string): Promise<'ok' | 'no-vapid-key' | 'no-token'> => {
     const { getMessaging, getToken, onMessage } = await import('firebase/messaging')
     const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: PUSH_SCOPE })
+    await waitForServiceWorkerActive(registration)
     const messaging = getMessaging()
     const vapidKey = String(config.public.firebaseVapidKey ?? '').trim()
     if (!vapidKey) {
@@ -238,6 +262,7 @@ export const usePushNotifications = () => {
       if (!(await checkSupport())) return
       const { getMessaging, getToken, deleteToken } = await import('firebase/messaging')
       const registration = await navigator.serviceWorker.getRegistration(PUSH_SCOPE)
+      if (registration) await waitForServiceWorkerActive(registration)
       const messaging = getMessaging()
       const vapidKey = String(config.public.firebaseVapidKey ?? '').trim()
       const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: registration ?? undefined }).catch(() => null)
