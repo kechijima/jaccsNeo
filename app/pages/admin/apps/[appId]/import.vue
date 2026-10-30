@@ -4,11 +4,12 @@
 // customers/import.vue（パーソナルデータの一括インポート）と同じ4ステップ構成だが、
 // あちらと異なりダミーデータではなく実際にアップロードされたCSVを解析する
 import { readCsvFile, parseCsv } from '~/utils/csv'
+import { downloadCsv } from '~/utils/csvCustomer'
 import { useAppDefs } from '~/composables/useAppDefs'
 import { useCustomerStore } from '~/composables/useCustomerStore'
 import { useServices } from '~/composables/useServices'
 import type { AppDef } from '~/types/appDef'
-import type { ServiceCaseForm, ServiceStatus, ServiceType } from '~/types/service'
+import type { ServiceCase, ServiceCaseForm, ServiceStatus, ServiceType } from '~/types/service'
 
 definePageMeta({ middleware: ['auth', 'admin'] })
 
@@ -17,7 +18,7 @@ const appId = computed(() => route.params.appId as string)
 
 const { fetchOne } = useAppDefs()
 const { customers, ensureLoaded: ensureCustomersLoaded } = useCustomerStore()
-const { createCase } = useServices()
+const { createCase, fetchAllCasesForType } = useServices()
 
 const loading = ref(true)
 const loadError = ref('')
@@ -41,6 +42,47 @@ onMounted(async () => {
 })
 
 const serviceType = computed(() => app.value?.sourceServiceType as ServiceType | undefined)
+
+// ── CSVエクスポート ───────────────────────────────────────────
+// マッピングステップで使っているGENERIC_FIELD_OPTIONS・app.fieldsと同じ列構成で
+// 出力することで、エクスポートしたCSVがそのままこの画面で再インポート可能になる
+const exporting = ref(false)
+const exportError = ref('')
+
+const exportColumns = computed(() => [
+  { label: '顧客名', get: (c: ServiceCase) => customers.value.find(cu => cu.id === c.customerId)?.name ?? '' },
+  ...GENERIC_FIELD_OPTIONS.map(o => ({ label: o.label, get: (c: ServiceCase) => (c as any)[o.value] ?? '' })),
+  ...(app.value?.fields ?? [])
+    .filter(f => !['label', 'space', 'record_number'].includes(f.type))
+    .map(f => ({
+      label: f.label,
+      get: (c: ServiceCase) => {
+        const v = c.customFields?.[f.id]
+        return Array.isArray(v) ? v.join('、') : (v ?? '')
+      },
+    })),
+])
+
+const handleExport = async () => {
+  if (!serviceType.value) return
+  exporting.value = true
+  exportError.value = ''
+  try {
+    await ensureCustomersLoaded()
+    const cases = await fetchAllCasesForType(serviceType.value)
+    const header = exportColumns.value.map(c => `"${c.label}"`).join(',')
+    const rows = cases.map(c =>
+      exportColumns.value.map(col => `"${String(col.get(c)).replace(/"/g, '""')}"`).join(','),
+    )
+    const csvText = [header, ...rows].join('\r\n')
+    const today = new Date().toISOString().slice(0, 10)
+    downloadCsv(csvText, `${app.value?.name ?? 'export'}_${today}.csv`)
+  } catch (e: any) {
+    exportError.value = e.message ?? 'エクスポートに失敗しました'
+  } finally {
+    exporting.value = false
+  }
+}
 
 // ── ステップ管理 ─────────────────────────────────────────────
 const step = ref(1)
@@ -248,6 +290,23 @@ const handleImport = async () => {
     </div>
 
     <template v-else>
+
+      <!-- CSVエクスポート -->
+      <div class="card p-5 flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h2 class="font-semibold text-gray-900 flex items-center gap-2">
+            <Icon name="heroicons:arrow-down-tray" class="h-5 w-5 text-primary-600" />
+            現在の案件データをCSVエクスポート
+          </h2>
+          <p class="text-xs text-gray-400 mt-0.5">下のインポートと同じ列構成のCSVを出力します（出力したCSVをそのまま再インポートできます）</p>
+          <p v-if="exportError" class="text-xs text-red-500 mt-1">{{ exportError }}</p>
+        </div>
+        <button type="button" class="btn-secondary text-sm flex items-center gap-1.5" :disabled="exporting" @click="handleExport">
+          <Icon v-if="exporting" name="heroicons:arrow-path" class="h-4 w-4 animate-spin" />
+          <Icon v-else name="heroicons:arrow-down-tray" class="h-4 w-4" />
+          {{ exporting ? 'エクスポート中...' : 'CSVエクスポート' }}
+        </button>
+      </div>
 
       <!-- ステッパー -->
       <div class="flex items-center">
