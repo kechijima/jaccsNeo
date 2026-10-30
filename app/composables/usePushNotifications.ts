@@ -27,6 +27,11 @@ export const usePushNotifications = () => {
   // 不具合の原因切り分け用に、同等の判定を1つずつ行い、失敗した項目を保持する
   const unsupportedReasons = useState<string[]>('push:unsupportedReasons', () => [])
 
+  // enablePush()が失敗した際の、ブラウザ・Firebaseが実際に返したエラー内容
+  // （「push通知の有効化に失敗しました」という汎用メッセージだけでは原因が
+  // 分からないため、個人設定画面にそのまま表示して切り分けの手がかりにする）
+  const lastEnableError = useState<string>('push:lastEnableError', () => '')
+
   // 成功可否に加え、失敗時はDOMExceptionの name/message をそのまま返す
   // （「ブロックされている」とひとくちに言っても原因は様々なため、ブラウザが
   // 報告する実際のエラー内容を画面にそのまま出して切り分けの手がかりにする）
@@ -89,25 +94,34 @@ export const usePushNotifications = () => {
       unsupportedReasons.value = typeof window === 'undefined' ? [] : await diagnoseUnsupported()
       return false
     }
-    const { isSupported } = await import('firebase/messaging')
-    if (!(await isSupported())) {
-      status.value = 'unsupported'
-      unsupportedReasons.value = await diagnoseUnsupported()
-      return false
-    }
+    // 以前はここでfirebase/messagingのisSupported()（内部でIndexedDBを開ける
+    // かどうかを厳密にテストする）を見て、falseなら登録処理自体を試みずに
+    // 「対応していません」と表示して打ち切っていた。しかし、Chromeのサイト別・
+    // 全体のCookie/サイトデータ設定がいずれも問題ない環境でもこのテストが
+    // falseを返すケースが確認されており、実際に登録できるかどうかを正確に
+    // 反映していなかった。基本的なAPIの存在チェックのみ行い、実際に登録
+    // できるかどうかはenablePush()/registerToken()で直接試す
     unsupportedReasons.value = []
     return true
   }
 
-  // 現在の許可状況を反映する（ページ表示時の初期表示用。トークン取得は行わない）
+  // 現在の許可状況を反映する（ページ表示時の初期表示用）。
+  // ブラウザの許可（Notification.permission）が既に「許可」になっていても、
+  // 実際にFCMトークンを登録できるとは限らない（登録してみて初めて分かる）
+  // ため、許可済みの場合は ensureRegistered() で実際の登録を試みた結果を
+  // そのままステータスに反映する（許可されているだけで「有効」と見なさない）
   const syncStatus = async () => {
     if (!(await checkSupport())) return
     if (status.value === 'unsupported') return
-    status.value = Notification.permission === 'granted'
-      ? 'granted'
-      : Notification.permission === 'denied'
-        ? 'denied'
-        : 'idle'
+    if (Notification.permission === 'denied') {
+      status.value = 'denied'
+      return
+    }
+    if (Notification.permission !== 'granted') {
+      status.value = 'idle'
+      return
+    }
+    await ensureRegistered()
   }
 
   // サービスワーカー登録→VAPIDキー確認→トークン取得→fcmTokensへ保存、という
@@ -142,6 +156,7 @@ export const usePushNotifications = () => {
 
   // 通知の許可をリクエストし、許可されればFCMトークンを取得してFirestoreへ保存する
   const enablePush = async (): Promise<void> => {
+    lastEnableError.value = ''
     if (!(await checkSupport())) {
       showToast('この端末・ブラウザはpush通知に対応していません')
       return
@@ -163,27 +178,33 @@ export const usePushNotifications = () => {
       const result = await registerToken(uid)
       if (result === 'no-vapid-key') {
         showToast('push通知の設定が未完了です（VAPIDキー未設定）')
+        lastEnableError.value = 'VAPIDキーが設定されていません（アプリ側の設定不備）'
         status.value = 'idle'
         return
       }
       if (result === 'no-token') {
+        showToast('push通知の有効化に失敗しました')
+        lastEnableError.value = 'getToken()がトークンを返しませんでした（原因不明）'
         status.value = 'idle'
         return
       }
 
       status.value = 'granted'
       showToast('push通知を有効にしました')
-    } catch (e) {
+    } catch (e: any) {
       console.error('push通知の有効化に失敗しました', e)
       status.value = 'idle'
       showToast('push通知の有効化に失敗しました')
+      lastEnableError.value = e?.name ? `${e.name}: ${e.message}` : String(e?.message ?? e)
     }
   }
 
   // 通知の許可が既に得られている場合、確認ダイアログを出さずに静かにトークンを
   // 再登録する。アプリ起動のたびに呼ぶことを想定しており、FCMトークンの有効期限
   // 切れ・ローテーションで気づかないうちにpushが届かなくなる事故を防ぐ
-  // （成功時もトーストは出さない＝毎回の起動で表示されてしまうのを避ける）
+  // （成功時もトーストは出さない＝毎回の起動で表示されてしまうのを避ける）。
+  // 失敗時はトーストこそ出さないが、lastEnableErrorには実際のエラーを残し、
+  // 個人設定画面でいつでも確認できるようにする
   const ensureRegistered = async (): Promise<void> => {
     const uid = authStore.user?.uid
     if (!uid) return
@@ -191,10 +212,21 @@ export const usePushNotifications = () => {
     if (Notification.permission !== 'granted') return
     if (!(await checkSupport())) return
     try {
-      await registerToken(uid)
-      status.value = 'granted'
-    } catch (e) {
+      const result = await registerToken(uid)
+      if (result === 'ok') {
+        status.value = 'granted'
+        lastEnableError.value = ''
+      } else if (result === 'no-vapid-key') {
+        status.value = 'idle'
+        lastEnableError.value = 'VAPIDキーが設定されていません（アプリ側の設定不備）'
+      } else {
+        status.value = 'idle'
+        lastEnableError.value = 'getToken()がトークンを返しませんでした（原因不明）'
+      }
+    } catch (e: any) {
       console.warn('push通知トークンの自動再登録に失敗しました', e)
+      status.value = 'idle'
+      lastEnableError.value = e?.name ? `${e.name}: ${e.message}` : String(e?.message ?? e)
     }
   }
 
@@ -219,5 +251,5 @@ export const usePushNotifications = () => {
     }
   }
 
-  return { status, unsupportedReasons, syncStatus, enablePush, ensureRegistered, disablePush }
+  return { status, unsupportedReasons, lastEnableError, syncStatus, enablePush, ensureRegistered, disablePush }
 }
