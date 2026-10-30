@@ -6,6 +6,8 @@ import type { NotificationPrefs } from '~/types/notification'
 import type { AppUser } from '~/types/user'
 import { usePushNotifications } from '~/composables/usePushNotifications'
 import { useAppearance, DEFAULT_PRIMARY_COLOR } from '~/composables/useAppearance'
+import { useNotifications } from '~/composables/useNotifications'
+import { useToast } from '~/composables/useToast'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -13,6 +15,8 @@ const { user } = useCurrentUser()
 const { updateMyProfile } = useUsers()
 const { sendPasswordReset } = useAuth()
 const authStore = useAuthStore()
+const { sendNotification } = useNotifications()
+const { show: showToast } = useToast()
 
 // ── 表示設定（ライト/ダーク・メインカラー） ───────────────────────────────
 const { colorMode, primaryColor, ensureLoaded: ensureAppearanceLoaded, setColorMode, setPrimaryColor } = useAppearance()
@@ -25,6 +29,26 @@ const onCustomColorChange = (e: Event) => setPrimaryColor((e.target as HTMLInput
 // ── push通知（端末への通知） ─────────────────────────────────────────────
 const { status: pushStatus, unsupportedReasons, syncStatus: syncPushStatus, enablePush, disablePush } = usePushNotifications()
 onMounted(syncPushStatus)
+
+// ── テスト通知（自分宛に送信し、ベルのドロップダウン・push通知の動作を確認する） ──
+const sendingTestNotif = ref(false)
+const handleSendTestNotification = async () => {
+  if (!user.value?.uid) return
+  sendingTestNotif.value = true
+  try {
+    await sendNotification(user.value.uid, {
+      type: 'system',
+      title: 'テスト通知',
+      body: 'これはテスト通知です。画面右上のベルと、端末の通知をご確認ください。',
+      linkUrl: '/notifications',
+    })
+    showToast('テスト通知を送信しました。画面右上のベルと、端末の通知をご確認ください')
+  } catch (e: any) {
+    showToast(e.message ?? 'テスト通知の送信に失敗しました')
+  } finally {
+    sendingTestNotif.value = false
+  }
+}
 
 // ── 通知設定 ─────────────────────────────────────────────────────────────
 const PREF_KEYS = Object.keys(NOTIFICATION_PREF_LABELS) as (keyof NotificationPrefs)[]
@@ -205,6 +229,18 @@ const handlePasswordReset = async () => {
         >
           <Icon v-if="pushStatus === 'requesting'" name="heroicons:arrow-path" class="h-4 w-4 animate-spin mr-1" />
           push通知を有効にする
+        </button>
+      </div>
+
+      <div class="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
+        <div>
+          <p class="text-sm font-medium text-gray-700">動作確認</p>
+          <p class="text-xs text-gray-400 mt-0.5">自分宛にテスト通知を送信します</p>
+        </div>
+        <button type="button" class="btn-secondary text-sm flex items-center gap-1.5" :disabled="sendingTestNotif" @click="handleSendTestNotification">
+          <Icon v-if="sendingTestNotif" name="heroicons:arrow-path" class="h-4 w-4 animate-spin" />
+          <Icon v-else name="heroicons:paper-airplane" class="h-4 w-4" />
+          テスト通知を送信
         </button>
       </div>
     </div>
