@@ -240,66 +240,26 @@ const handleMarkAllRead = async () => {
         </NuxtLink>
 
         <!-- 通知 -->
-        <div class="relative">
-          <button
-            type="button"
-            class="w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
-            :class="[
-              navActiveClass('/notifications', EXTRA_NAV_COLORS['/notifications']),
-              sidebarCollapsed ? 'justify-center px-0' : '',
-            ]"
-            :title="sidebarCollapsed ? '通知' : undefined"
-            @click="notifDropdownOpen = !notifDropdownOpen"
-          >
-            <div class="relative">
-              <Icon name="heroicons:bell" class="h-5 w-5 shrink-0" />
-              <span
-                v-if="notificationCount > 0"
-                class="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white"
-              >
-                {{ notificationCount > 9 ? '9+' : notificationCount }}
-              </span>
-            </div>
-            <span v-if="!sidebarCollapsed">通知</span>
-          </button>
-
-          <div v-if="notifDropdownOpen" class="fixed inset-0 z-40" @click="notifDropdownOpen = false" />
-          <div
-            v-if="notifDropdownOpen"
-            class="absolute left-full top-0 ml-2 z-50 w-80 max-w-[calc(100vw-2rem)] rounded-xl bg-white shadow-xl border border-gray-200 overflow-hidden"
-          >
-            <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-              <p class="text-sm font-semibold text-gray-800">通知</p>
-              <button v-if="unreadNotifications.length > 0" type="button" class="text-xs text-primary-600 hover:text-primary-700" @click="handleMarkAllRead">
-                すべて既読にする
-              </button>
-            </div>
-            <div class="max-h-80 overflow-y-auto">
-              <div v-if="unreadNotifications.length === 0" class="py-8 text-center text-sm text-gray-400">
-                未読の通知はありません
-              </div>
-              <button
-                v-for="n in unreadNotifications"
-                :key="n.id"
-                type="button"
-                class="w-full flex gap-3 px-4 py-3 border-b border-gray-50 text-left hover:bg-gray-50 transition"
-                @click="handleNotifClick(n)"
-              >
-                <div class="w-2 h-2 rounded-full mt-1.5 shrink-0 bg-primary-500" />
-                <div class="flex-1 min-w-0">
-                  <p class="text-sm font-medium text-gray-800 truncate">{{ n.title }}</p>
-                  <p class="text-xs text-gray-500 mt-0.5 truncate">{{ n.body }}</p>
-                  <p class="text-xs text-gray-400 mt-0.5">{{ formatNotifDate(n.createdAt) }}</p>
-                </div>
-              </button>
-            </div>
-            <div class="border-t border-gray-100 py-2 px-4">
-              <NuxtLink to="/notifications" class="block text-center text-xs text-primary-600 hover:text-primary-800 py-1 font-medium" @click="notifDropdownOpen = false">
-                すべての通知を見る
-              </NuxtLink>
-            </div>
+        <NuxtLink
+          to="/notifications"
+          class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
+          :class="[
+            navActiveClass('/notifications', EXTRA_NAV_COLORS['/notifications']),
+            sidebarCollapsed ? 'justify-center px-0' : '',
+          ]"
+          :title="sidebarCollapsed ? '通知' : undefined"
+        >
+          <div class="relative">
+            <Icon name="heroicons:bell" class="h-5 w-5 shrink-0" />
+            <span
+              v-if="notificationCount > 0"
+              class="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white"
+            >
+              {{ notificationCount > 9 ? '9+' : notificationCount }}
+            </span>
           </div>
-        </div>
+          <span v-if="!sidebarCollapsed">通知</span>
+        </NuxtLink>
 
         <!-- 検索 -->
         <NuxtLink
