@@ -342,6 +342,60 @@ const handleMarkAllRead = async () => {
           <div class="text-sm text-gray-500">
             {{ new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' }) }}
           </div>
+          <div class="relative">
+            <button
+              type="button"
+              class="relative flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 transition"
+              aria-label="通知"
+              title="通知"
+              @click="notifDropdownOpen = !notifDropdownOpen"
+            >
+              <Icon name="heroicons:bell" class="h-5 w-5" />
+              <span
+                v-if="notificationCount > 0"
+                class="absolute top-0.5 right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white"
+              >
+                {{ notificationCount > 9 ? '9+' : notificationCount }}
+              </span>
+            </button>
+
+            <div v-if="notifDropdownOpen" class="fixed inset-0 z-40" @click="notifDropdownOpen = false" />
+            <div
+              v-if="notifDropdownOpen"
+              class="absolute top-full right-0 mt-2 z-50 w-80 max-w-[calc(100vw-2rem)] rounded-xl bg-white shadow-xl border border-gray-200 overflow-hidden"
+            >
+              <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                <p class="text-sm font-semibold text-gray-800">通知</p>
+                <button v-if="unreadNotifications.length > 0" type="button" class="text-xs text-primary-600 hover:text-primary-700" @click="handleMarkAllRead">
+                  すべて既読にする
+                </button>
+              </div>
+              <div class="max-h-80 overflow-y-auto">
+                <div v-if="unreadNotifications.length === 0" class="py-8 text-center text-sm text-gray-400">
+                  未読の通知はありません
+                </div>
+                <button
+                  v-for="n in unreadNotifications"
+                  :key="n.id"
+                  type="button"
+                  class="w-full flex gap-3 px-4 py-3 border-b border-gray-50 text-left hover:bg-gray-50 transition"
+                  @click="handleNotifClick(n)"
+                >
+                  <div class="w-2 h-2 rounded-full mt-1.5 shrink-0 bg-primary-500" />
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-gray-800 truncate">{{ n.title }}</p>
+                    <p class="text-xs text-gray-500 mt-0.5 truncate">{{ n.body }}</p>
+                    <p class="text-xs text-gray-400 mt-0.5">{{ formatNotifDate(n.createdAt) }}</p>
+                  </div>
+                </button>
+              </div>
+              <div class="border-t border-gray-100 py-2 px-4">
+                <NuxtLink to="/notifications" class="block text-center text-xs text-primary-600 hover:text-primary-800 py-1 font-medium" @click="notifDropdownOpen = false">
+                  すべての通知を見る
+                </NuxtLink>
+              </div>
+            </div>
+          </div>
           <button
             type="button"
             class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 transition disabled:opacity-50"
