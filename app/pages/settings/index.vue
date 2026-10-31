@@ -62,20 +62,27 @@ const handleSendTestNotification = async () => {
 }
 
 // ── 通知設定 ─────────────────────────────────────────────────────────────
-const PREF_KEYS = Object.keys(NOTIFICATION_PREF_LABELS) as (keyof NotificationPrefs)[]
+const PREF_KEYS = Object.keys(NOTIFICATION_PREF_LABELS) as (keyof Omit<NotificationPrefs, 'emailEnabled'>)[]
 
-const prefs = reactive<Required<NotificationPrefs>>({
+const prefs = reactive<Required<Omit<NotificationPrefs, 'emailEnabled'>>>({
   mention: true,
   comment: true,
   event:   true,
   system:  true,
+  app:     true,
 })
+
+// メール通知（メンション・システム通知のみが対象）を受け取るかどうかの単一
+// トグル。カテゴリ別のprefs/PREF_KEYSループとは別に扱う（NOTIFICATION_PREF_LABELS
+// には含めていないため、PREF_KEYSの自動生成ループには出てこない）
+const emailEnabled = ref(true)
 
 const loadPrefs = () => {
   const saved = user.value?.notificationPrefs
   for (const key of PREF_KEYS) {
     prefs[key] = saved?.[key] ?? true
   }
+  emailEnabled.value = saved?.emailEnabled ?? true
 }
 onMounted(loadPrefs)
 watch(() => user.value?.uid, loadPrefs)
@@ -84,12 +91,12 @@ const savingPrefs = ref(false)
 const prefsSaved   = ref(false)
 const prefsError   = ref('')
 
-const togglePref = async (key: keyof NotificationPrefs) => {
+const togglePref = async (key: keyof Omit<NotificationPrefs, 'emailEnabled'>) => {
   prefs[key] = !prefs[key]
   savingPrefs.value = true
   prefsError.value = ''
   try {
-    const next = { ...prefs }
+    const next = { ...prefs, emailEnabled: emailEnabled.value }
     await updateMyProfile({ notificationPrefs: next })
     if (authStore.user) authStore.setUser({ ...authStore.user, notificationPrefs: next } as AppUser)
     prefsSaved.value = true
@@ -97,6 +104,24 @@ const togglePref = async (key: keyof NotificationPrefs) => {
   } catch (e: any) {
     prefs[key] = !prefs[key] // 失敗時は元に戻す
     prefsError.value = e.message ?? '通知設定の保存に失敗しました'
+  } finally {
+    savingPrefs.value = false
+  }
+}
+
+const toggleEmailEnabled = async () => {
+  emailEnabled.value = !emailEnabled.value
+  savingPrefs.value = true
+  prefsError.value = ''
+  try {
+    const next = { ...prefs, emailEnabled: emailEnabled.value }
+    await updateMyProfile({ notificationPrefs: next })
+    if (authStore.user) authStore.setUser({ ...authStore.user, notificationPrefs: next } as AppUser)
+    prefsSaved.value = true
+    setTimeout(() => { prefsSaved.value = false }, 1500)
+  } catch (e: any) {
+    emailEnabled.value = !emailEnabled.value // 失敗時は元に戻す
+    prefsError.value = e.message ?? 'メール通知設定の保存に失敗しました'
   } finally {
     savingPrefs.value = false
   }
@@ -304,6 +329,27 @@ const handlePasswordReset = async () => {
             <span
               class="inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform"
               :class="prefs[key] ? 'translate-x-6' : 'translate-x-1'"
+            />
+          </button>
+        </div>
+
+        <div class="flex items-center justify-between py-3">
+          <div>
+            <span class="text-sm text-gray-700">メール通知を受け取る</span>
+            <p class="text-xs text-gray-400 mt-0.5">メンション・システム通知のみ、登録メールアドレス宛に送信します</p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            :aria-checked="emailEnabled"
+            class="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors"
+            :class="emailEnabled ? 'bg-primary-600' : 'bg-gray-200'"
+            :disabled="savingPrefs"
+            @click="toggleEmailEnabled"
+          >
+            <span
+              class="inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform"
+              :class="emailEnabled ? 'translate-x-6' : 'translate-x-1'"
             />
           </button>
         </div>

@@ -2,11 +2,19 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https')
 const { onDocumentCreated } = require('firebase-functions/v2/firestore')
 const { onSchedule } = require('firebase-functions/v2/scheduler')
 const { setGlobalOptions } = require('firebase-functions/v2')
+const { defineSecret } = require('firebase-functions/params')
 const { initializeApp } = require('firebase-admin/app')
 const { getFirestore, FieldValue } = require('firebase-admin/firestore')
 const { getAuth } = require('firebase-admin/auth')
 const { getMessaging } = require('firebase-admin/messaging')
 const { getStorage } = require('firebase-admin/storage')
+const nodemailer = require('nodemailer')
+
+// メール通知（sendEmailOnNotificationCreate）用のGmail送信アカウント情報。
+// Secret Managerに事前登録しておく必要がある（firebase functions:secrets:set
+// GMAIL_USER / GMAIL_APP_PASSWORD）。コード・リポジトリには一切値を含めない
+const gmailUser = defineSecret('GMAIL_USER')
+const gmailAppPassword = defineSecret('GMAIL_APP_PASSWORD')
 
 // firebase-admin v13以降、admin.firestore()・admin.auth()等の名前空間形式の
 // APIは廃止された（admin.firestoreはundefinedになる）。各モジュールの
@@ -241,6 +249,71 @@ exports.sendPushOnNotificationCreate = onDocumentCreated('notifications/{uid}/it
     })
   }
 })
+
+// メール通知の対象は「重要なものだけ」に絞る（メンション・システム通知）。
+// types/notification.tsのTYPE_TO_PREF_KEYで'mention'/'system'カテゴリに
+// 対応する実際のtype値。Gmail（個人アカウント）の1日あたりの送信数制限
+// （概ね500通程度）を踏まえ、送信頻度の高いコメント・イベント・案件担当等は
+// 対象外とする
+const EMAIL_NOTIFICATION_TYPES = new Set(['mention', 'customer_assigned', 'system'])
+
+// notifications/{uid}/items にドキュメントが作成されるたびに、対象ユーザーの
+// 登録メールアドレスへメール通知を送る（push通知とは別関数として分離し、
+// push側のロジック・冪等性フラグには影響しないようにする）。
+// Gmailアカウントから直接送信する（無料）ため、送信元アカウント・アプリ
+// パスワードはSecret Manager経由のdefineSecret()で注入する（コードには含めない）
+exports.sendEmailOnNotificationCreate = onDocumentCreated(
+  { document: 'notifications/{uid}/items/{itemId}', secrets: [gmailUser, gmailAppPassword] },
+  async (event) => {
+    const uid = event.params.uid
+    const itemId = event.params.itemId
+
+    // push側のpushSendAttemptedと同じパターンの冪等性ガード。Cloud Functions v2の
+    // Firestoreトリガーは「少なくとも1回」の実行保証のため、同一イベントに対して
+    // 関数本体が複数回実行されることがあり、これが無いとメールも重複送信され得る
+    const docRef = db.doc(`notifications/${uid}/items/${itemId}`)
+    const shouldSend = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(docRef)
+      if (!snap.exists) return false
+      if (snap.data().emailSendAttempted) return false
+      tx.update(docRef, { emailSendAttempted: true })
+      return true
+    })
+    if (!shouldSend) return
+
+    const data = event.data?.data()
+    if (!data || !EMAIL_NOTIFICATION_TYPES.has(data.type)) return
+
+    const userSnap = await db.doc(`users/${uid}`).get()
+    const userData = userSnap.data()
+    if (!userData?.email) return
+    // デフォルトON（既存のisNotificationAllowed()と同じ「未設定ならtrue」方式）。
+    // ユーザーが個人設定画面で明示的にOFFにした場合のみ送信しない
+    if (userData.notificationPrefs?.emailEnabled === false) return
+
+    const link = data.linkUrl
+      ? `https://jaccsneo.web.app${data.linkUrl}`
+      : 'https://jaccsneo.web.app/notifications'
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: gmailUser.value(), pass: gmailAppPassword.value() },
+    })
+
+    try {
+      await transporter.sendMail({
+        from: `"JACCS Neo" <${gmailUser.value()}>`,
+        to: userData.email,
+        subject: data.title ?? 'JACCS Neo からのお知らせ',
+        text: `${data.body ?? ''}\n\n詳細はこちら: ${link}`,
+      })
+    } catch (e) {
+      // Gmail側の一時的な送信エラー等でpush通知など他の処理に影響しないよう、
+      // ログに残すのみで例外は外に投げない（push側と同じ「失敗しても落とさない」方針）
+      console.error('メール通知の送信に失敗しました', e)
+    }
+  },
+)
 
 const STATUS_LABELS = {
   consulting: '相談中',

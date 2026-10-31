@@ -14,14 +14,19 @@ export type NotificationType =
 
 // 通知カテゴリごとの受信設定（マイページ／設定画面で変更する）
 export interface NotificationPrefs {
-  mention?: boolean   // 自分がメンションされたとき
-  comment?: boolean   // 自分の投稿にコメントがついたとき
-  event?: boolean     // イベント・会議が作成/更新されたとき
-  system?: boolean    // 申請の承認結果などシステムからのお知らせ
-  app?: boolean       // プロダクトアプリの担当者設定・ステータス変更があったとき
+  mention?: boolean      // 自分がメンションされたとき
+  comment?: boolean      // 自分の投稿にコメントがついたとき
+  event?: boolean        // イベント・会議が作成/更新されたとき
+  system?: boolean       // 申請の承認結果などシステムからのお知らせ
+  app?: boolean          // プロダクトアプリの担当者設定・ステータス変更があったとき
+  emailEnabled?: boolean // メール通知（メンション・システム通知のみ）を受け取るか。デフォルトON
 }
 
-export const NOTIFICATION_PREF_LABELS: Record<keyof NotificationPrefs, string> = {
+// 既存のアプリ内通知カテゴリ（PREF_KEYSのループで使う）のみを含む。
+// emailEnabledはカテゴリ別ではなく単一トグルのため、ここには含めず
+// settings/index.vue側で個別に扱う（Partialにして、NotificationPrefsの
+// 全キーを含める必要がないようにしている）
+export const NOTIFICATION_PREF_LABELS: Partial<Record<keyof NotificationPrefs, string>> = {
   mention: 'メンションされたとき',
   comment: '自分の投稿にコメントがついたとき',
   event:   'イベント・会議が作成されたとき',
