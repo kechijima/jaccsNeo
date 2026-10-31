@@ -7,6 +7,7 @@
 import { doc, updateDoc, arrayUnion, arrayRemove, serverTimestamp } from 'firebase/firestore'
 import { useAuthStore } from '~/stores/auth'
 import { useToast } from '~/composables/useToast'
+import { withRealIndexedDB } from '~/plugins/firebase.client'
 
 const PUSH_SCOPE = '/firebase-cloud-messaging-push-scope'
 
@@ -216,7 +217,11 @@ export const usePushNotifications = () => {
         return
       }
 
-      const result = await registerToken(uid)
+      // アプリ起動時はページ読み込みのハング対策でwindow.indexedDBを無効化
+      // している（firebase.client.ts参照）が、push通知はIndexedDBが無いと
+      // 一切動作しない。ユーザーが明示的にこのボタンを押した、この操作の
+      // 間だけ本物のIndexedDBを一時的に復元する（自動再登録では使わない）
+      const result = await withRealIndexedDB(() => registerToken(uid))
       if (result === 'no-vapid-key') {
         showToast('push通知の設定が未完了です（VAPIDキー未設定）')
         lastEnableError.value = 'VAPIDキーが設定されていません（アプリ側の設定不備）'
@@ -245,7 +250,12 @@ export const usePushNotifications = () => {
   // 切れ・ローテーションで気づかないうちにpushが届かなくなる事故を防ぐ
   // （成功時もトーストは出さない＝毎回の起動で表示されてしまうのを避ける）。
   // 失敗時はトーストこそ出さないが、lastEnableErrorには実際のエラーを残し、
-  // 個人設定画面でいつでも確認できるようにする
+  // 個人設定画面でいつでも確認できるようにする。
+  // 注意: ここでは意図的にwithRealIndexedDB()を使わない（本物のIndexedDBは
+  // enablePush()等、ユーザーが明示的に操作した時だけ復元する）。アプリ起動の
+  // たびに自動実行されるこの処理でIndexedDBを触ると、firebase.client.tsで
+  // 無効化した本来の不具合（ページ読み込みが長時間止まる現象）を毎回の起動で
+  // 再発させるリスクがあるため、自動再登録は許可状況の確認のみに留める
   const ensureRegistered = async (): Promise<void> => {
     const uid = authStore.user?.uid
     if (!uid) return
@@ -271,22 +281,26 @@ export const usePushNotifications = () => {
     }
   }
 
-  // この端末のトークンだけを取り消す（他端末のトークンは残す）
+  // この端末のトークンだけを取り消す（他端末のトークンは残す）。
+  // ユーザーの明示的な操作（ボタン押下）のため、enablePush()と同様に
+  // 本物のIndexedDBをこの処理の間だけ一時的に復元する
   const disablePush = async (): Promise<void> => {
     const uid = authStore.user?.uid
     if (!uid) return
     try {
       if (!(await checkSupport())) return
-      const { getMessaging, getToken, deleteToken } = await import('firebase/messaging')
-      const registration = await navigator.serviceWorker.getRegistration(PUSH_SCOPE)
-      if (registration) await waitForServiceWorkerActive(registration)
-      const messaging = getMessaging()
-      const vapidKey = String(config.public.firebaseVapidKey ?? '').trim()
-      const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: registration ?? undefined }).catch(() => null)
-      if (token) {
-        await updateDoc(doc($db, 'users', uid), { fcmTokens: arrayRemove(token), updatedAt: serverTimestamp() })
-        await deleteToken(messaging).catch(() => {})
-      }
+      await withRealIndexedDB(async () => {
+        const { getMessaging, getToken, deleteToken } = await import('firebase/messaging')
+        const registration = await navigator.serviceWorker.getRegistration(PUSH_SCOPE)
+        if (registration) await waitForServiceWorkerActive(registration)
+        const messaging = getMessaging()
+        const vapidKey = String(config.public.firebaseVapidKey ?? '').trim()
+        const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: registration ?? undefined }).catch(() => null)
+        if (token) {
+          await updateDoc(doc($db, 'users', uid), { fcmTokens: arrayRemove(token), updatedAt: serverTimestamp() })
+          await deleteToken(messaging).catch(() => {})
+        }
+      })
     } finally {
       status.value = 'idle'
       showToast('この端末のpush通知を無効にしました')

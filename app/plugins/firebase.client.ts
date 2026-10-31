@@ -12,6 +12,23 @@ import { getFirestore } from 'firebase/firestore'
 const sanitize = (value: unknown): string =>
   String(value ?? '').trim().replace(/^['"]+|['"]+$/g, '')
 
+// 下記の通りwindow.indexedDBはアプリ起動時に意図的に無効化するが、push通知
+// （Firebase Cloud Messaging）はIndexedDBが無いと一切動作しない。無効化前の
+// 本物のIndexedDBをここに退避しておき、push通知の明示的な有効化操作
+// （usePushNotifications.tsのenablePush、ユーザーがボタンを押した時のみ）の
+// 間だけ一時的に復元できるようにする（アプリ起動時の自動処理では使わない＝
+// 下記の本来の不具合を再発させない）
+let realIndexedDB: IDBFactory | undefined
+export const withRealIndexedDB = async <T>(fn: () => Promise<T>): Promise<T> => {
+  if (typeof window === 'undefined' || !realIndexedDB) return fn()
+  try {
+    Object.defineProperty(window, 'indexedDB', { value: realIndexedDB, configurable: true })
+    return await fn()
+  } finally {
+    Object.defineProperty(window, 'indexedDB', { value: undefined, configurable: true })
+  }
+}
+
 export default defineNuxtPlugin(() => {
   // Firebase SDKは背景でハートビート計測（SDK利用状況をFirebase側へ送るための
   // 計測データ）のためIndexedDBへアクセスする。このアプリはAnalytics/
@@ -30,6 +47,7 @@ export default defineNuxtPlugin(() => {
   // するだけ）ため、ここで意図的にindexedDBを無効化し、このハングを未然に防ぐ
   if (typeof window !== 'undefined' && 'indexedDB' in window) {
     try {
+      realIndexedDB = window.indexedDB
       Object.defineProperty(window, 'indexedDB', { value: undefined, configurable: true })
     } catch (e) {
       console.error('IndexedDBの無効化に失敗しました', e)
