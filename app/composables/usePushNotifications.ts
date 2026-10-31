@@ -10,6 +10,12 @@ import { useToast } from '~/composables/useToast'
 
 const PUSH_SCOPE = '/firebase-cloud-messaging-push-scope'
 
+// モジュールスコープで保持する（usePushNotifications()はlayouts/default.vue・
+// settings/index.vue等、複数箇所から呼ばれ、呼び出しごとに新しいクロージャに
+// なるため、composable関数の中に置くと呼び出し元ごとに別々の変数になって
+// しまい、二重実行の防止にならない）
+let inFlightRegisterToken: Promise<'ok' | 'no-vapid-key' | 'no-token'> | null = null
+
 export const usePushNotifications = () => {
   const { $db } = useNuxtApp()
   const config = useRuntimeConfig()
@@ -149,33 +155,44 @@ export const usePushNotifications = () => {
 
   // サービスワーカー登録→VAPIDキー確認→トークン取得→fcmTokensへ保存、という
   // コア処理。許可ダイアログを出す明示的な有効化（enablePush）と、既に許可済みの
-  // 場合にアプリ起動時に静かに呼ぶ自動再登録（ensureRegistered）の両方から使う
-  const registerToken = async (uid: string): Promise<'ok' | 'no-vapid-key' | 'no-token'> => {
-    const { getMessaging, getToken, onMessage } = await import('firebase/messaging')
-    const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: PUSH_SCOPE })
-    await waitForServiceWorkerActive(registration)
-    const messaging = getMessaging()
-    const vapidKey = String(config.public.firebaseVapidKey ?? '').trim()
-    if (!vapidKey) {
-      console.error('FIREBASE_VAPID_KEY が設定されていません')
-      return 'no-vapid-key'
-    }
+  // 場合にアプリ起動時に静かに呼ぶ自動再登録（ensureRegistered）の両方から使う。
+  // layouts/default.vueのonMountedとsettings/index.vueのonMountedが同じ
+  // ページ読み込みで両方発火するため、許可が既に得られている状態でこのページを
+  // 開くと2つの呼び出しがほぼ同時に走る。同じ登録処理（service worker登録・
+  // getToken）を並行して2回実行すると、ブラウザ側で予期しない競合エラー
+  // （IndexedDBアクセス関連のエラーなど）につながる可能性があるため、
+  // 実行中の呼び出しがあればそれをそのまま待つだけにし、二重実行を防ぐ
+  // （inFlightRegisterTokenはモジュールスコープで定義）
+  const registerToken = (uid: string): Promise<'ok' | 'no-vapid-key' | 'no-token'> => {
+    if (inFlightRegisterToken) return inFlightRegisterToken
+    inFlightRegisterToken = (async () => {
+      const { getMessaging, getToken, onMessage } = await import('firebase/messaging')
+      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: PUSH_SCOPE })
+      await waitForServiceWorkerActive(registration)
+      const messaging = getMessaging()
+      const vapidKey = String(config.public.firebaseVapidKey ?? '').trim()
+      if (!vapidKey) {
+        console.error('FIREBASE_VAPID_KEY が設定されていません')
+        return 'no-vapid-key' as const
+      }
 
-    const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: registration })
-    if (!token) return 'no-token'
+      const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: registration })
+      if (!token) return 'no-token' as const
 
-    await updateDoc(doc($db, 'users', uid), {
-      fcmTokens: arrayUnion(token),
-      updatedAt: serverTimestamp(),
-    })
+      await updateDoc(doc($db, 'users', uid), {
+        fcmTokens: arrayUnion(token),
+        updatedAt: serverTimestamp(),
+      })
 
-    // フォアグラウンド（このタブを開いている間）はOS通知が自動表示されないため、トーストで代替表示する
-    onMessage(messaging, (payload) => {
-      const title = payload.notification?.title ?? '通知'
-      const body = payload.notification?.body ?? ''
-      showToast(body ? `${title}: ${body}` : title, 5000)
-    })
-    return 'ok'
+      // フォアグラウンド（このタブを開いている間）はOS通知が自動表示されないため、トーストで代替表示する
+      onMessage(messaging, (payload) => {
+        const title = payload.notification?.title ?? '通知'
+        const body = payload.notification?.body ?? ''
+        showToast(body ? `${title}: ${body}` : title, 5000)
+      })
+      return 'ok' as const
+    })()
+    return inFlightRegisterToken.finally(() => { inFlightRegisterToken = null })
   }
 
   // 通知の許可をリクエストし、許可されればFCMトークンを取得してFirestoreへ保存する
