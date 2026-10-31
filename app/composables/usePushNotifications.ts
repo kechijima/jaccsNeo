@@ -307,5 +307,26 @@ export const usePushNotifications = () => {
     }
   }
 
-  return { status, unsupportedReasons, lastEnableError, syncStatus, enablePush, ensureRegistered, disablePush }
+  // トラブルシューティング用：この端末だけでなく、登録済みの全トークンを
+  // 一括リセットする。今回のデバッグ中に「有効にする」とサイトデータ消去を
+  // 何度も繰り返した結果、同一端末向けの別々のトークンがfcmTokensに複数
+  // 蓄積され、1回の通知が複数回届く事態が発生した。disablePush()は現在の
+  // 端末のトークン1件しか削除できないため、まとめて片付ける別経路を用意する
+  const resetAllTokens = async (): Promise<void> => {
+    const uid = authStore.user?.uid
+    if (!uid) return
+    try {
+      await updateDoc(doc($db, 'users', uid), {
+        fcmTokens: [],
+        updatedAt: serverTimestamp(),
+      })
+      status.value = 'idle'
+      showToast('push通知トークンをすべてリセットしました。各端末で改めて「有効にする」を押してください')
+    } catch (e: any) {
+      console.error('push通知トークンのリセットに失敗しました', e)
+      showToast('トークンのリセットに失敗しました')
+    }
+  }
+
+  return { status, unsupportedReasons, lastEnableError, syncStatus, enablePush, ensureRegistered, disablePush, resetAllTokens }
 }

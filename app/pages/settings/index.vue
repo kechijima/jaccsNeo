@@ -27,8 +27,19 @@ const isCustomColor = computed(() => !PRESET_COLORS.some(c => c.toLowerCase() ==
 const onCustomColorChange = (e: Event) => setPrimaryColor((e.target as HTMLInputElement).value)
 
 // ── push通知（端末への通知） ─────────────────────────────────────────────
-const { status: pushStatus, unsupportedReasons, lastEnableError, syncStatus: syncPushStatus, enablePush, disablePush } = usePushNotifications()
+const { status: pushStatus, unsupportedReasons, lastEnableError, syncStatus: syncPushStatus, enablePush, disablePush, resetAllTokens } = usePushNotifications()
 onMounted(syncPushStatus)
+
+const resettingTokens = ref(false)
+const handleResetAllTokens = async () => {
+  if (!confirm('登録済みのpush通知トークンをすべてリセットします。リセット後は、各端末で改めて「push通知を有効にする」を押してください。続けますか？')) return
+  resettingTokens.value = true
+  try {
+    await resetAllTokens()
+  } finally {
+    resettingTokens.value = false
+  }
+}
 
 // ── テスト通知（自分宛に送信し、ベルのドロップダウン・push通知の動作を確認する） ──
 const sendingTestNotif = ref(false)
@@ -246,6 +257,17 @@ const handlePasswordReset = async () => {
           <Icon v-if="sendingTestNotif" name="heroicons:arrow-path" class="h-4 w-4 animate-spin" />
           <Icon v-else name="heroicons:paper-airplane" class="h-4 w-4" />
           テスト通知を送信
+        </button>
+      </div>
+
+      <div class="mt-4 pt-4 border-t border-gray-100 text-right">
+        <button
+          type="button"
+          class="text-xs text-gray-400 hover:text-red-500 underline disabled:opacity-50"
+          :disabled="resettingTokens"
+          @click="handleResetAllTokens"
+        >
+          うまく届かない・通知が重複する場合: すべての端末のpush通知トークンをリセットする
         </button>
       </div>
     </div>
