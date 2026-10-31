@@ -30,6 +30,12 @@ firebase.initializeApp(${JSON.stringify(firebaseConfig)})
 
 const messaging = firebase.messaging()
 
+// 新しいバージョンのワーカーを即座に有効化する。これが無いと、同じスコープを
+// 既に制御している古いワーカーのクライアント（タブ）が無くなるまで新しい
+// ワーカーが「waiting」状態のまま残り続け、有効化（activated）されないことがある
+self.addEventListener('install', () => self.skipWaiting())
+self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()))
+
 // アプリがフォアグラウンドに無い（タブが非アクティブ・閉じている）ときの通知表示
 messaging.onBackgroundMessage((payload) => {
   const title = payload.notification?.title ?? 'JACCS Neo'
