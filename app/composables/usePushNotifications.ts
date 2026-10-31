@@ -113,10 +113,14 @@ export const usePushNotifications = () => {
   }
 
   // 現在の許可状況を反映する（ページ表示時の初期表示用）。
-  // ブラウザの許可（Notification.permission）が既に「許可」になっていても、
-  // 実際にFCMトークンを登録できるとは限らない（登録してみて初めて分かる）
-  // ため、許可済みの場合は ensureRegistered() で実際の登録を試みた結果を
-  // そのままステータスに反映する（許可されているだけで「有効」と見なさない）
+  // ブラウザの許可（Notification.permission）が「許可」になっていれば、
+  // それを信頼してまず「有効」と表示する。実際のトークン再登録
+  // （ensureRegistered、IndexedDBが必要）は、アプリ起動時はwindow.indexedDBが
+  // 無効化されているため（firebase.client.ts参照）毎回必ず失敗する既知の制約
+  // があり、その成否で表示を揺るがせると、更新・再読み込みのたびに「無効です」
+  // と誤表示されてしまう（実際にはブラウザの許可・サーバー側のトークンは
+  // 維持されたままのことが多い）。そのため許可状況だけをここで反映し、
+  // ensureRegistered()はバックグラウンドのベストエフォート処理に留める
   const syncStatus = async () => {
     if (!(await checkSupport())) return
     if (status.value === 'unsupported') return
@@ -128,7 +132,8 @@ export const usePushNotifications = () => {
       status.value = 'idle'
       return
     }
-    await ensureRegistered()
+    status.value = 'granted'
+    ensureRegistered()
   }
 
   // navigator.serviceWorker.register()は登録の「開始」が完了した時点で解決し、
@@ -247,15 +252,20 @@ export const usePushNotifications = () => {
 
   // 通知の許可が既に得られている場合、確認ダイアログを出さずに静かにトークンを
   // 再登録する。アプリ起動のたびに呼ぶことを想定しており、FCMトークンの有効期限
-  // 切れ・ローテーションで気づかないうちにpushが届かなくなる事故を防ぐ
-  // （成功時もトーストは出さない＝毎回の起動で表示されてしまうのを避ける）。
-  // 失敗時はトーストこそ出さないが、lastEnableErrorには実際のエラーを残し、
-  // 個人設定画面でいつでも確認できるようにする。
+  // 切れ・ローテーションで気づかないうちにpushが届かなくなる事故を防ぐ狙いの
+  // ベストエフォート処理（成功時もトーストは出さない）。
   // 注意: ここでは意図的にwithRealIndexedDB()を使わない（本物のIndexedDBは
   // enablePush()等、ユーザーが明示的に操作した時だけ復元する）。アプリ起動の
   // たびに自動実行されるこの処理でIndexedDBを触ると、firebase.client.tsで
   // 無効化した本来の不具合（ページ読み込みが長時間止まる現象）を毎回の起動で
-  // 再発させるリスクがあるため、自動再登録は許可状況の確認のみに留める
+  // 再発させるリスクがあるため、自動再登録は許可状況の確認のみに留める。
+  // その結果、この呼び出しはIndexedDBが無効化されている通常のページ読み込みでは
+  // 毎回失敗するのが想定どおりの挙動であり、その失敗をユーザー向けの表示
+  // （status・lastEnableError）には一切反映しない（syncStatus()側で既に
+  // Notification.permissionに基づいて'granted'表示を確定させているため、ここでの
+  // 失敗で「無効です」に戻してしまうと、更新・再読み込みのたびに誤って
+  // ステータスが切り替わって見えてしまう）。明示的な「有効にする」ボタン操作
+  // （enablePush）の失敗は、そちらで別途status・lastEnableErrorに反映される
   const ensureRegistered = async (): Promise<void> => {
     const uid = authStore.user?.uid
     if (!uid) return
@@ -263,21 +273,9 @@ export const usePushNotifications = () => {
     if (Notification.permission !== 'granted') return
     if (!(await checkSupport())) return
     try {
-      const result = await registerToken(uid)
-      if (result === 'ok') {
-        status.value = 'granted'
-        lastEnableError.value = ''
-      } else if (result === 'no-vapid-key') {
-        status.value = 'idle'
-        lastEnableError.value = 'VAPIDキーが設定されていません（アプリ側の設定不備）'
-      } else {
-        status.value = 'idle'
-        lastEnableError.value = 'getToken()がトークンを返しませんでした（原因不明）'
-      }
+      await registerToken(uid)
     } catch (e: any) {
-      console.warn('push通知トークンの自動再登録に失敗しました', e)
-      status.value = 'idle'
-      lastEnableError.value = e?.name ? `${e.name}: ${e.message}` : String(e?.message ?? e)
+      console.warn('push通知トークンの自動再登録に失敗しました（通常運転の可能性が高い）', e)
     }
   }
 
