@@ -2,9 +2,24 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https')
 const { onDocumentCreated } = require('firebase-functions/v2/firestore')
 const { onSchedule } = require('firebase-functions/v2/scheduler')
 const { setGlobalOptions } = require('firebase-functions/v2')
-const admin = require('firebase-admin')
+const { initializeApp } = require('firebase-admin/app')
+const { getFirestore, FieldValue } = require('firebase-admin/firestore')
+const { getAuth } = require('firebase-admin/auth')
+const { getMessaging } = require('firebase-admin/messaging')
+const { getStorage } = require('firebase-admin/storage')
 
-admin.initializeApp()
+// firebase-admin v13以降、admin.firestore()・admin.auth()等の名前空間形式の
+// APIは廃止された（admin.firestoreはundefinedになる）。各モジュールの
+// getXxx()関数を使うモジュラー形式のAPIに統一する（firebase-admin
+// 12.6.0→14.5.0へのアップデート（コミットb1bbe39、Node 20 EOL対応）の際、
+// この破壊的変更を見落としたまま名前空間形式のまま残っており、デプロイ後
+// admin.firestore()等を呼ぶすべての関数が実行時に
+// 「TypeError: admin.firestore is not a function」で失敗していた）
+initializeApp()
+const db = getFirestore()
+const auth = getAuth()
+const messaging = getMessaging()
+const storage = getStorage()
 
 setGlobalOptions({ region: 'asia-northeast1', maxInstances: 5 })
 
@@ -24,7 +39,7 @@ const AUTH_ERROR_MESSAGES = {
 // （/setup ページから利用）。1件でもユーザーが存在すればこの経路は閉じ、
 // 以降は必ずログイン済みであることを要求する。
 exports.createAuthUser = onCall(async (request) => {
-  const usersSnapshot = await admin.firestore().collection('users').limit(1).get()
+  const usersSnapshot = await db.collection('users').limit(1).get()
   const isBootstrap = usersSnapshot.empty
 
   if (!isBootstrap && !request.auth) {
@@ -39,14 +54,14 @@ exports.createAuthUser = onCall(async (request) => {
 
   let userRecord
   try {
-    userRecord = await admin.auth().createUser({ email, password, displayName })
+    userRecord = await auth.createUser({ email, password, displayName })
   } catch (err) {
     const message = AUTH_ERROR_MESSAGES[err.code] ?? err.message ?? 'ユーザーの作成に失敗しました'
     throw new HttpsError('already-exists', message)
   }
 
   try {
-    await admin.firestore().doc(`users/${userRecord.uid}`).set({
+    await db.doc(`users/${userRecord.uid}`).set({
       email,
       displayName,
       role: isBootstrap ? 'system_admin' : (role ?? 'general'),
@@ -57,12 +72,12 @@ exports.createAuthUser = onCall(async (request) => {
       isActive: true,
       createdBy: request.auth ? request.auth.uid : 'bootstrap',
       updatedBy: request.auth ? request.auth.uid : 'bootstrap',
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     })
   } catch (err) {
     // プロフィール作成に失敗した場合はAuthユーザーも削除してロールバックする
-    await admin.auth().deleteUser(userRecord.uid).catch(() => {})
+    await auth.deleteUser(userRecord.uid).catch(() => {})
     throw new HttpsError('internal', 'ユーザープロフィールの作成に失敗しました')
   }
 
@@ -78,7 +93,7 @@ exports.deleteAuthUser = onCall(async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'ログインが必要です')
   }
-  const callerSnap = await admin.firestore().doc(`users/${request.auth.uid}`).get()
+  const callerSnap = await db.doc(`users/${request.auth.uid}`).get()
   if (callerSnap.data()?.role !== 'system_admin') {
     throw new HttpsError('permission-denied', 'システム管理者のみ実行できます')
   }
@@ -92,13 +107,13 @@ exports.deleteAuthUser = onCall(async (request) => {
   }
 
   try {
-    await admin.auth().deleteUser(uid)
+    await auth.deleteUser(uid)
   } catch (err) {
     if (err.code !== 'auth/user-not-found') {
       throw new HttpsError('internal', 'Authユーザーの削除に失敗しました')
     }
   }
-  await admin.firestore().doc(`users/${uid}`).delete()
+  await db.doc(`users/${uid}`).delete()
 
   return { success: true }
 })
@@ -121,7 +136,7 @@ exports.resetPasswordWithDob = onCall(async (request) => {
   }
 
   const normalizedEmail = String(email).trim().toLowerCase()
-  const attemptsRef = admin.firestore().collection('passwordResetAttempts').doc(normalizedEmail)
+  const attemptsRef = db.collection('passwordResetAttempts').doc(normalizedEmail)
   const attemptsSnap = await attemptsRef.get()
   const now = Date.now()
   const WINDOW_MS = 15 * 60 * 1000
@@ -140,13 +155,13 @@ exports.resetPasswordWithDob = onCall(async (request) => {
 
   let userRecord
   try {
-    userRecord = await admin.auth().getUserByEmail(normalizedEmail)
+    userRecord = await auth.getUserByEmail(normalizedEmail)
   } catch (err) {
     await recordFailure()
     throw new HttpsError('not-found', 'メールアドレスまたは生年月日が正しくありません')
   }
 
-  const userDoc = await admin.firestore().doc(`users/${userRecord.uid}`).get()
+  const userDoc = await db.doc(`users/${userRecord.uid}`).get()
   const userData = userDoc.data()
 
   if (!userDoc.exists || !userData.birthday || userData.birthday !== birthday) {
@@ -158,7 +173,7 @@ exports.resetPasswordWithDob = onCall(async (request) => {
     throw new HttpsError('permission-denied', 'このアカウントはご利用いただけません')
   }
 
-  await admin.auth().updateUser(userRecord.uid, { password: newPassword })
+  await auth.updateUser(userRecord.uid, { password: newPassword })
   await attemptsRef.delete().catch(() => {})
 
   return { success: true }
@@ -174,13 +189,13 @@ exports.sendPushOnNotificationCreate = onDocumentCreated('notifications/{uid}/it
   const data = event.data?.data()
   if (!data) return
 
-  const userSnap = await admin.firestore().doc(`users/${uid}`).get()
+  const userSnap = await db.doc(`users/${uid}`).get()
   const tokens = userSnap.data()?.fcmTokens ?? []
   if (tokens.length === 0) return
 
   const link = data.linkUrl ?? '/notifications'
 
-  const response = await admin.messaging().sendEachForMulticast({
+  const response = await messaging.sendEachForMulticast({
     tokens,
     notification: {
       title: data.title ?? 'JACCS Neo',
@@ -202,8 +217,8 @@ exports.sendPushOnNotificationCreate = onDocumentCreated('notifications/{uid}/it
     }
   })
   if (invalidTokens.length > 0) {
-    await admin.firestore().doc(`users/${uid}`).update({
-      fcmTokens: admin.firestore.FieldValue.arrayRemove(...invalidTokens),
+    await db.doc(`users/${uid}`).update({
+      fcmTokens: FieldValue.arrayRemove(...invalidTokens),
     })
   }
 })
@@ -226,7 +241,6 @@ const STATUS_LABELS = {
 // メモリ上でフィルタする。同じ案件に毎日通知しないよう、案件のupdatedAtを
 // staleAlertSentForに記録し、再更新されるまで再通知しない
 exports.checkStaleServiceCases = onSchedule({ schedule: '0 9 * * *', timeZone: 'Asia/Tokyo' }, async () => {
-  const db = admin.firestore()
 
   const appDefsSnap = await db.collection('appDefs').where('isPublished', '==', true).get()
   const targets = appDefsSnap.docs
@@ -282,7 +296,7 @@ exports.checkStaleServiceCases = onSchedule({ schedule: '0 9 * * *', timeZone: '
           relatedId: caseDoc.id,
           uid,
           isRead: false,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(),
         })
       }
 
@@ -298,7 +312,6 @@ exports.checkStaleServiceCases = onSchedule({ schedule: '0 9 * * *', timeZone: '
 // してからメモリ上でフィルタする。都度の個別削除は別途アプリ側（通知一覧の削除
 // ボタン）で対応している
 exports.cleanupOldNotifications = onSchedule({ schedule: '30 3 * * *', timeZone: 'Asia/Tokyo' }, async () => {
-  const db = admin.firestore()
   const RETENTION_MS = 30 * 24 * 60 * 60 * 1000
   const cutoff = Date.now() - RETENTION_MS
 
@@ -329,7 +342,7 @@ exports.cleanupOldPostImages = onSchedule({ schedule: '0 4 * * *', timeZone: 'As
   const RETENTION_MS = 45 * 24 * 60 * 60 * 1000
   const cutoff = Date.now() - RETENTION_MS
 
-  const bucket = admin.storage().bucket()
+  const bucket = storage.bucket()
   const [files] = await bucket.getFiles({ prefix: 'richtext/posts/' })
 
   const expired = files.filter((file) => {
