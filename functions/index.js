@@ -186,11 +186,30 @@ exports.resetPasswordWithDob = onCall(async (request) => {
 // 合わせてpush送信だけをサーバー側（Admin SDK）で行う設計にしている
 exports.sendPushOnNotificationCreate = onDocumentCreated('notifications/{uid}/items/{itemId}', async (event) => {
   const uid = event.params.uid
+  const itemId = event.params.itemId
+
+  // Cloud Functions v2のFirestoreトリガーは「少なくとも1回」の実行保証であり、
+  // インフラ側の再試行により同一イベントに対して関数本体が複数回実行されることが
+  // ある。冪等性の仕組みが無いと、その都度sendEachForMulticastが呼ばれ、同じ端末に
+  // 同じ通知が重複して届いてしまう（実際に発生した事象）。通知ドキュメント自身に
+  // 「送信試行済み」フラグをトランザクションで立て、2回目以降の実行は即座に
+  // 打ち切ることで、重複実行があっても実際の送信は最大1回に抑える
+  const docRef = db.doc(`notifications/${uid}/items/${itemId}`)
+  const shouldSend = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(docRef)
+    if (!snap.exists) return false
+    if (snap.data().pushSendAttempted) return false
+    tx.update(docRef, { pushSendAttempted: true })
+    return true
+  })
+  if (!shouldSend) return
+
   const data = event.data?.data()
   if (!data) return
 
   const userSnap = await db.doc(`users/${uid}`).get()
-  const tokens = userSnap.data()?.fcmTokens ?? []
+  // 同一トークン文字列が配列に重複して入っていた場合に備え、念のため重複排除する
+  const tokens = [...new Set(userSnap.data()?.fcmTokens ?? [])]
   if (tokens.length === 0) return
 
   const link = data.linkUrl ?? '/notifications'
