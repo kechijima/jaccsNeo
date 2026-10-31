@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { MOCK_ADMIN_USERS } from '~/data/mock'
 import { useUsers } from '~/composables/useUsers'
 import { useStorage } from '~/composables/useStorage'
 import { useAuthStore } from '~/stores/auth'
@@ -77,11 +76,6 @@ const submitSupporterChange = async () => {
   }
 }
 
-// ログイン中の実ユーザーを優先し、未取得時のみモックデータにフォールバックする
-const mockUser = computed(() =>
-  user.value ?? MOCK_ADMIN_USERS.find(u => u.uid === 'mock-user-123')!
-)
-
 // ── フォームデータ ─────────────────────────────────────────────────────────
 const form = reactive({
   // 基本情報
@@ -125,9 +119,11 @@ const DATE_FIELDS = new Set(['joinDate', 'birthday', 'kumiaiJoinDate'])
 // 動物占い（パーソナルデータと同じロジックを共用し、誕生日欄の入力に応じて即時反映する）
 const animalFortune = computed(() => getAnimalFortune(form.birthday))
 
-// 初期化
+// 初期化（認証確認前・ログアウト直後等、ユーザー情報がまだ無い間は何もしない。
+// 実在しないダミーデータで画面を埋めてしまわないようにするため）
 const loadForm = () => {
-  const u = mockUser.value
+  const u = user.value
+  if (!u) return
   form.lastName = u.lastName ?? ''
   form.firstName = u.firstName ?? ''
   form.lastNameKana = u.lastNameKana ?? ''
@@ -272,13 +268,17 @@ const groupLabel = computed(() => groups.value.find(g => g.id === form.groupId)?
       </div>
     </div>
 
+    <!-- ユーザー情報が未確定の間（認証確認中・ログアウト直後等）は、実在しない
+         ダミーデータで画面を埋めてしまわないよう、読み込み中の表示に留める -->
+    <template v-if="user">
+
     <!-- プロフィールカード -->
     <div class="card p-5 flex items-center gap-4">
       <div class="relative shrink-0">
         <UserAvatar
-          :avatar-url="mockUser.avatarUrl"
-          :display-name="mockUser.displayName"
-          :group-id="mockUser.groupId"
+          :avatar-url="user.avatarUrl"
+          :display-name="user.displayName"
+          :group-id="user.groupId"
           size="lg"
         />
         <div v-if="uploadingPhoto" class="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
@@ -286,11 +286,11 @@ const groupLabel = computed(() => groups.value.find(g => g.id === form.groupId)?
         </div>
       </div>
       <div class="flex-1 min-w-0">
-        <p class="text-lg font-bold text-gray-900">{{ formatDisplayName(mockUser) }}</p>
+        <p class="text-lg font-bold text-gray-900">{{ formatDisplayName(user) }}</p>
         <div class="flex items-center gap-2 flex-wrap mt-1">
-          <span class="badge bg-primary-50 text-primary-700 text-xs">{{ mockUser.position }}</span>
+          <span class="badge bg-primary-50 text-primary-700 text-xs">{{ user.position }}</span>
           <span class="badge bg-gray-100 text-gray-600 text-xs">{{ groupLabel }}</span>
-          <span class="text-xs text-gray-400">{{ mockUser.email }}</span>
+          <span class="text-xs text-gray-400">{{ user.email }}</span>
         </div>
         <p v-if="photoError" class="text-xs text-red-500 mt-1">{{ photoError }}</p>
       </div>
@@ -352,7 +352,7 @@ const groupLabel = computed(() => groups.value.find(g => g.id === form.groupId)?
           <!-- 連絡先 -->
           <div>
             <label class="block text-xs font-medium text-gray-500 mb-1">メールアドレス</label>
-            <input :value="mockUser.email" type="email" class="input-field text-sm bg-gray-50" disabled />
+            <input :value="user.email" type="email" class="input-field text-sm bg-gray-50" disabled />
             <p class="mt-1 text-xs text-gray-400">ログインメールアドレスは管理者にご相談ください</p>
           </div>
           <div>
@@ -582,6 +582,12 @@ const groupLabel = computed(() => groups.value.find(g => g.id === form.groupId)?
         </div>
       </template>
 
+    </div>
+
+    </template>
+    <div v-else class="card p-10 text-center">
+      <Icon name="heroicons:arrow-path" class="h-8 w-8 text-gray-300 mx-auto mb-2 animate-spin" />
+      <p class="text-sm text-gray-400">読み込み中...</p>
     </div>
 
   </div>
