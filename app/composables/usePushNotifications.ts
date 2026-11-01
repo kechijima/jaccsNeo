@@ -309,7 +309,15 @@ export const usePushNotifications = () => {
   // 一括リセットする。今回のデバッグ中に「有効にする」とサイトデータ消去を
   // 何度も繰り返した結果、同一端末向けの別々のトークンがfcmTokensに複数
   // 蓄積され、1回の通知が複数回届く事態が発生した。disablePush()は現在の
-  // 端末のトークン1件しか削除できないため、まとめて片付ける別経路を用意する
+  // 端末のトークン1件しか削除できないため、まとめて片付ける別経路を用意する。
+  //
+  // サーバー側（FirestoreのfcmTokens配列）をクリアするだけでは、この端末の
+  // ブラウザに残っているpush購読（PushSubscription）・Service Worker登録
+  // 自体は消えずに残ってしまう。古いpush購読が残ったまま新しく「有効にする」
+  // を押すと、ブラウザ側の状態次第では重複配信の原因になり得るため、この
+  // 端末のpush購読・Service Worker登録も明示的に解除する（ユーザーの明示的な
+  // 操作のため、disablePush()等と同様にwithRealIndexedDB()で本物のIndexedDBを
+  // 一時的に復元する）
   const resetAllTokens = async (): Promise<void> => {
     const uid = authStore.user?.uid
     if (!uid) return
@@ -317,6 +325,14 @@ export const usePushNotifications = () => {
       await updateDoc(doc($db, 'users', uid), {
         fcmTokens: [],
         updatedAt: serverTimestamp(),
+      })
+      await withRealIndexedDB(async () => {
+        const registration = await navigator.serviceWorker.getRegistration(PUSH_SCOPE).catch(() => undefined)
+        if (registration) {
+          const subscription = await registration.pushManager.getSubscription().catch(() => null)
+          if (subscription) await subscription.unsubscribe().catch(() => {})
+          await registration.unregister().catch(() => {})
+        }
       })
       status.value = 'idle'
       showToast('push通知トークンをすべてリセットしました。各端末で改めて「有効にする」を押してください')
