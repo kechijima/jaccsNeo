@@ -190,10 +190,12 @@ export const usePushNotifications = () => {
         updatedAt: serverTimestamp(),
       })
 
-      // フォアグラウンド（このタブを開いている間）はOS通知が自動表示されないため、トーストで代替表示する
+      // フォアグラウンド（このタブを開いている間）はOS通知が自動表示されないため、トーストで代替表示する。
+      // サーバー側はdataのみのメッセージとして送っている（二重表示を防ぐため。
+      // functions/index.js・firebase-messaging-sw.js.ts参照）ため、ここもpayload.dataを参照する
       onMessage(messaging, (payload) => {
-        const title = payload.notification?.title ?? '通知'
-        const body = payload.notification?.body ?? ''
+        const title = payload.data?.title ?? '通知'
+        const body = payload.data?.body ?? ''
         showToast(body ? `${title}: ${body}` : title, 5000)
       })
       return 'ok' as const

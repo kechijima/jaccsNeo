@@ -36,14 +36,19 @@ const messaging = firebase.messaging()
 self.addEventListener('install', () => self.skipWaiting())
 self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()))
 
-// アプリがフォアグラウンドに無い（タブが非アクティブ・閉じている）ときの通知表示
+// アプリがフォアグラウンドに無い（タブが非アクティブ・閉じている）ときの通知表示。
+// サーバー側（functions/index.js）はあえて notification フィールドを使わず
+// data のみのメッセージとして送っている（notification フィールドがあると
+// ブラウザが自動表示したうえでここでも showNotification() が呼ばれ、
+// 1回の送信で通知が2件表示されてしまうため）。表示はこのハンドラのみで行う
 messaging.onBackgroundMessage((payload) => {
-  const title = payload.notification?.title ?? 'JACCS Neo'
-  const body = payload.notification?.body ?? ''
-  const link = payload.fcmOptions?.link ?? payload.data?.link ?? '/notifications'
+  const title = payload.data?.title ?? 'JACCS Neo'
+  const body = payload.data?.body ?? ''
+  const link = payload.data?.link ?? '/notifications'
+  const icon = payload.data?.icon ?? '/icons/icon-192.png'
   self.registration.showNotification(title, {
     body,
-    icon: '/icons/icon-192.png',
+    icon,
     badge: '/icons/icon-192.png',
     data: { link },
   })

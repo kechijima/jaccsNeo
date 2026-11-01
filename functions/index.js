@@ -222,15 +222,21 @@ exports.sendPushOnNotificationCreate = onDocumentCreated('notifications/{uid}/it
 
   const link = data.linkUrl ?? '/notifications'
 
+  // 注意: あえて notification フィールドを使わず、data のみのメッセージとして送る。
+  // notification フィールドを含めると、ブラウザ（Push API/FCM側）がその内容で
+  // 通知を自動表示したうえで、さらにこちらのService Worker側の
+  // onBackgroundMessage ハンドラが showNotification() を呼ぶため、1回の送信で
+  // 通知が2件表示されてしまう（よく知られたFCM Web Pushの落とし穴）。
+  // dataのみのメッセージにすることで自動表示をさせず、表示は
+  // onBackgroundMessage ハンドラ側だけで行う（server/routes/firebase-messaging-sw.js.ts参照）。
+  // FCMのdataペイロードは値がすべて文字列である必要がある
   const response = await messaging.sendEachForMulticast({
     tokens,
-    notification: {
+    data: {
       title: data.title ?? 'JACCS Neo',
       body: data.body ?? '',
-    },
-    webpush: {
-      fcmOptions: { link },
-      notification: { icon: '/icons/icon-192.png' },
+      link,
+      icon: '/icons/icon-192.png',
     },
   })
 
