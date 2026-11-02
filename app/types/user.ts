@@ -44,6 +44,14 @@ export const meetsScopeVisibility = (
 // グループはFirestoreの groups コレクションで動的に追加できるため、固定の列挙型ではなくstringとする
 export type GroupId = string
 
+// ユーザーに付与するバッジ（管理画面で複数選択可、アイコン画像に重ねて表示する）
+export type UserBadge = 'M100' | 'M5-3'
+
+export const USER_BADGE_OPTIONS: { value: UserBadge; label: string; icon: string }[] = [
+  { value: 'M100', label: 'M100', icon: '/badges/m100.png' },
+  { value: 'M5-3', label: 'M5-3', icon: '/badges/m5-3.png' },
+]
+
 export interface AppUser {
   uid:          string
   email:        string
@@ -123,6 +131,9 @@ export interface AppUser {
 
   // ── 初回ログイン時のアプリ内ガイドを表示済みかどうか ──────────────────
   onboardingSeen?: boolean
+
+  // ── バッジ（管理画面で付与。複数可） ────────────────────────────────
+  badges?: UserBadge[]
 
   createdAt: Date
   updatedAt: Date

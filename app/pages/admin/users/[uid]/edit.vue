@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { TITLE_OPTIONS, type UserRole, type SpecialTeam, type GroupId } from '~/types/user'
+import { TITLE_OPTIONS, USER_BADGE_OPTIONS, type UserRole, type SpecialTeam, type GroupId, type UserBadge } from '~/types/user'
 import type { Group } from '~/types/group'
 import type { SpecialTeamDef } from '~/types/specialTeam'
 import { useGroups } from '~/composables/useGroups'
@@ -8,6 +8,7 @@ import { useOperationLog } from '~/composables/useOperationLog'
 import { useDirectorIndex } from '~/composables/useDirectorIndex'
 import { useStorage } from '~/composables/useStorage'
 import { useAuthStore } from '~/stores/auth'
+import { toKatakana, hasNonKatakana } from '~/utils/kana'
 
 definePageMeta({ middleware: ['auth', 'admin'] })
 
@@ -89,6 +90,29 @@ const handlePhotoSelect = async (e: Event) => {
   }
 }
 
+// ── バッジ（アイコン画像と同様、システム管理者が個別に即時保存する） ───────
+const badges = ref<UserBadge[]>([])
+const savingBadges = ref(false)
+const badgesError = ref('')
+
+const toggleBadge = async (badge: UserBadge) => {
+  const next = badges.value.includes(badge)
+    ? badges.value.filter(b => b !== badge)
+    : [...badges.value, badge]
+  const previous = badges.value
+  badges.value = next
+  savingBadges.value = true
+  badgesError.value = ''
+  try {
+    await updateUserProfile(uid.value, { badges: next })
+  } catch (e: any) {
+    badges.value = previous
+    badgesError.value = e.message ?? 'バッジの保存に失敗しました'
+  } finally {
+    savingBadges.value = false
+  }
+}
+
 onMounted(async () => {
   loading.value = true
   try {
@@ -103,6 +127,7 @@ onMounted(async () => {
       originalRole.value = user.role
       originalName.value = user.displayName
       avatarUrl.value = user.avatarUrl ?? ''
+      badges.value = user.badges ?? []
       // 姓名未設定（姓名分割対応より前に作成されたユーザー）の場合、保存済みの
       // displayNameをそのまま「姓」欄へ引き継ぐ。これにより、このまま何も
       // 変更せず保存してもdisplayNameが空になってしまうことを防ぐ
@@ -257,25 +282,41 @@ const toggleSpecialTeam = (team: string) => {
 
     <h1 class="text-xl font-bold text-gray-900">ユーザー編集</h1>
 
+    <p v-if="error" class="rounded-lg bg-red-50 border border-red-200 px-4 py-2.5 text-sm text-red-600">{{ error }}</p>
+
     <!-- アイコン画像 -->
-    <div v-if="authStore.isSystemAdmin" class="card p-5 flex items-center gap-4">
-      <div class="relative shrink-0">
-        <UserAvatar :avatar-url="avatarUrl" :display-name="displayName" :group-id="form.groupId" size="lg" />
-        <div v-if="uploadingPhoto" class="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
-          <Icon name="heroicons:arrow-path" class="h-5 w-5 text-white animate-spin" />
+    <div v-if="authStore.isSystemAdmin" class="card p-5 space-y-4">
+      <div class="flex items-center gap-4">
+        <div class="relative shrink-0">
+          <UserAvatar :avatar-url="avatarUrl" :display-name="displayName" :group-id="form.groupId" :badges="badges" size="lg" />
+          <div v-if="uploadingPhoto" class="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
+            <Icon name="heroicons:arrow-path" class="h-5 w-5 text-white animate-spin" />
+          </div>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium text-gray-900">アイコン画像</p>
+          <p class="text-xs text-gray-400 mt-0.5">JPEG・PNG、5MBまで</p>
+          <p v-if="photoError" class="text-xs text-red-500 mt-1">{{ photoError }}</p>
+        </div>
+        <div class="shrink-0">
+          <button type="button" class="btn-secondary text-xs flex items-center gap-1" :disabled="uploadingPhoto" @click="photoInputRef?.click()">
+            <Icon name="heroicons:camera" class="h-3.5 w-3.5" />
+            画像を変更
+          </button>
+          <input ref="photoInputRef" type="file" accept="image/jpeg,image/png" class="hidden" @change="handlePhotoSelect" />
         </div>
       </div>
-      <div class="flex-1 min-w-0">
-        <p class="text-sm font-medium text-gray-900">アイコン画像</p>
-        <p class="text-xs text-gray-400 mt-0.5">JPEG・PNG、5MBまで</p>
-        <p v-if="photoError" class="text-xs text-red-500 mt-1">{{ photoError }}</p>
-      </div>
-      <div class="shrink-0">
-        <button type="button" class="btn-secondary text-xs flex items-center gap-1" :disabled="uploadingPhoto" @click="photoInputRef?.click()">
-          <Icon name="heroicons:camera" class="h-3.5 w-3.5" />
-          画像を変更
-        </button>
-        <input ref="photoInputRef" type="file" accept="image/jpeg,image/png" class="hidden" @change="handlePhotoSelect" />
+
+      <div class="pt-4 border-t border-gray-100">
+        <p class="text-sm font-medium text-gray-900 mb-2">バッジ</p>
+        <div class="flex flex-wrap gap-3">
+          <label v-for="b in USER_BADGE_OPTIONS" :key="b.value" class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" :checked="badges.includes(b.value)" :disabled="savingBadges" class="h-4 w-4 rounded text-primary-600" @change="toggleBadge(b.value)" />
+            <img :src="b.icon" :alt="b.label" class="h-5 w-5" />
+            <span class="text-sm text-gray-700">{{ b.label }}</span>
+          </label>
+        </div>
+        <p v-if="badgesError" class="mt-1.5 text-xs text-red-500">{{ badgesError }}</p>
       </div>
     </div>
 
@@ -292,11 +333,13 @@ const toggleSpecialTeam = (team: string) => {
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">姓（よみがな）</label>
-          <input v-model="form.lastNameKana" type="text" class="input-field" />
+          <input v-model="form.lastNameKana" type="text" class="input-field" @blur="form.lastNameKana = toKatakana(form.lastNameKana)" />
+          <p v-if="hasNonKatakana(form.lastNameKana)" class="mt-1 text-xs text-amber-600">カタカナ以外の文字が含まれています</p>
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">名（よみがな）</label>
-          <input v-model="form.firstNameKana" type="text" class="input-field" />
+          <input v-model="form.firstNameKana" type="text" class="input-field" @blur="form.firstNameKana = toKatakana(form.firstNameKana)" />
+          <p v-if="hasNonKatakana(form.firstNameKana)" class="mt-1 text-xs text-amber-600">カタカナ以外の文字が含まれています</p>
         </div>
       </div>
 

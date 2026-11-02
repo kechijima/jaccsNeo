@@ -309,6 +309,7 @@ const handleMarkAllRead = async () => {
               :avatar-url="user?.avatarUrl"
               :display-name="displayName"
               :group-id="user?.groupId"
+              :badges="user?.badges"
               size="md"
               class="transition group-hover:ring-2 group-hover:ring-offset-1 group-hover:ring-primary-300"
             />
@@ -544,6 +545,7 @@ const handleMarkAllRead = async () => {
                     :avatar-url="user?.avatarUrl"
                     :display-name="displayName"
                     :group-id="user?.groupId"
+                    :badges="user?.badges"
                     size="md"
                   />
                   <div class="min-w-0 flex-1">

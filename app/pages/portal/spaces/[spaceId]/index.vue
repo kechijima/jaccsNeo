@@ -396,14 +396,17 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
           </div>
           <div class="p-4">
             <div class="flex items-start gap-3">
-              <button
-                type="button"
-                class="h-9 w-9 rounded-full flex items-center justify-center overflow-hidden text-white text-sm font-semibold shrink-0 bg-amber-400 hover:ring-2 hover:ring-amber-300 transition"
-                @click="openAuthorProfile(pinnedPost.authorId, pinnedPost.authorName)"
-              >
-                <img v-if="pinnedPost.authorAvatarUrl" :src="pinnedPost.authorAvatarUrl" alt="" class="h-full w-full object-cover" />
-                <template v-else>{{ pinnedPost.authorInitial }}</template>
-              </button>
+              <div class="relative shrink-0">
+                <button
+                  type="button"
+                  class="h-9 w-9 rounded-full flex items-center justify-center overflow-hidden text-white text-sm font-semibold shrink-0 bg-amber-400 hover:ring-2 hover:ring-amber-300 transition"
+                  @click="openAuthorProfile(pinnedPost.authorId, pinnedPost.authorName)"
+                >
+                  <img v-if="pinnedPost.authorAvatarUrl" :src="pinnedPost.authorAvatarUrl" alt="" class="h-full w-full object-cover" />
+                  <template v-else>{{ pinnedPost.authorInitial }}</template>
+                </button>
+                <AvatarBadgeOverlay :badges="pinnedPost.authorBadges" />
+              </div>
               <div class="flex-1 min-w-0">
                 <p class="text-sm font-semibold text-gray-900">{{ pinnedPost.authorName }}</p>
                 <div class="text-sm text-gray-700 mt-1 leading-relaxed prose prose-sm max-w-none" v-html="pinnedPost.content" @click="handleMentionClick" />
@@ -565,15 +568,18 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
         >
           <!-- 投稿ヘッダー -->
           <div class="px-4 pt-4 pb-3 flex items-start gap-3">
-            <button
-              type="button"
-              class="h-9 w-9 rounded-full flex items-center justify-center overflow-hidden text-white text-sm font-semibold shrink-0 hover:ring-2 hover:ring-primary-300 transition"
-              :class="getGroupColor(members.find(u => u.uid === post.authorId)?.groupId)"
-              @click="openAuthorProfile(post.authorId, post.authorName)"
-            >
-              <img v-if="post.authorAvatarUrl" :src="post.authorAvatarUrl" alt="" class="h-full w-full object-cover" />
-              <template v-else>{{ post.authorInitial }}</template>
-            </button>
+            <div class="relative shrink-0">
+              <button
+                type="button"
+                class="h-9 w-9 rounded-full flex items-center justify-center overflow-hidden text-white text-sm font-semibold shrink-0 hover:ring-2 hover:ring-primary-300 transition"
+                :class="getGroupColor(members.find(u => u.uid === post.authorId)?.groupId)"
+                @click="openAuthorProfile(post.authorId, post.authorName)"
+              >
+                <img v-if="post.authorAvatarUrl" :src="post.authorAvatarUrl" alt="" class="h-full w-full object-cover" />
+                <template v-else>{{ post.authorInitial }}</template>
+              </button>
+              <AvatarBadgeOverlay :badges="post.authorBadges" />
+            </div>
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2 flex-wrap">
                 <span class="text-sm font-semibold text-gray-900">{{ post.authorName }}</span>
@@ -663,9 +669,12 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
           <div class="px-4 py-3 border-t border-gray-100 space-y-2 bg-gray-50/50">
             <div v-if="post.comments.length > 0" class="space-y-2">
               <div v-for="comment in post.comments" :key="comment.id" class="flex items-start gap-2">
-                <div class="h-7 w-7 rounded-full flex items-center justify-center overflow-hidden text-white text-xs font-semibold shrink-0 bg-gray-400">
-                  <img v-if="comment.authorAvatarUrl" :src="comment.authorAvatarUrl" alt="" class="h-full w-full object-cover" />
-                  <template v-else>{{ comment.authorInitial }}</template>
+                <div class="relative shrink-0">
+                  <div class="h-7 w-7 rounded-full flex items-center justify-center overflow-hidden text-white text-xs font-semibold shrink-0 bg-gray-400">
+                    <img v-if="comment.authorAvatarUrl" :src="comment.authorAvatarUrl" alt="" class="h-full w-full object-cover" />
+                    <template v-else>{{ comment.authorInitial }}</template>
+                  </div>
+                  <AvatarBadgeOverlay :badges="comment.authorBadges" size="xs" />
                 </div>
                 <div class="flex-1 bg-white rounded-lg px-2.5 py-1.5 border border-gray-100">
                   <p class="text-xs font-semibold text-gray-700">{{ comment.authorName }} <span class="font-normal text-gray-400">{{ comment.postedAt }}</span></p>

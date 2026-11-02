@@ -11,6 +11,7 @@ import { useSpecialTeams } from '~/composables/useSpecialTeams'
 import { TITLE_OPTIONS, type UserRole, type SpecialTeam, type AppUser } from '~/types/user'
 import type { Group } from '~/types/group'
 import type { SpecialTeamDef } from '~/types/specialTeam'
+import { toKatakana, hasNonKatakana } from '~/utils/kana'
 
 definePageMeta({ middleware: ['auth', 'admin'] })
 
@@ -215,6 +216,15 @@ const previewRows = computed<UserPreviewRow[]>(() => {
       if (col.group !== 'profile') continue
       const v = rawByKey[col.key]
       if (v) profileFields[col.key] = v
+    }
+    // よみがなはひらがな→カタカナへ自動変換して保存する（入力画面と同じ扱い）。
+    // 変換後もカタカナ以外（漢字・英数字等）が残る場合は警告のみ表示し、ブロックはしない
+    for (const key of ['lastNameKana', 'firstNameKana'] as const) {
+      if (!profileFields[key]) continue
+      profileFields[key] = toKatakana(profileFields[key])
+      if (hasNonKatakana(profileFields[key])) {
+        warnings.push(`${key === 'lastNameKana' ? '姓（よみがな）' : '名（よみがな）'}にカタカナ以外の文字が含まれています`)
+      }
     }
     // 姓・名・所属組合名はcreateAuthUserが受け取らない（displayNameの生成にのみ
     // 使われる）ため、AppUserの個別フィールドとしてもここで明示的に反映する

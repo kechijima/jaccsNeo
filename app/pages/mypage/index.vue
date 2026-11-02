@@ -6,6 +6,7 @@ import { useGroups } from '~/composables/useGroups'
 import { useDisplayName } from '~/composables/useDisplayName'
 import { useRequests } from '~/composables/useRequests'
 import { getAnimalFortune } from '~/utils/animalFortune'
+import { toKatakana, hasNonKatakana } from '~/utils/kana'
 import type { AppUser } from '~/types/user'
 import type { Group } from '~/types/group'
 
@@ -115,6 +116,13 @@ const form = reactive({
 
 // 日付系（ネイティブの日付ピッカーを使うため「なし」を代入できない項目）
 const DATE_FIELDS = new Set(['joinDate', 'birthday', 'kumiaiJoinDate'])
+
+// ふりがなは入力欄を離れたタイミングでひらがな→カタカナへ自動変換する
+// （保存自体はブロックしない。変換しきれない文字（漢字・英数字等）が
+// 残っている場合は下に警告文を表示するのみ）
+const handleKanaBlur = (field: 'lastNameKana' | 'firstNameKana') => {
+  form[field] = toKatakana(form[field])
+}
 
 // 動物占い（パーソナルデータと同じロジックを共用し、誕生日欄の入力に応じて即時反映する）
 const animalFortune = computed(() => getAnimalFortune(form.birthday))
@@ -279,6 +287,7 @@ const groupLabel = computed(() => groups.value.find(g => g.id === form.groupId)?
           :avatar-url="user.avatarUrl"
           :display-name="user.displayName"
           :group-id="user.groupId"
+          :badges="user.badges"
           size="lg"
         />
         <div v-if="uploadingPhoto" class="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
@@ -342,11 +351,13 @@ const groupLabel = computed(() => groups.value.find(g => g.id === form.groupId)?
           <!-- よみがな -->
           <div>
             <label class="block text-xs font-medium text-gray-500 mb-1">姓（よみがな）</label>
-            <input v-model="form.lastNameKana" type="text" class="input-field text-sm disabled:bg-gray-50 disabled:text-gray-400" placeholder="ヤマダ" :disabled="!canEditName" />
+            <input v-model="form.lastNameKana" type="text" class="input-field text-sm disabled:bg-gray-50 disabled:text-gray-400" placeholder="ヤマダ" :disabled="!canEditName" @blur="handleKanaBlur('lastNameKana')" />
+            <p v-if="hasNonKatakana(form.lastNameKana)" class="mt-1 text-xs text-amber-600">カタカナ以外の文字が含まれています</p>
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-500 mb-1">名（よみがな）</label>
-            <input v-model="form.firstNameKana" type="text" class="input-field text-sm disabled:bg-gray-50 disabled:text-gray-400" placeholder="タロウ" :disabled="!canEditName" />
+            <input v-model="form.firstNameKana" type="text" class="input-field text-sm disabled:bg-gray-50 disabled:text-gray-400" placeholder="タロウ" :disabled="!canEditName" @blur="handleKanaBlur('firstNameKana')" />
+            <p v-if="hasNonKatakana(form.firstNameKana)" class="mt-1 text-xs text-amber-600">カタカナ以外の文字が含まれています</p>
           </div>
 
           <!-- 連絡先 -->

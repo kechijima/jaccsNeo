@@ -88,6 +88,7 @@ const activeTab = ref<typeof tabs[number]['key']>('basic')
           :avatar-url="profile.avatarUrl"
           :display-name="profile.displayName"
           :group-id="profile.groupId"
+          :badges="profile.badges"
           size="lg"
         />
         <div class="flex-1 min-w-0">
