@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useGroups } from '~/composables/useGroups'
+import { useGroups, DEFAULT_GROUPS } from '~/composables/useGroups'
 import { useGroupLabels } from '~/composables/useGroupLabels'
 import { useUsers } from '~/composables/useUsers'
 import { useSpecialTeams } from '~/composables/useSpecialTeams'
@@ -10,7 +10,7 @@ import type { SpecialTeamDef } from '~/types/specialTeam'
 
 definePageMeta({ middleware: ['auth', 'admin'] })
 
-const { fetchGroups, createGroup, updateGroup, createKumiai, updateKumiai, deleteKumiai: removeKumiai } = useGroups()
+const { fetchGroups, createGroup, updateGroup, createKumiai, updateKumiai, deleteKumiai: removeKumiai, deleteGroup } = useGroups()
 const { getGroupColor, ensureLoaded: ensureGroupLabelsLoaded } = useGroupLabels()
 const { fetchUsers } = useUsers()
 const { fetchAll: fetchSpecialTeams, createTeam, updateTeam, deleteTeam } = useSpecialTeams()
@@ -40,6 +40,7 @@ const loadGroups = async () => {
 onMounted(loadGroups)
 
 const getColor = (id: string) => getGroupColor(id)
+const isDefaultGroup = (id: string) => DEFAULT_GROUPS.some(g => g.id === id)
 
 // 実際に割り当てられているユーザー数から算出する（手入力ではなく常に最新の実数）
 const groupMemberCount = (groupId: string) => users.value.filter(u => u.groupId === groupId).length
@@ -176,6 +177,34 @@ const submitEditGroup = async () => {
     await ensureGroupLabelsLoaded(true)
   } finally {
     editGroupSaving.value = false
+  }
+}
+
+// ── グループ削除 ─────────────────────────────────────────────────────────
+// 既定3グループ（Reterace/Miraito/Asset）・所属メンバーがいるグループ・配下に
+// 組合があるグループは削除不可（useGroups().deleteGroup()側でも二重にチェックする）
+const deleteGroupError = ref('')
+const deletingGroupId = ref('')
+const handleDeleteGroup = async (g: Group) => {
+  if (groupMemberCount(g.id) > 0) {
+    alert(`「${g.name}」には所属メンバーが${groupMemberCount(g.id)}人いるため削除できません。先にメンバーの所属を変更してください。`)
+    return
+  }
+  if (g.kumiai.length > 0) {
+    alert(`「${g.name}」には組合が${g.kumiai.length}件登録されているため削除できません。先にすべての組合を削除してください。`)
+    return
+  }
+  if (!confirm(`グループ「${g.name}」を削除します。この操作は取り消せません。よろしいですか？`)) return
+  deletingGroupId.value = g.id
+  deleteGroupError.value = ''
+  try {
+    await deleteGroup(g.id)
+    groups.value = groups.value.filter(x => x.id !== g.id)
+  } catch (e: any) {
+    deleteGroupError.value = e.message ?? 'グループの削除に失敗しました'
+    alert(deleteGroupError.value)
+  } finally {
+    deletingGroupId.value = ''
   }
 }
 
@@ -320,6 +349,14 @@ const deleteKumiai = async (g: Group, kumiaiId: string) => {
             @click="openEditGroup(group)"
           >
             <Icon name="heroicons:pencil-square" class="h-3 w-3" />グループ編集
+          </button>
+          <button
+            v-if="!isDefaultGroup(group.id)"
+            class="text-xs text-gray-500 hover:text-red-600 flex items-center gap-0.5 disabled:opacity-50"
+            :disabled="deletingGroupId === group.id"
+            @click="handleDeleteGroup(group)"
+          >
+            <Icon name="heroicons:trash" class="h-3 w-3" />削除
           </button>
         </div>
       </div>

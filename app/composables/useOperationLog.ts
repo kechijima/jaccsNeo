@@ -17,6 +17,7 @@ export type OperationLogAction =
   | 'kumiai_create'
   | 'kumiai_dissolve'
   | 'group_create'
+  | 'group_delete'
   | 'request_approve'
   | 'request_reject'
   | 'user_role_change'
@@ -32,6 +33,7 @@ export const OPERATION_LOG_LABELS: Record<OperationLogAction, string> = {
   kumiai_create:     '組合・準備室の登録',
   kumiai_dissolve:   '組合の解体',
   group_create:      'グループの登録',
+  group_delete:      'グループの削除',
   request_approve:   '申請の承認',
   request_reject:    '申請の却下',
   user_role_change:  'ユーザー権限の変更',
