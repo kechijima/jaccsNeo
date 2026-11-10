@@ -117,12 +117,18 @@ const liForm = reactive<LifeInsuranceCaseInput>({
   recordNumber: liCase.value?.recordNumber ?? '',
 })
 
-// 選択結果から表示用の氏名を自動的に同期する
+// 選択結果から表示用の氏名を自動的に同期する。uidはあるがユーザー一覧側に
+// まだ一致するユーザーが見つからない場合（読み込みタイミングの競合）は、
+// 既存の氏名を空文字で上書きしないよう、そのまま保持する
 watch(() => liForm.assignedFpUid, (uid) => {
-  liForm.assignedFpName = allUsers.value.find(u => u.uid === uid)?.displayName ?? ''
+  if (!uid) { liForm.assignedFpName = ''; return }
+  const matched = allUsers.value.find(u => u.uid === uid)
+  if (matched) liForm.assignedFpName = matched.displayName
 })
 watch(() => liForm.faceToFaceStaffUid, (uid) => {
-  liForm.faceToFaceStaffName = faceToFaceStaffCandidates.value.find(u => u.uid === uid)?.displayName ?? ''
+  if (!uid) { liForm.faceToFaceStaffName = ''; return }
+  const matched = faceToFaceStaffCandidates.value.find(u => u.uid === uid)
+  if (matched) liForm.faceToFaceStaffName = matched.displayName
 })
 
 // 保険証券コピー（既存分を引き継ぎつつ、Firebase Storageへ追加アップロード）

@@ -272,12 +272,20 @@ const liForm = reactive<LifeInsuranceCaseInput>({
 })
 
 // 担当未来設計士はuidで選択し、表示用の氏名は選択結果から自動的に同期する
-// （同姓同名ユーザーが存在しても、以後の集計・ランキングでuidを使って正しく識別できるようにするため）
+// （同姓同名ユーザーが存在しても、以後の集計・ランキングでuidを使って正しく識別できるようにするため）。
+// uidが設定されているのにユーザー一覧（allUsers）側でまだ一致するユーザーが
+// 見つからない場合（顧客情報からのuid初期セットが、ユーザー一覧読み込み完了より
+// 先に走った場合のタイミング競合）は、既に入っている氏名（顧客情報由来の初期値等）
+// を空文字で上書きしてしまわないよう、そのまま保持する
 watch(() => liForm.assignedFpUid, (uid) => {
-  liForm.assignedFpName = allUsers.value.find(u => u.uid === uid)?.displayName ?? ''
+  if (!uid) { liForm.assignedFpName = ''; return }
+  const matched = allUsers.value.find(u => u.uid === uid)
+  if (matched) liForm.assignedFpName = matched.displayName
 })
 watch(() => liForm.faceToFaceStaffUid, (uid) => {
-  liForm.faceToFaceStaffName = faceToFaceStaffCandidates.value.find(u => u.uid === uid)?.displayName ?? ''
+  if (!uid) { liForm.faceToFaceStaffName = ''; return }
+  const matched = faceToFaceStaffCandidates.value.find(u => u.uid === uid)
+  if (matched) liForm.faceToFaceStaffName = matched.displayName
 })
 
 // 保険証券コピー（Firebase Storageへアップロードし、ダウンロードURLを保持）
