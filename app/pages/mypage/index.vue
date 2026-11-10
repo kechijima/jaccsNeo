@@ -350,12 +350,12 @@ const groupLabel = computed(() => groups.value.find(g => g.id === form.groupId)?
 
           <!-- よみがな -->
           <div>
-            <label class="block text-xs font-medium text-gray-500 mb-1">姓（よみがな）</label>
+            <label class="block text-xs font-medium text-gray-500 mb-1">姓（ヨミガナ）</label>
             <input v-model="form.lastNameKana" type="text" class="input-field text-sm disabled:bg-gray-50 disabled:text-gray-400" placeholder="ヤマダ" :disabled="!canEditName" @blur="handleKanaBlur('lastNameKana')" />
             <p v-if="hasNonKatakana(form.lastNameKana)" class="mt-1 text-xs text-amber-600">カタカナ以外の文字が含まれています</p>
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-500 mb-1">名（よみがな）</label>
+            <label class="block text-xs font-medium text-gray-500 mb-1">名（ヨミガナ）</label>
             <input v-model="form.firstNameKana" type="text" class="input-field text-sm disabled:bg-gray-50 disabled:text-gray-400" placeholder="タロウ" :disabled="!canEditName" @blur="handleKanaBlur('firstNameKana')" />
             <p v-if="hasNonKatakana(form.firstNameKana)" class="mt-1 text-xs text-amber-600">カタカナ以外の文字が含まれています</p>
           </div>

@@ -332,12 +332,12 @@ const toggleSpecialTeam = (team: string) => {
           <input v-model="form.firstName" type="text" class="input-field" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">姓（よみがな）</label>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">姓（ヨミガナ）</label>
           <input v-model="form.lastNameKana" type="text" class="input-field" @blur="form.lastNameKana = toKatakana(form.lastNameKana)" />
           <p v-if="hasNonKatakana(form.lastNameKana)" class="mt-1 text-xs text-amber-600">カタカナ以外の文字が含まれています</p>
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">名（よみがな）</label>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">名（ヨミガナ）</label>
           <input v-model="form.firstNameKana" type="text" class="input-field" @blur="form.firstNameKana = toKatakana(form.firstNameKana)" />
           <p v-if="hasNonKatakana(form.firstNameKana)" class="mt-1 text-xs text-amber-600">カタカナ以外の文字が含まれています</p>
         </div>
