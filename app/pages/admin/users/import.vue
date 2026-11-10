@@ -8,7 +8,7 @@ import { downloadCsv } from '~/utils/csvCustomer'
 import { USER_CSV_COLUMNS, ROLE_LABEL_TO_VALUE, splitUserMultiValue, buildUserCsvTemplate } from '~/utils/csvUser'
 import { useGroups } from '~/composables/useGroups'
 import { useSpecialTeams } from '~/composables/useSpecialTeams'
-import { TITLE_OPTIONS, type UserRole, type SpecialTeam, type AppUser } from '~/types/user'
+import { TITLE_OPTIONS, USER_BADGE_OPTIONS, type UserRole, type SpecialTeam, type AppUser, type UserBadge } from '~/types/user'
 import type { Group } from '~/types/group'
 import type { SpecialTeamDef } from '~/types/specialTeam'
 import { toKatakana, hasNonKatakana } from '~/utils/kana'
@@ -225,6 +225,18 @@ const previewRows = computed<UserPreviewRow[]>(() => {
       if (hasNonKatakana(profileFields[key])) {
         warnings.push(`${key === 'lastNameKana' ? '姓（よみがな）' : '名（よみがな）'}にカタカナ以外の文字が含まれています`)
       }
+    }
+    // バッジは読点・カンマ区切りの複数値（例: 「M100、M5-3」）をUserBadge[]に変換する。
+    // 管理画面（ユーザー編集）のチェックボックスと同じUSER_BADGE_OPTIONSの値（M100/M5-3）
+    // と照合し、一致しない値は警告のみ（該当分はスキップ）とする
+    if (profileFields.badges) {
+      const badges: UserBadge[] = []
+      for (const name of splitUserMultiValue(profileFields.badges)) {
+        const b = USER_BADGE_OPTIONS.find(o => o.value === name)
+        if (b) badges.push(b.value)
+        else warnings.push(`バッジ「${name}」が見つかりません（M100・M5-3のいずれかを指定してください）`)
+      }
+      profileFields.badges = badges
     }
     // 姓・名・所属組合名はcreateAuthUserが受け取らない（displayNameの生成にのみ
     // 使われる）ため、AppUserの個別フィールドとしてもここで明示的に反映する

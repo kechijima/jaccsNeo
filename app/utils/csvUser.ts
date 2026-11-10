@@ -23,6 +23,7 @@ export const USER_CSV_COLUMNS: UserCsvColumn[] = [
   { header: '所属グループ',         key: 'groupId',             group: 'account' },
   { header: '所属組合',             key: 'kumiaiId',            group: 'account' },
   { header: 'タイトル',             key: 'position',            group: 'account' },
+  { header: 'バッジ',               key: 'badges',              group: 'profile' },
   { header: '未来設計ID',           key: 'employeeId',          group: 'profile' },
   { header: '携帯電話',             key: 'mobile',              group: 'profile' },
   { header: '誕生日',               key: 'birthday',            group: 'profile' },
