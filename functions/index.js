@@ -46,7 +46,7 @@ const AUTH_ERROR_MESSAGES = {
 // 呼び出しを許可し、強制的にsystem_adminとして最初の管理者アカウントを作成する
 // （/setup ページから利用）。1件でもユーザーが存在すればこの経路は閉じ、
 // 以降は必ずログイン済みであることを要求する。
-exports.createAuthUser = onCall(async (request) => {
+exports.createAuthUser = onCall({ cors: true }, async (request) => {
   const usersSnapshot = await db.collection('users').limit(1).get()
   const isBootstrap = usersSnapshot.empty
 
@@ -96,8 +96,13 @@ exports.createAuthUser = onCall(async (request) => {
 // フローを経ずにアカウント自体を削除したい場合に使う（Firebase Authユーザーと
 // Firestoreのusersプロフィールの両方を削除する）。脱退フラグ
 // （users.isWithdrawn）とは異なり、データは一切残さず完全に削除する点に注意。
-// Admin SDKでのAuthユーザー削除が必要なためCloud Functions側で行う
-exports.deleteAuthUser = onCall(async (request) => {
+// Admin SDKでのAuthユーザー削除が必要なためCloud Functions側で行う。
+// jaccsneo.web.appからの呼び出しが「No 'Access-Control-Allow-Origin' header」
+// でブロックされる不具合の報告を受け、他のonCall関数と合わせてcors: trueを
+// 明示した（本来onCallは既定でCORSを許可するはずだが、デプロイ時にCloud Run
+// 側のIAM invoker設定が正しく反映されていない可能性があるため、明示設定での
+// 再デプロイでIAMが再適用されるかを確認する）
+exports.deleteAuthUser = onCall({ cors: true }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'ログインが必要です')
   }
@@ -146,7 +151,7 @@ exports.deleteAuthUser = onCall(async (request) => {
 // パスワード再設定前で未ログインの状態から呼び出すため認証チェックは行わない
 // （本人確認はメールアドレス＋生年月日の一致で代替する）。総当たり対策として、
 // メールアドレスごとに直近15分間の失敗回数を記録し、5回を超えたら一時的に拒否する
-exports.resetPasswordWithDob = onCall(async (request) => {
+exports.resetPasswordWithDob = onCall({ cors: true }, async (request) => {
   const { email, birthday, newPassword } = request.data ?? {}
 
   if (!email || !birthday || !newPassword) {
