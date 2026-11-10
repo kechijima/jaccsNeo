@@ -73,7 +73,6 @@ const badgeSizeClass = computed(() => ({
         :src="b.icon"
         :alt="b.label"
         :title="b.label"
-        class="rounded-full ring-2 ring-white bg-white"
         :class="badgeSizeClass"
       />
     </div>

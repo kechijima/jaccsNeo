@@ -28,7 +28,6 @@ const icons = computed(() => (props.badges ?? [])
       :src="b.icon"
       :alt="b.label"
       :title="b.label"
-      class="rounded-full ring-2 ring-white bg-white"
       :class="size === 'xs' ? 'h-2.5 w-2.5' : 'h-3 w-3'"
     />
   </div>
