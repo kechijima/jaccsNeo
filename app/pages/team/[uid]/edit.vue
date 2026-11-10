@@ -326,11 +326,6 @@ const groupLabel = computed(() => groups.value.find(g => g.id === form.groupId)?
             </div>
 
             <div>
-              <label class="block text-xs font-medium text-gray-500 mb-1">入社日</label>
-              <input v-model="form.joinDate" type="date" class="input-field text-sm" />
-            </div>
-
-            <div>
               <label class="block text-xs font-medium text-gray-500 mb-1">誕生日</label>
               <input v-model="form.birthday" type="date" class="input-field text-sm" />
             </div>
