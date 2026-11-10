@@ -374,7 +374,7 @@ const groupLabel = computed(() => groups.value.find(g => g.id === form.groupId)?
           <div class="grid grid-cols-1 gap-4">
             <div>
               <label class="block text-xs font-medium text-gray-500 mb-1">サポート者</label>
-              <input v-model="form.supportPerson" type="text" class="input-field text-sm" placeholder="上司・サポート担当者名" />
+              <input v-model="form.supportPerson" type="text" class="input-field text-sm" placeholder="サポート者名" />
             </div>
 
             <div>
