@@ -252,22 +252,6 @@ const handleExportApo = () => {
   useOperationLog().log('csv_export', `アポ確認CSV（${filtered.value.length}件）`).catch(() => {})
 }
 
-// ── CSV インポートモーダル ─────────────────────────────────────────────────
-const showImportModal = ref(false)
-const importStatus    = ref<'idle' | 'importing' | 'done' | 'error'>('idle')
-const importMessage   = ref('')
-const fileInputRef    = ref<HTMLInputElement>()
-
-const handleFileSelect = async (e: Event) => {
-  const file = (e.target as HTMLInputElement).files?.[0]
-  if (!file) return
-  importStatus.value  = 'importing'
-  importMessage.value = 'CSVを読み込み中...'
-  await new Promise(r => setTimeout(r, 800))
-  importStatus.value  = 'done'
-  importMessage.value = `${file.name} のインポートが完了しました（実装予定）`
-}
-
 // ── ステータス色 ──────────────────────────────────────────────────────────
 const statusColor = (s: string) => {
   const map: Record<string, string> = {
@@ -307,13 +291,10 @@ const statusColor = (s: string) => {
           <Icon name="heroicons:calendar-days" class="h-4 w-4" />
           フォロー表出力
         </button>
-        <button
-          class="btn-secondary text-sm flex items-center gap-1.5"
-          @click="showImportModal = true"
-        >
+        <NuxtLink to="/customers/import" class="btn-secondary text-sm flex items-center gap-1.5">
           <Icon name="heroicons:arrow-up-tray" class="h-4 w-4" />
           CSVインポート
-        </button>
+        </NuxtLink>
         <NuxtLink to="/customers/new" class="btn-primary text-sm flex items-center gap-1.5">
           <Icon name="heroicons:plus" class="h-4 w-4" />
           新規登録
@@ -682,80 +663,6 @@ const statusColor = (s: string) => {
         </select>
       </div>
     </div>
-
-    <!-- ===== CSVインポートモーダル ===== -->
-    <Teleport to="body">
-      <div
-        v-if="showImportModal"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-        @click.self="showImportModal = false"
-      >
-        <div class="bg-white w-full max-w-md rounded-2xl p-6 space-y-5 shadow-xl mx-4 max-h-[85vh] overflow-y-auto">
-          <div class="flex items-center justify-between">
-            <h3 class="font-bold text-gray-900 flex items-center gap-2">
-              <Icon name="heroicons:arrow-up-tray" class="h-5 w-5 text-primary-600" />
-              CSVインポート
-            </h3>
-            <button class="p-1.5 rounded-lg hover:bg-gray-100 transition" @click="showImportModal = false">
-              <Icon name="heroicons:x-mark" class="h-5 w-5 text-gray-500" />
-            </button>
-          </div>
-
-          <!-- 対応フォーマット説明 -->
-          <div class="rounded-xl bg-blue-50 border border-blue-100 p-4 text-sm text-blue-700">
-            <p class="font-semibold mb-1">対応CSVフォーマット</p>
-            <ul class="text-xs space-y-0.5 text-blue-600 list-disc list-inside">
-              <li>レコード番号、氏名（フルネーム）、フリガナ</li>
-              <li>性別、生年月日（本人）、TEL、メールアドレス</li>
-              <li>郵便番号、住所、家族情報（最大6名）</li>
-              <li>勤務先、年収、関係性、段数</li>
-              <li>各種サービスフラグ（生命保険、火災保険など）</li>
-              <li>法人情報（法人名、本店所在地など）</li>
-            </ul>
-          </div>
-
-          <!-- ファイル選択 -->
-          <div>
-            <label class="block text-xs font-medium text-gray-500 mb-2">CSVファイルを選択</label>
-            <div
-              class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-primary-400 transition cursor-pointer"
-              @click="fileInputRef?.click()"
-            >
-              <Icon name="heroicons:document-text" class="h-10 w-10 text-gray-300 mx-auto mb-2" />
-              <p class="text-sm text-gray-500">クリックしてCSVファイルを選択</p>
-              <p class="text-xs text-gray-400 mt-1">Shift-JIS / UTF-8 対応</p>
-              <input
-                ref="fileInputRef"
-                type="file"
-                accept=".csv"
-                class="hidden"
-                @change="handleFileSelect"
-              />
-            </div>
-          </div>
-
-          <!-- インポートステータス -->
-          <div v-if="importStatus !== 'idle'" class="rounded-xl p-3 text-sm"
-            :class="{
-              'bg-blue-50 text-blue-700': importStatus === 'importing',
-              'bg-green-50 text-green-700': importStatus === 'done',
-              'bg-red-50 text-red-700': importStatus === 'error',
-            }"
-          >
-            <Icon
-              :name="importStatus === 'importing' ? 'heroicons:arrow-path' : importStatus === 'done' ? 'heroicons:check-circle' : 'heroicons:exclamation-circle'"
-              class="h-4 w-4 inline mr-1"
-              :class="importStatus === 'importing' ? 'animate-spin' : ''"
-            />
-            {{ importMessage }}
-          </div>
-
-          <div class="flex gap-3">
-            <button class="flex-1 btn-secondary" @click="showImportModal = false">閉じる</button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
 
     <!-- ===== 検索条件保存モーダル ===== -->
     <Teleport to="body">

@@ -1,15 +1,27 @@
 <script setup lang="ts">
+// 顧客情報（Customer）のCSV一括インポート。kintoneエクスポート形式の固定列名
+// マッピング（types/customer.tsのCSV_FIELD_MAP等）を使い、utils/csvCustomer.ts
+// のparseCsvToCustomers()で実際にCSVを解析する。admin/users/import.vue・
+// admin/apps/[appId]/import.vueと同じ4ステップ構成。
+import { readCsvFile } from '~/utils/csv'
+import { parseCsvToCustomers } from '~/utils/csvCustomer'
+import { CSV_FIELD_MAP, CSV_SERVICE_MAP, FAMILY_MEMBER_FIELDS } from '~/types/customer'
+import type { CustomerForm } from '~/types/customer'
+
 definePageMeta({ middleware: ['auth'] })
 
 const { canImportCsv } = usePermission()
+const { bulkImport, updateCustomer, fetchCustomers } = useCustomers()
 
 // ステップ管理
 const step = ref(1)
-const steps = ['CSVアップロード', 'フィールドマッピング', 'プレビュー・検証', 'インポート実行']
+const steps = ['CSVアップロード', '列の確認', 'プレビュー・検証', 'インポート実行']
 
-// ファイル
+// ── Step 1: ファイルアップロード・解析 ────────────────────────────────────
 const selectedFile = ref<File | null>(null)
 const isDragging = ref(false)
+const parseError = ref('')
+const parsing = ref(false)
 
 const onFileSelect = (e: Event) => {
   const input = e.target as HTMLInputElement
@@ -21,62 +33,134 @@ const onDrop = (e: DragEvent) => {
   if (file && file.name.endsWith('.csv')) selectedFile.value = file
 }
 
-// ダミーマッピングデータ（Phase2で実際の処理に差し替え）
-const csvColumns = ref(['氏名', 'フリガナ', '生年月日', '性別', '電話番号', 'メールアドレス', '郵便番号', '住所', '担当者'])
-const fieldOptions = [
-  { value: '', label: '（マッピングしない）' },
-  { value: 'name', label: '氏名' },
-  { value: 'nameKana', label: 'フリガナ' },
-  { value: 'dob', label: '生年月日' },
-  { value: 'gender', label: '性別' },
-  { value: 'tel', label: '電話番号' },
-  { value: 'email', label: 'メールアドレス' },
-  { value: 'postalCode', label: '郵便番号' },
-  { value: 'address', label: '住所' },
-  { value: 'assignedFpName', label: '担当未来設計士名' },
-]
-const mapping = ref<Record<string, string>>({
-  '氏名': 'name', 'フリガナ': 'nameKana', '生年月日': 'dob', '性別': 'gender',
-  '電話番号': 'tel', 'メールアドレス': 'email', '郵便番号': 'postalCode', '住所': 'address', '担当者': 'assignedFpName',
-})
-
-// プレビューダミーデータ
-const previewRows = ref([
-  { name: '田中 一郎', nameKana: 'タナカ イチロウ', dob: '1980/04/15', gender: '男性', tel: '090-1234-5678', email: 'tanaka@example.com', valid: true },
-  { name: '佐藤 花子', nameKana: 'サトウ ハナコ', dob: '1985/09/22', gender: '女性', tel: '080-2345-6789', email: 'sato@example.com', valid: true },
-  { name: '山田 太郎', nameKana: '', dob: '1975/01/08', gender: '男性', tel: '070-3456-7890', email: '', valid: false, error: 'フリガナが未入力' },
-  { name: '鈴木 美咲', nameKana: 'スズキ ミサキ', dob: '1990/12/30', gender: '女性', tel: '090-4567-8901', email: 'suzuki@example.com', valid: true },
-  { name: '伊藤 健二', nameKana: 'イトウ ケンジ', dob: '1988/07/14', gender: '男性', tel: '080-5678-9012', email: 'ito@example.com', valid: true },
+// CSV_FIELD_MAP・CSV_SERVICE_MAP・家族情報・リマインダー/アポ情報の列名は
+// すべてparseCsvToCustomers()が認識する固定の列名。それ以外の列はインポート時に
+// 無視される（Step2で利用者に明示するための一覧）
+const EXTRA_KNOWN_COLUMNS = ['リマインダー1', '設定時刻１', 'リマインダー2', '設定時刻2', 'リマインダー3', '設定時刻3', 'ワン_アポ場所', 'その他(記入欄)', 'ツー_アポ場所']
+const KNOWN_COLUMNS = new Set([
+  ...Object.keys(CSV_FIELD_MAP),
+  ...Object.keys(CSV_SERVICE_MAP),
+  ...FAMILY_MEMBER_FIELDS.flatMap(f => [f.nameCol, f.relCol, f.dobCol, f.occCol]),
+  ...EXTRA_KNOWN_COLUMNS,
 ])
-const validCount = computed(() => previewRows.value.filter(r => r.valid).length)
-const errorCount = computed(() => previewRows.value.filter(r => !r.valid).length)
 
-// インポート
+const csvHeaders = ref<string[]>([])
+const parsedRows = ref<CustomerForm[]>([])
+const parseRowErrors = ref<string[]>([])
+
+const recognizedColumns = computed(() => csvHeaders.value.filter(h => KNOWN_COLUMNS.has(h)))
+const unrecognizedColumns = computed(() => csvHeaders.value.filter(h => !KNOWN_COLUMNS.has(h)))
+
+const handleParseAndNext = async () => {
+  if (!selectedFile.value) return
+  parsing.value = true
+  parseError.value = ''
+  try {
+    const text = await readCsvFile(selectedFile.value)
+    const { data, errors, headers } = parseCsvToCustomers(text)
+    if (data.length === 0) {
+      parseError.value = errors[0] ?? 'データを読み取れませんでした。CSVの形式をご確認ください'
+      return
+    }
+    csvHeaders.value = headers
+    parsedRows.value = data
+    parseRowErrors.value = errors
+    step.value = 2
+  } catch (e: any) {
+    parseError.value = e.message ?? 'CSVの読み込みに失敗しました'
+  } finally {
+    parsing.value = false
+  }
+}
+
+// ── Step 3: プレビュー・検証 ──────────────────────────────────────────────
+interface PreviewRow {
+  form: CustomerForm
+  name: string
+  nameKana: string
+  dob: string
+  tel: string
+  kintoneId?: string
+  status: 'new' | 'duplicate' | 'invalid'
+  existingId?: string
+  note?: string
+}
+
+const previewRows = ref<PreviewRow[]>([])
+const buildingPreview = ref(false)
+const buildPreviewError = ref('')
+
+// レコード番号（kintoneId）が既存の顧客と一致する行は「重複」として扱う
+// （インポート実行時にスキップ/上書きを選べるようにする）
+const buildPreviewAndNext = async () => {
+  buildingPreview.value = true
+  buildPreviewError.value = ''
+  try {
+    const { customers } = await fetchCustomers()
+    const existingByKintoneId = new Map(
+      customers.filter(c => c.kintoneId).map(c => [c.kintoneId as string, c.id]),
+    )
+    previewRows.value = parsedRows.value.map((form) => {
+      const name = (form.name ?? '').trim()
+      if (!name) {
+        return {
+          form, name: '', nameKana: form.nameKana ?? '', dob: form.dob ?? '', tel: form.tel ?? '',
+          kintoneId: form.kintoneId, status: 'invalid' as const, note: '氏名が未入力です',
+        }
+      }
+      const existingId = form.kintoneId ? existingByKintoneId.get(form.kintoneId) : undefined
+      return {
+        form, name, nameKana: form.nameKana ?? '', dob: form.dob ?? '', tel: form.tel ?? '',
+        kintoneId: form.kintoneId, status: existingId ? 'duplicate' as const : 'new' as const, existingId,
+        note: existingId ? '既存の顧客（レコード番号が一致）' : undefined,
+      }
+    })
+    step.value = 3
+  } catch (e: any) {
+    buildPreviewError.value = e.message ?? '既存データの取得に失敗しました'
+  } finally {
+    buildingPreview.value = false
+  }
+}
+
+const newCount       = computed(() => previewRows.value.filter(r => r.status === 'new').length)
+const duplicateCount = computed(() => previewRows.value.filter(r => r.status === 'duplicate').length)
+const invalidCount   = computed(() => previewRows.value.filter(r => r.status === 'invalid').length)
+
+// ── Step 4: インポート実行 ────────────────────────────────────────────────
+const overwriteMode = ref<'skip' | 'overwrite'>('skip')
 const importing = ref(false)
 const importDone = ref(false)
 const importResult = ref({ success: 0, skip: 0, error: 0 })
 const importError = ref('')
 
-const { bulkImport } = useCustomers()
-
 const handleImport = async () => {
   importing.value = true
   importError.value = ''
   try {
-    // previewRows の有効行を CustomerForm に変換してインポート
-    const validRows = previewRows.value
-      .filter(r => r.valid)
-      .map(r => ({
-        name:     r.name,
-        nameKana: r.nameKana,
-        dob:      r.dob,
-        gender:   r.gender,
-        tel:      r.tel,
-        email:    r.email,
-        type:     'individual' as const,
-      }))
-    const result = await bulkImport(validRows)
-    importResult.value = { success: result.success, skip: 0, error: result.errors.length }
+    const newRows = previewRows.value.filter(r => r.status === 'new')
+    const duplicateRows = previewRows.value.filter(r => r.status === 'duplicate')
+
+    const createResult = await bulkImport(newRows.map(r => r.form))
+
+    let updateSuccess = 0
+    const updateErrors: string[] = []
+    if (overwriteMode.value === 'overwrite') {
+      for (const row of duplicateRows) {
+        try {
+          await updateCustomer(row.existingId!, row.form)
+          updateSuccess++
+        } catch (e: any) {
+          updateErrors.push(e.message ?? String(e))
+        }
+      }
+    }
+
+    importResult.value = {
+      success: createResult.success + updateSuccess,
+      skip: overwriteMode.value === 'skip' ? duplicateRows.length : 0,
+      error: createResult.errors.length + updateErrors.length,
+    }
     importDone.value = true
   } catch (e: any) {
     importError.value = e.message ?? 'インポートに失敗しました'
@@ -155,47 +239,51 @@ const handleImport = async () => {
           </button>
         </div>
 
+        <p v-if="parseError" class="text-sm text-red-500">{{ parseError }}</p>
+
         <div class="flex justify-end">
-          <button class="btn-primary" :disabled="!selectedFile" @click="step = 2">
-            次へ：フィールドマッピング
-            <Icon name="heroicons:arrow-right" class="h-4 w-4 ml-1" />
+          <button class="btn-primary" :disabled="!selectedFile || parsing" @click="handleParseAndNext">
+            <Icon v-if="parsing" name="heroicons:arrow-path" class="h-4 w-4 animate-spin mr-1" />
+            次へ：列の確認
+            <Icon v-if="!parsing" name="heroicons:arrow-right" class="h-4 w-4 ml-1" />
           </button>
         </div>
       </div>
 
-      <!-- Step 2: フィールドマッピング -->
+      <!-- Step 2: 列の確認 -->
       <div v-if="step === 2" class="card p-6 space-y-4">
-        <h2 class="font-semibold text-gray-900">フィールドマッピング設定</h2>
-        <p class="text-sm text-gray-500">CSVの列とシステムのフィールドを対応付けてください</p>
+        <h2 class="font-semibold text-gray-900">CSVの列を確認</h2>
+        <p class="text-sm text-gray-500">
+          列名から自動的にシステムの項目へ対応付けます（{{ parsedRows.length }}件のデータを検出しました）。
+          対応付けできない列は無視されます。
+        </p>
 
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead>
-              <tr class="border-b border-gray-100 bg-gray-50">
-                <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500">CSV列名</th>
-                <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500">サンプル値</th>
-                <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500">マッピング先</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-50">
-              <tr v-for="col in csvColumns" :key="col">
-                <td class="px-4 py-2 font-medium text-gray-700">{{ col }}</td>
-                <td class="px-4 py-2 text-gray-400 text-xs">（サンプル）</td>
-                <td class="px-4 py-2">
-                  <select v-model="mapping[col]" class="input-field py-1 text-sm">
-                    <option v-for="opt in fieldOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-                  </select>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <div>
+          <p class="text-xs font-semibold text-gray-500 mb-2">認識された列（{{ recognizedColumns.length }}）</p>
+          <div class="flex flex-wrap gap-1.5">
+            <span v-for="h in recognizedColumns" :key="h" class="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-xs text-green-700">
+              <Icon name="heroicons:check" class="h-3 w-3" />{{ h }}
+            </span>
+          </div>
         </div>
+
+        <div v-if="unrecognizedColumns.length > 0">
+          <p class="text-xs font-semibold text-gray-500 mb-2">認識されない列（{{ unrecognizedColumns.length }}・無視されます）</p>
+          <div class="flex flex-wrap gap-1.5">
+            <span v-for="h in unrecognizedColumns" :key="h" class="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-500">
+              {{ h }}
+            </span>
+          </div>
+        </div>
+
+        <p v-if="buildPreviewError" class="text-sm text-red-500">{{ buildPreviewError }}</p>
 
         <div class="flex justify-between">
           <button class="btn-secondary" @click="step = 1">← 戻る</button>
-          <button class="btn-primary" @click="step = 3">
+          <button class="btn-primary" :disabled="buildingPreview" @click="buildPreviewAndNext">
+            <Icon v-if="buildingPreview" name="heroicons:arrow-path" class="h-4 w-4 animate-spin mr-1" />
             次へ：プレビュー確認
-            <Icon name="heroicons:arrow-right" class="h-4 w-4 ml-1" />
+            <Icon v-if="!buildingPreview" name="heroicons:arrow-right" class="h-4 w-4 ml-1" />
           </button>
         </div>
       </div>
@@ -204,20 +292,24 @@ const handleImport = async () => {
       <div v-if="step === 3" class="card p-6 space-y-4">
         <h2 class="font-semibold text-gray-900">インポートプレビュー</h2>
 
-        <div class="flex gap-3">
+        <div class="flex flex-wrap gap-3">
           <div class="flex items-center gap-1.5 rounded-lg bg-green-50 px-3 py-2 text-sm font-medium text-green-700">
             <Icon name="heroicons:check-circle" class="h-4 w-4" />
-            {{ validCount }}件 インポート可能
+            {{ newCount }}件 新規
           </div>
-          <div v-if="errorCount > 0" class="flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600">
+          <div v-if="duplicateCount > 0" class="flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700">
+            <Icon name="heroicons:document-duplicate" class="h-4 w-4" />
+            {{ duplicateCount }}件 重複（既存の顧客と一致）
+          </div>
+          <div v-if="invalidCount > 0" class="flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600">
             <Icon name="heroicons:exclamation-circle" class="h-4 w-4" />
-            {{ errorCount }}件 エラー
+            {{ invalidCount }}件 エラー（スキップ）
           </div>
         </div>
 
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto max-h-96 overflow-y-auto">
           <table class="w-full text-sm">
-            <thead>
+            <thead class="sticky top-0 bg-white">
               <tr class="border-b border-gray-100 bg-gray-50">
                 <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500">状態</th>
                 <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500">氏名</th>
@@ -228,20 +320,23 @@ const handleImport = async () => {
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-50">
-              <tr v-for="(row, i) in previewRows" :key="i" :class="!row.valid ? 'bg-red-50' : ''">
+              <tr v-for="(row, i) in previewRows" :key="i" :class="row.status === 'invalid' ? 'bg-red-50' : row.status === 'duplicate' ? 'bg-amber-50' : ''">
                 <td class="px-3 py-2">
-                  <span v-if="row.valid" class="inline-flex items-center gap-1 text-xs text-green-600">
-                    <Icon name="heroicons:check" class="h-3.5 w-3.5" /> OK
+                  <span v-if="row.status === 'new'" class="inline-flex items-center gap-1 text-xs text-green-600">
+                    <Icon name="heroicons:check" class="h-3.5 w-3.5" /> 新規
+                  </span>
+                  <span v-else-if="row.status === 'duplicate'" class="inline-flex items-center gap-1 text-xs text-amber-700">
+                    <Icon name="heroicons:document-duplicate" class="h-3.5 w-3.5" /> 重複
                   </span>
                   <span v-else class="inline-flex items-center gap-1 text-xs text-red-600">
                     <Icon name="heroicons:exclamation-triangle" class="h-3.5 w-3.5" /> エラー
                   </span>
                 </td>
-                <td class="px-3 py-2 font-medium text-gray-900">{{ row.name }}</td>
+                <td class="px-3 py-2 font-medium text-gray-900">{{ row.name || '—' }}</td>
                 <td class="px-3 py-2 text-gray-600">{{ row.nameKana || '—' }}</td>
-                <td class="px-3 py-2 text-gray-600">{{ row.dob }}</td>
-                <td class="px-3 py-2 text-gray-600">{{ row.tel }}</td>
-                <td class="px-3 py-2 text-xs text-red-500">{{ row.error || '' }}</td>
+                <td class="px-3 py-2 text-gray-600">{{ row.dob || '—' }}</td>
+                <td class="px-3 py-2 text-gray-600">{{ row.tel || '—' }}</td>
+                <td class="px-3 py-2 text-xs" :class="row.status === 'invalid' ? 'text-red-500' : 'text-gray-400'">{{ row.note || '' }}</td>
               </tr>
             </tbody>
           </table>
@@ -249,7 +344,7 @@ const handleImport = async () => {
 
         <div class="flex justify-between">
           <button class="btn-secondary" @click="step = 2">← 戻る</button>
-          <button class="btn-primary" @click="step = 4">
+          <button class="btn-primary" :disabled="newCount === 0 && duplicateCount === 0" @click="step = 4">
             インポート実行へ
             <Icon name="heroicons:arrow-right" class="h-4 w-4 ml-1" />
           </button>
@@ -263,19 +358,21 @@ const handleImport = async () => {
         <div v-if="!importDone" class="space-y-4">
           <div class="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800">
             <Icon name="heroicons:exclamation-triangle" class="h-4 w-4 inline mr-1" />
-            インポートを実行すると、<strong>{{ validCount }}件</strong>のデータが追加されます。この操作は取り消せません。
+            インポートを実行すると、<strong>{{ newCount }}件</strong>の顧客が新規追加されます。この操作は取り消せません。
           </div>
 
-          <div class="flex items-center gap-3">
+          <div v-if="duplicateCount > 0" class="flex items-center gap-3">
             <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-              <input type="radio" name="overwrite" value="skip" checked class="text-primary-600" />
-              重複データはスキップ
+              <input v-model="overwriteMode" type="radio" value="skip" class="text-primary-600" />
+              重複データ（{{ duplicateCount }}件）はスキップ
             </label>
             <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-              <input type="radio" name="overwrite" value="overwrite" class="text-primary-600" />
-              重複データは上書き
+              <input v-model="overwriteMode" type="radio" value="overwrite" class="text-primary-600" />
+              重複データ（{{ duplicateCount }}件）は上書き
             </label>
           </div>
+
+          <p v-if="importError" class="text-sm text-red-500">{{ importError }}</p>
 
           <div class="flex justify-between">
             <button class="btn-secondary" @click="step = 3">← 戻る</button>
