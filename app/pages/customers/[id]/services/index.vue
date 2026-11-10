@@ -3,6 +3,7 @@ import { APP_CATEGORY_DEFS, APP_CATEGORY_LIST } from '~/types/service'
 import { useCustomerStore } from '~/composables/useCustomerStore'
 import { useAppCatalog } from '~/composables/useAppCatalog'
 import { useServices } from '~/composables/useServices'
+import { useLifeInsuranceCases } from '~/composables/useLifeInsuranceCases'
 
 definePageMeta({ middleware: ['auth'] })
 
@@ -20,18 +21,27 @@ const canEdit = computed(() => customer.value ? canEditCustomer(customer.value.a
 // 各アプリの「対応あり」件数は、この顧客の実際の案件レコード数（cases サブコレクション）
 // から判定する（固定アプリ・新規作成アプリとも同じ基準に統一）。アプリごとに個別取得すると
 // 件数分（最大45件）のFirestoreクエリが並列発生し体感が遅くなるため、全顧客・全アプリ横断の
-// collectionGroupクエリを1回だけ発行し、この顧客のcustomerIdでクライアント側に絞り込む
+// collectionGroupクエリを1回だけ発行し、この顧客のcustomerIdでクライアント側に絞り込む。
+//
+// 「生命保険」だけは実データが customers/{cid}/services/{type}/cases サブコレクションではなく、
+// 専用のトップレベルコレクション（lifeInsuranceCases）に保存されているため、上記の
+// collectionGroupクエリには一切含まれない。これを見落とすと、案件が実際に存在していても
+// 「対応なし」と表示され続けてしまう（生命保険だけ常に対応なしになる不具合があった）ため、
+// 別途lifeInsuranceCasesも取得して合算する
 const { fetchAllCases } = useServices()
+const { cases: liCases, fetchAll: fetchAllLifeInsuranceCases } = useLifeInsuranceCases()
 const caseCounts = ref<Record<string, number>>({})
 const loadingCases = ref(true)
 onMounted(async () => {
   try {
-    const allCases = await fetchAllCases()
+    const [allCases] = await Promise.all([fetchAllCases(), fetchAllLifeInsuranceCases()])
     const counts: Record<string, number> = {}
     for (const c of allCases) {
       if (c.customerId !== customerId.value) continue
       counts[c.serviceType] = (counts[c.serviceType] ?? 0) + 1
     }
+    const liCount = liCases.value.filter(c => c.customerId === customerId.value).length
+    if (liCount > 0) counts.lifeInsurance = liCount
     caseCounts.value = counts
   } catch {
     caseCounts.value = {}

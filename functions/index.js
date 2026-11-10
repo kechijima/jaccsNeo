@@ -114,14 +114,27 @@ exports.deleteAuthUser = onCall(async (request) => {
     throw new HttpsError('invalid-argument', '自分自身のアカウントは削除できません')
   }
 
+  // Firestoreのプロフィールを先に削除する。ログイン可否の判定（isActive・
+  // isWithdrawn等）はFirestore側のドキュメントを見ているため、こちらを先に
+  // 消しておけば、この後のAuth削除が失敗しても実質的にログインできない状態に
+  // できる（従来はAuth削除→Firestore削除の順で、かつFirestore側の削除に
+  // 例外処理が無かったため、Auth削除成功後にFirestore削除だけが失敗すると
+  // 「Authアカウントは消えたのにFirestoreのプロフィールだけ残り続け、一覧
+  // 画面から消えない」という不整合が起こり得た）。delete()は存在しない
+  // ドキュメントに対してもエラーにならないため、再試行時も安全
+  try {
+    await db.doc(`users/${uid}`).delete()
+  } catch (err) {
+    throw new HttpsError('internal', 'ユーザー情報の削除に失敗しました')
+  }
+
   try {
     await auth.deleteUser(uid)
   } catch (err) {
     if (err.code !== 'auth/user-not-found') {
-      throw new HttpsError('internal', 'Authユーザーの削除に失敗しました')
+      throw new HttpsError('internal', 'ユーザー情報は削除済みですが、Authアカウントの削除に失敗しました（再度削除を実行してください）')
     }
   }
-  await db.doc(`users/${uid}`).delete()
 
   return { success: true }
 })

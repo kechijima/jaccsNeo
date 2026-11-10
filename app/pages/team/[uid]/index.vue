@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { USER_BADGE_OPTIONS } from '~/types/user'
 import type { AppUser } from '~/types/user'
 import { useGroupLabels } from '~/composables/useGroupLabels'
 import { useDisplayName } from '~/composables/useDisplayName'
@@ -38,6 +39,9 @@ onMounted(loadProfile)
 const isOwnProfile = computed(() => currentUser.value?.uid === uid.value)
 
 const groupLabel = computed(() => profile.value?.groupId ? getGroupLabel(profile.value.groupId) : 'なし')
+
+// ── バッジ表示（管理画面で付与されたものをタイトル・グループと並べて表示） ──
+const activeBadges = computed(() => USER_BADGE_OPTIONS.filter(o => profile.value?.badges?.includes(o.value)))
 
 const roleLabels: Record<string, string> = {
   system_admin: 'システム管理者',
@@ -88,12 +92,21 @@ const activeTab = ref<typeof tabs[number]['key']>('basic')
           :avatar-url="profile.avatarUrl"
           :display-name="profile.displayName"
           :group-id="profile.groupId"
+          :badges="profile.badges"
           size="lg"
         />
         <div class="flex-1 min-w-0">
           <p class="text-lg font-bold text-gray-900">{{ formatDisplayName(profile) }}</p>
           <div class="flex items-center gap-2 flex-wrap mt-1">
             <span class="badge bg-primary-50 text-primary-700 text-xs">{{ v(profile.position) }}</span>
+            <span
+              v-for="b in activeBadges"
+              :key="b.value"
+              class="badge bg-amber-50 text-amber-700 text-xs flex items-center gap-1"
+            >
+              <img :src="b.icon" :alt="b.label" class="h-3.5 w-3.5" />
+              {{ b.label }}
+            </span>
             <span class="badge bg-gray-100 text-gray-600 text-xs">{{ groupLabel }}</span>
             <span class="badge bg-indigo-50 text-indigo-600 text-xs">{{ roleLabels[profile.role] }}</span>
             <span class="text-xs text-gray-400">{{ profile.email }}</span>

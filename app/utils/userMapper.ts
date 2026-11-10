@@ -60,6 +60,7 @@ export const toAppUser = (uid: string, data: Record<string, any>, fallbackEmail 
   membershipPlan:   data.membershipPlan,
   onboardingSeen:   data.onboardingSeen ?? false,
   notificationPrefs: data.notificationPrefs,
+  badges: data.badges ?? [],
 
   createdAt: data.createdAt?.toDate?.() ?? new Date(),
   updatedAt: data.updatedAt?.toDate?.() ?? new Date(),

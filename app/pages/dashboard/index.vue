@@ -230,7 +230,7 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
         </NuxtLink>
         <NuxtLink to="/portal" class="flex items-center gap-2 rounded-lg border border-gray-200 p-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-primary-300 transition">
           <Icon name="heroicons:pencil-square" class="h-5 w-5 text-primary-600 shrink-0" />
-          <span class="md:hidden">活動報告に投稿</span><span class="hidden md:inline">掲示板に投稿</span>
+          活動報告に投稿
         </NuxtLink>
         <NuxtLink to="/events" class="flex items-center gap-2 rounded-lg border border-gray-200 p-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-primary-300 transition">
           <Icon name="heroicons:calendar-days" class="h-5 w-5 text-primary-600 shrink-0" />
@@ -269,7 +269,7 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
       <div v-else class="flex items-center gap-2 text-sm text-gray-400 py-2">
         <Icon name="heroicons:star" class="h-5 w-5 text-gray-300 shrink-0" />
         <span>
-          よく使うアプリや掲示板の
+          よく使うアプリや活動報告の
           <Icon name="heroicons:star" class="h-3.5 w-3.5 inline text-gray-400 -mt-0.5" />
           ボタンを押すと、ここから素早くアクセスできます
         </span>
@@ -365,7 +365,7 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
         <div class="flex items-center justify-between px-5 py-4" :class="sectionHeaderClass('green')">
           <h2 class="font-bold flex items-center gap-2">
             <Icon name="heroicons:chat-bubble-left-right" class="h-5 w-5" :class="boldDesign ? 'text-white' : 'text-indigo-600'" />
-            <span class="md:hidden">活動報告</span><span class="hidden md:inline">掲示板</span>
+            活動報告
           </h2>
           <NuxtLink to="/portal" class="text-xs" :class="sectionLinkClass">すべて</NuxtLink>
         </div>
@@ -439,7 +439,7 @@ onBeforeUnmount(() => unsubscribeNotifCount?.())
 
         <div class="px-5 py-3 border-t border-gray-100 bg-gray-50/50">
           <NuxtLink to="/portal" class="block text-center text-xs text-primary-600 hover:underline font-medium">
-            掲示板を開く →
+            活動報告を開く →
           </NuxtLink>
         </div>
       </div>

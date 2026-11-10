@@ -14,10 +14,13 @@ import type { Group, Kumiai } from '~/types/group'
 import type { GroupId } from '~/types/user'
 import { useAuthStore } from '~/stores/auth'
 import { useOperationLog } from '~/composables/useOperationLog'
+import { useUsers } from '~/composables/useUsers'
 
 // 従来から使用している3グループ。Firestoreにドキュメントがまだ無くても
-// 一覧から消えないよう、見つからない場合はデフォルト名で補う
-const DEFAULT_GROUPS: { id: GroupId; name: string }[] = [
+// 一覧から消えないよう、見つからない場合はデフォルト名で補う。
+// 削除不可の判定にも使うため、呼び出し側（admin/groups/index.vue）からも
+// 参照できるようexportする
+export const DEFAULT_GROUPS: { id: GroupId; name: string }[] = [
   { id: 'reterace', name: 'Reterace' },
   { id: 'miraito', name: 'Miraito' },
   { id: 'asset', name: 'Asset' },
@@ -154,6 +157,32 @@ export const useGroups = () => {
     invalidateGroupsCache()
   }
 
+  // ===== グループ削除 =====
+  // グループIDはユーザーの所属以外にも広範囲（スペースの公開範囲、イベントの
+  // スコープ、業務ツールの公開設定等）から参照されているが、今回は最低限の
+  // 安全確認として「所属ユーザー・配下の組合が存在しないこと」のみをチェックする。
+  // 既定3グループ（reterace/miraito/asset）はfetchGroups()が未登録でも常に
+  // 補完表示する特殊な扱いのため、削除しても一覧から消えず無意味になる＝
+  // 削除対象から除外する
+  const deleteGroup = async (groupId: GroupId): Promise<void> => {
+    if (!authStore.isBoard) throw new Error('権限がありません')
+    if (DEFAULT_GROUPS.some(g => g.id === groupId)) {
+      throw new Error('既定のグループ（Reterace・Miraito・Asset）は削除できません')
+    }
+    const kumiaiSnap = await getDocs(kumiaiCol(groupId))
+    if (!kumiaiSnap.empty) {
+      throw new Error('このグループには組合が登録されているため削除できません。先にすべての組合を削除してください')
+    }
+    const { fetchUsers } = useUsers()
+    const users = await fetchUsers()
+    if (users.some(u => u.groupId === groupId)) {
+      throw new Error('このグループに所属しているメンバーがいるため削除できません')
+    }
+    await deleteDoc(doc($db, 'groups', groupId))
+    useOperationLog().log('group_delete', groupId).catch(() => {})
+    invalidateGroupsCache()
+  }
+
   return {
     fetchGroups,
     createGroup,
@@ -162,5 +191,6 @@ export const useGroups = () => {
     createKumiai,
     updateKumiai,
     deleteKumiai,
+    deleteGroup,
   }
 }

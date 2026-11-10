@@ -53,7 +53,7 @@ const runSeed = async () => {
     <div>
       <h1 class="text-xl font-bold text-gray-900 flex items-center gap-2">
         <Icon name="heroicons:chat-bubble-left-right" class="h-6 w-6 text-primary-600" />
-        掲示板スペースデータ投入（Firestore）
+        活動報告スペースデータ投入（Firestore）
       </h1>
       <p class="text-sm text-gray-500 mt-0.5">
         全体スペース・Reteraceグループ活動報告など既存{{ MOCK_SPACES.length }}スペースと、その投稿をFirestoreへ一括投入します
@@ -111,7 +111,7 @@ const runSeed = async () => {
         </button>
         <NuxtLink v-if="done" to="/portal" class="btn-secondary flex items-center gap-2">
           <Icon name="heroicons:chat-bubble-left-right" class="h-4 w-4" />
-          掲示板で確認
+          活動報告で確認
         </NuxtLink>
       </div>
     </template>

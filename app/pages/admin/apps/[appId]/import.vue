@@ -10,6 +10,7 @@ import { useCustomerStore } from '~/composables/useCustomerStore'
 import { useServices } from '~/composables/useServices'
 import type { AppDef } from '~/types/appDef'
 import type { ServiceCase, ServiceCaseForm, ServiceStatus, ServiceType } from '~/types/service'
+import type { AppUser } from '~/types/user'
 
 definePageMeta({ middleware: ['auth', 'admin'] })
 
@@ -24,9 +25,17 @@ const loading = ref(true)
 const loadError = ref('')
 const app = ref<AppDef | null>(null)
 
+// 「担当者」「担当未来設計士」はCSV上ではメールアドレスのため、ユーザー一覧と
+// 突き合わせてUIDに変換する（types/customer.tsの担当未来設計士と同じ考え方）
+const allUsers = ref<AppUser[]>([])
+const userByEmail = computed(() => new Map(
+  allUsers.value.filter(u => u.email).map(u => [u.email.trim().toLowerCase(), u]),
+))
+
 onMounted(async () => {
   try {
-    const [fetched] = await Promise.all([fetchOne(appId.value), ensureCustomersLoaded()])
+    const [fetched, , users] = await Promise.all([fetchOne(appId.value), ensureCustomersLoaded(), useUsers().fetchUsers()])
+    allUsers.value = users
     if (!fetched) {
       loadError.value = 'アプリが見つかりませんでした'
     } else if (!fetched.sourceServiceType) {
@@ -49,15 +58,24 @@ const serviceType = computed(() => app.value?.sourceServiceType as ServiceType |
 const exporting = ref(false)
 const exportError = ref('')
 
+// 担当者・担当未来設計士はUID保存のため、エクスポートではメールアドレスに
+// 変換して出力する（インポート側がメールアドレスを期待しているため、出力した
+// CSVをそのまま再インポートできるようにするための対応）
+const emailOf = (uid?: string) => uid ? (allUsers.value.find(u => u.uid === uid)?.email ?? '') : ''
+
 const exportColumns = computed(() => [
   { label: '顧客名', get: (c: ServiceCase) => customers.value.find(cu => cu.id === c.customerId)?.name ?? '' },
-  ...GENERIC_FIELD_OPTIONS.map(o => ({ label: o.label, get: (c: ServiceCase) => (c as any)[o.value] ?? '' })),
+  ...GENERIC_FIELD_OPTIONS.map(o => ({
+    label: o.label,
+    get: (c: ServiceCase) => USER_FIELD_KEYS.has(o.value) ? emailOf((c as any)[o.value]) : ((c as any)[o.value] ?? ''),
+  })),
   ...(app.value?.fields ?? [])
     .filter(f => !['label', 'space', 'record_number'].includes(f.type))
     .map(f => ({
       label: f.label,
       get: (c: ServiceCase) => {
         const v = c.customFields?.[f.id]
+        if (f.type === 'assignee') return emailOf(typeof v === 'string' ? v : undefined)
         return Array.isArray(v) ? v.join('、') : (v ?? '')
       },
     })),
@@ -136,12 +154,26 @@ const GENERIC_FIELD_OPTIONS = [
   { value: 'notes',           label: '備考・メモ' },
   { value: 'reminderDate',    label: 'リマインダー日' },
   { value: 'reminderNote',    label: 'リマインダー内容' },
+  { value: 'plannerUid',      label: '担当未来設計士（メールアドレス）' },
+  { value: 'assigneeUid',     label: '担当者（メールアドレス）' },
 ]
+// CSVの値がメールアドレスとして渡され、ユーザーと突き合わせてUID化する対象の
+// マッピング先キー（固定フィールド側）。アプリ専用の「担当者」カスタムフィールド
+// （type === 'assignee'）も同様にUID化が必要だが、こちらはpreviewRows側で
+// fieldsById経由のtype判定により個別に扱う
+const USER_FIELD_KEYS = new Set(['plannerUid', 'assigneeUid'])
+
+// アプリ側に「担当者」カスタムフィールド（type: 'assignee'）が追加されている場合、
+// 画面（customers/[id]/services/[serviceType]/new.vue等）はそちらを優先して使い、
+// 固定フィールドのassigneeUidは使わない（重複を避ける設計）。CSVマッピングの
+// 選択肢も同じ考え方に合わせ、その場合は固定の「担当者」選択肢を出さない
+// （紐付け先が2つあるように見えて片方が無視される、という混乱を避けるため）
+const hasDynamicAssigneeField = computed(() => (app.value?.fields ?? []).some(f => f.type === 'assignee'))
 
 const fieldOptions = computed(() => [
   { value: '', label: '（マッピングしない）' },
   { value: CUSTOMER_NAME_TARGET, label: '★顧客名（既存の顧客と照合します）' },
-  ...GENERIC_FIELD_OPTIONS,
+  ...GENERIC_FIELD_OPTIONS.filter(o => o.value !== 'assigneeUid' || !hasDynamicAssigneeField.value),
   ...(app.value?.fields ?? [])
     .filter(f => !['label', 'space', 'record_number'].includes(f.type))
     .map(f => ({ value: f.id, label: `［${app.value!.name}］${f.label}` })),
@@ -173,6 +205,7 @@ interface PreviewRow {
   customFields: Record<string, string | string[]>
   valid: boolean
   error: string
+  warnings: string[]
 }
 
 const splitMultiValue = (raw: string): string[] =>
@@ -191,15 +224,32 @@ const previewRows = computed<PreviewRow[]>(() => {
     const formFields: Partial<ServiceCaseForm> = {}
     const customFields: Record<string, string | string[]> = {}
     const missingRequired: string[] = []
+    const warnings: string[] = []
 
     for (const [col, target] of Object.entries(mapping.value)) {
       if (!target || target === CUSTOMER_NAME_TARGET) continue
       const raw = (row[col] ?? '').trim()
       if (!raw) continue
+
+      const def = fieldsById.get(target)
+      const isUserField = USER_FIELD_KEYS.has(target) || def?.type === 'assignee'
+      if (isUserField) {
+        const matchedUser = userByEmail.value.get(raw.toLowerCase())
+        if (matchedUser) {
+          if (GENERIC_FIELD_OPTIONS.some(o => o.value === target)) {
+            ;(formFields as Record<string, string>)[target] = matchedUser.uid
+          } else {
+            customFields[target] = matchedUser.uid
+          }
+        } else {
+          warnings.push(`「${raw}」に一致するユーザーが見つかりません`)
+        }
+        continue
+      }
+
       if (GENERIC_FIELD_OPTIONS.some(o => o.value === target)) {
         ;(formFields as Record<string, string>)[target] = raw
       } else {
-        const def = fieldsById.get(target)
         customFields[target] = def && ['checkbox', 'multi_select'].includes(def.type)
           ? splitMultiValue(raw)
           : raw
@@ -226,12 +276,14 @@ const previewRows = computed<PreviewRow[]>(() => {
       customFields,
       valid: !error,
       error,
+      warnings,
     }
   })
 })
 
 const validCount = computed(() => previewRows.value.filter(r => r.valid).length)
 const errorCount = computed(() => previewRows.value.filter(r => !r.valid).length)
+const warningCount = computed(() => previewRows.value.filter(r => r.warnings.length > 0).length)
 
 // ── Step4: インポート実行 ───────────────────────────────────────
 const importing = ref(false)
@@ -440,6 +492,10 @@ const handleImport = async () => {
             <Icon name="heroicons:exclamation-circle" class="h-4 w-4" />
             {{ errorCount }}件 エラー（スキップされます）
           </div>
+          <div v-if="warningCount > 0" class="flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700">
+            <Icon name="heroicons:user-circle" class="h-4 w-4" />
+            {{ warningCount }}件 担当者・担当未来設計士が未一致（メールアドレス不一致）
+          </div>
         </div>
 
         <div class="overflow-x-auto max-h-96 overflow-y-auto">
@@ -452,17 +508,20 @@ const handleImport = async () => {
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-50">
-              <tr v-for="(row, i) in previewRows" :key="i" :class="!row.valid ? 'bg-red-50' : ''">
+              <tr v-for="(row, i) in previewRows" :key="i" :class="!row.valid ? 'bg-red-50' : row.warnings.length > 0 ? 'bg-amber-50' : ''">
                 <td class="px-3 py-2">
-                  <span v-if="row.valid" class="inline-flex items-center gap-1 text-xs text-green-600">
-                    <Icon name="heroicons:check" class="h-3.5 w-3.5" /> OK
-                  </span>
-                  <span v-else class="inline-flex items-center gap-1 text-xs text-red-600">
+                  <span v-if="!row.valid" class="inline-flex items-center gap-1 text-xs text-red-600">
                     <Icon name="heroicons:exclamation-triangle" class="h-3.5 w-3.5" /> エラー
+                  </span>
+                  <span v-else-if="row.warnings.length > 0" class="inline-flex items-center gap-1 text-xs text-amber-700">
+                    <Icon name="heroicons:exclamation-triangle" class="h-3.5 w-3.5" /> 警告
+                  </span>
+                  <span v-else class="inline-flex items-center gap-1 text-xs text-green-600">
+                    <Icon name="heroicons:check" class="h-3.5 w-3.5" /> OK
                   </span>
                 </td>
                 <td class="px-3 py-2 font-medium text-gray-900">{{ row.customerName || '—' }}</td>
-                <td class="px-3 py-2 text-xs text-red-500">{{ row.error }}</td>
+                <td class="px-3 py-2 text-xs" :class="!row.valid ? 'text-red-500' : 'text-amber-700'">{{ row.error || row.warnings.join(' / ') }}</td>
               </tr>
             </tbody>
           </table>

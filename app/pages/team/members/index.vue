@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { AppUser } from '~/types/user'
+import type { AppUser, UserBadge } from '~/types/user'
 import { useDirectorIndex } from '~/composables/useDirectorIndex'
 import { DIRECTOR_ROLE_LABELS } from '~/types/directorIndex'
 import { useGroups } from '~/composables/useGroups'
@@ -53,9 +53,8 @@ interface MemberRow {
   uid: string
   name: string
   position: string
-  contracts: number
-  newClients: number
   avatarUrl?: string
+  badges?: UserBadge[]
   lastName?: string
   firstName?: string
   kumiaiName?: string
@@ -102,10 +101,8 @@ const toMemberRow = (u: AppUser, groupId?: string): MemberRow => ({
   uid: u.uid,
   name: u.displayName,
   position: u.role,
-  // Phase 5 — aggregate contract/newClient stats from meetings
-  contracts: 0,
-  newClients: 0,
   avatarUrl: u.avatarUrl,
+  badges: u.badges,
   lastName: u.lastName,
   firstName: u.firstName,
   kumiaiName: u.kumiaiName,
@@ -361,20 +358,11 @@ const filteredGroups = computed<GroupRow[]>(() => {
                   :avatar-url="m.avatarUrl"
                   :display-name="m.name"
                   :group-id="m.groupId"
+                  :badges="m.badges"
                   size="md"
                 />
                 <div>
                   <p class="text-sm font-medium text-gray-900">{{ formatDisplayName({ displayName: m.name, lastName: m.lastName, firstName: m.firstName, kumiaiName: m.kumiaiName, position: m.planLabel, groupId: m.groupId }) }}</p>
-                </div>
-              </div>
-              <div class="flex gap-4 text-center text-sm">
-                <div>
-                  <p class="font-semibold text-green-700">{{ m.contracts }}</p>
-                  <p class="text-xs text-gray-400">成約</p>
-                </div>
-                <div>
-                  <p class="font-semibold text-blue-700">{{ m.newClients }}</p>
-                  <p class="text-xs text-gray-400">新規</p>
                 </div>
               </div>
             </NuxtLink>

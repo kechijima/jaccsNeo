@@ -233,7 +233,7 @@ const statusLabel = (status: string) => {
             :to="`/portal/spaces/${event.spaceId}/posts/${event.postId}`"
             class="mt-2 inline-flex items-center gap-1 text-xs text-primary-600 hover:underline"
           >
-            掲示板で見る<Icon name="heroicons:arrow-top-right-on-square" class="h-3 w-3" />
+            活動報告で見る<Icon name="heroicons:arrow-top-right-on-square" class="h-3 w-3" />
           </NuxtLink>
         </div>
       </div>

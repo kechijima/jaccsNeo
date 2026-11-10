@@ -12,6 +12,7 @@ import { useStorage } from '~/composables/useStorage'
 import { useToast } from '~/composables/useToast'
 import { useAppDefs } from '~/composables/useAppDefs'
 import { useUsers } from '~/composables/useUsers'
+import { useSpecialTeams } from '~/composables/useSpecialTeams'
 import { useCurrentUser } from '~/composables/useCurrentUser'
 import { useNotifications } from '~/composables/useNotifications'
 import { isFieldVisible } from '~/utils/appFieldVisibility'
@@ -100,10 +101,24 @@ onMounted(async () => {
 // ===== 担当者・担当未来設計士（全アプリ共通の標準項目） =====
 const { fetchUsers } = useUsers()
 const allUsers = ref<AppUser[]>([])
+
+// 面前担当者（生命保険専用。uid選択）。専門チーム「生命保険募集人」に
+// 所属するユーザーのみを候補とする
+const { fetchAll: fetchSpecialTeams } = useSpecialTeams()
+const faceToFaceStaffCandidates = ref<AppUser[]>([])
+
 onMounted(async () => {
   // 脱退済みユーザーは担当者・担当未来設計士・リマインド対象者のいずれにも
   // 選択できないようにする
-  allUsers.value = (await fetchUsers().catch(() => [])).filter(u => !u.isWithdrawn)
+  const [users, teams] = await Promise.all([
+    fetchUsers().catch(() => []),
+    fetchSpecialTeams().catch(() => []),
+  ])
+  allUsers.value = users.filter(u => !u.isWithdrawn)
+  const team = teams.find(t => t.name === '生命保険募集人')
+  faceToFaceStaffCandidates.value = team
+    ? allUsers.value.filter(u => u.specialTeams?.includes(team.id))
+    : []
 })
 
 // 担当者: アプリの責任者・担当者（アプリ管理で設定）、および担当者とする専門チーム
@@ -234,6 +249,7 @@ const liForm = reactive<LifeInsuranceCaseInput>({
   assignedFpName: '',
   assignedFpUid: '',
   faceToFaceStaffName: '',
+  faceToFaceStaffUid: '',
   designRequest: '',
   newOrSwitch: '',
   desiredApptDates: ['', '', ''],
@@ -256,9 +272,20 @@ const liForm = reactive<LifeInsuranceCaseInput>({
 })
 
 // 担当未来設計士はuidで選択し、表示用の氏名は選択結果から自動的に同期する
-// （同姓同名ユーザーが存在しても、以後の集計・ランキングでuidを使って正しく識別できるようにするため）
+// （同姓同名ユーザーが存在しても、以後の集計・ランキングでuidを使って正しく識別できるようにするため）。
+// uidが設定されているのにユーザー一覧（allUsers）側でまだ一致するユーザーが
+// 見つからない場合（顧客情報からのuid初期セットが、ユーザー一覧読み込み完了より
+// 先に走った場合のタイミング競合）は、既に入っている氏名（顧客情報由来の初期値等）
+// を空文字で上書きしてしまわないよう、そのまま保持する
 watch(() => liForm.assignedFpUid, (uid) => {
-  liForm.assignedFpName = allUsers.value.find(u => u.uid === uid)?.displayName ?? ''
+  if (!uid) { liForm.assignedFpName = ''; return }
+  const matched = allUsers.value.find(u => u.uid === uid)
+  if (matched) liForm.assignedFpName = matched.displayName
+})
+watch(() => liForm.faceToFaceStaffUid, (uid) => {
+  if (!uid) { liForm.faceToFaceStaffName = ''; return }
+  const matched = faceToFaceStaffCandidates.value.find(u => u.uid === uid)
+  if (matched) liForm.faceToFaceStaffName = matched.displayName
 })
 
 // 保険証券コピー（Firebase Storageへアップロードし、ダウンロードURLを保持）
@@ -309,6 +336,10 @@ const liSubmitting = ref(false)
 const liError = ref('')
 
 const handleLiSubmit = async () => {
+  if (!liForm.faceToFaceStaffUid) {
+    liError.value = '面前担当者名を選択してください'
+    return
+  }
   if (policyCopySlots.value.some(s => s.uploading)) {
     liError.value = 'ファイルのアップロードが完了するまでお待ちください'
     return
@@ -383,7 +414,8 @@ const handleLiSubmit = async () => {
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1.5">面前担当者名 <span class="text-red-500">*</span></label>
-            <input v-model="liForm.faceToFaceStaffName" type="text" required placeholder="担当者名を入力" class="input-field" />
+            <SearchableUserSelect v-model="liForm.faceToFaceStaffUid" :users="faceToFaceStaffCandidates" placeholder="選択してください" />
+            <p v-if="faceToFaceStaffCandidates.length === 0" class="mt-1 text-xs text-amber-600">専門チーム「生命保険募集人」にメンバーが登録されていません（グループ・組合マスタ画面から登録できます）</p>
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1.5">担当未来設計士</label>
@@ -538,6 +570,7 @@ const handleLiSubmit = async () => {
           <Icon name="heroicons:shield-check" class="h-5 w-5 text-primary-600" />
           進行状況
         </h3>
+        <p class="text-sm font-bold text-red-600">担当者以外編集禁止</p>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">進行状況</label>
           <select v-model="liForm.progressStatus" class="input-field">
@@ -565,9 +598,7 @@ const handleLiSubmit = async () => {
           </div>
         </div>
 
-        <p class="text-sm font-bold text-red-600 pt-2 border-t border-gray-100">担当者以外編集禁止</p>
-
-        <div>
+        <div class="pt-2 border-t border-gray-100">
           <label class="block text-sm font-medium text-gray-700 mb-1.5">契約内容</label>
           <textarea v-model="liForm.contractContent" rows="3" placeholder="契約内容を入力..." class="input-field resize-none" />
         </div>

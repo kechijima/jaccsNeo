@@ -24,6 +24,7 @@ const ROLE_LABELS: Record<string, string> = {
         :avatar-url="node.user.avatarUrl"
         :display-name="node.user.displayName"
         :group-id="node.user.groupId"
+        :badges="node.user.badges"
         size="sm"
       />
       <p class="text-sm font-semibold text-gray-900 text-center leading-tight">{{ formatDisplayName(node.user) }}</p>

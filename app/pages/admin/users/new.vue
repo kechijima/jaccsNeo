@@ -5,6 +5,7 @@ import type { SpecialTeamDef } from '~/types/specialTeam'
 import { useGroups } from '~/composables/useGroups'
 import { useSpecialTeams } from '~/composables/useSpecialTeams'
 import { useDirectorIndex } from '~/composables/useDirectorIndex'
+import { toKatakana, hasNonKatakana } from '~/utils/kana'
 
 definePageMeta({ middleware: ['auth', 'admin'] })
 
@@ -213,11 +214,13 @@ const toggleSpecialTeam = (team: string) => {
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">姓（よみがな）</label>
-          <input v-model="form.lastNameKana" type="text" placeholder="例: ニシジマ" class="input-field" />
+          <input v-model="form.lastNameKana" type="text" placeholder="例: ニシジマ" class="input-field" @blur="form.lastNameKana = toKatakana(form.lastNameKana)" />
+          <p v-if="hasNonKatakana(form.lastNameKana)" class="mt-1 text-xs text-amber-600">カタカナ以外の文字が含まれています</p>
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">名（よみがな）</label>
-          <input v-model="form.firstNameKana" type="text" placeholder="例: ノブキ" class="input-field" />
+          <input v-model="form.firstNameKana" type="text" placeholder="例: ノブキ" class="input-field" @blur="form.firstNameKana = toKatakana(form.firstNameKana)" />
+          <p v-if="hasNonKatakana(form.firstNameKana)" class="mt-1 text-xs text-amber-600">カタカナ以外の文字が含まれています</p>
         </div>
       </div>
 

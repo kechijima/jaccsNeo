@@ -13,10 +13,10 @@ import {
 /**
  * CSVテキスト（UTF-8）をパースしてCustomerFormの配列に変換する
  */
-export function parseCsvToCustomers(csvText: string): { data: CustomerForm[]; errors: string[] } {
+export function parseCsvToCustomers(csvText: string): { data: CustomerForm[]; errors: string[]; headers: string[] } {
   const errors: string[] = []
   const lines = parseCsvLines(csvText)
-  if (lines.length < 2) return { data: [], errors: ['データが見つかりません'] }
+  if (lines.length < 2) return { data: [], errors: ['データが見つかりません'], headers: [] }
 
   const headers = lines[0]
   const rows = lines.slice(1)
@@ -35,7 +35,7 @@ export function parseCsvToCustomers(csvText: string): { data: CustomerForm[]; er
     }
   })
 
-  return { data, errors }
+  return { data, errors, headers }
 }
 
 function rowToCustomer(headers: string[], row: string[]): CustomerForm {

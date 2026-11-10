@@ -7,7 +7,7 @@ import { useSpaces } from '~/composables/useSpaces'
 import { useEvents } from '~/composables/useEvents'
 import { useUsers } from '~/composables/useUsers'
 import { useAuthStore } from '~/stores/auth'
-import { meetsMinTitle } from '~/types/user'
+import { meetsMinTitle, type UserBadge } from '~/types/user'
 
 const stripHtml = (html: string) => html.replace(/<[^>]*>/g, '').trim()
 
@@ -27,6 +27,7 @@ export interface CommentView {
   authorName: string
   authorInitial: string
   authorAvatarUrl?: string
+  authorBadges?: UserBadge[]
   content: string
   postedAt: string
 }
@@ -40,6 +41,7 @@ export interface PostView {
   authorName: string
   authorInitial: string
   authorAvatarUrl?: string
+  authorBadges?: UserBadge[]
   content: string
   reactions: Record<string, number>
   myReactions: string[]
@@ -57,17 +59,18 @@ export interface PostView {
 
 const toDate = (val: any): Date => val?.toDate?.() ?? (val instanceof Date ? val : new Date())
 
-const toCommentView = (c: SpaceComment, avatarMap: Record<string, string>): CommentView => ({
+const toCommentView = (c: SpaceComment, avatarMap: Record<string, string>, badgeMap: Record<string, UserBadge[]>): CommentView => ({
   id:              c.id,
   authorId:        c.authorUid,
   authorName:      c.authorName,
   authorInitial:   (c.authorName ?? '?').charAt(0),
   authorAvatarUrl: avatarMap[c.authorUid] || undefined,
+  authorBadges:    badgeMap[c.authorUid],
   content:         c.content,
   postedAt:        toDate(c.createdAt).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' }),
 })
 
-const buildPostView = (space: Space | undefined, p: Post, comments: CommentView[], avatarMap: Record<string, string>): PostView => ({
+const buildPostView = (space: Space | undefined, p: Post, comments: CommentView[], avatarMap: Record<string, string>, badgeMap: Record<string, UserBadge[]>): PostView => ({
   id:            p.id,
   spaceId:       p.spaceId,
   spaceName:     space?.name ?? '',
@@ -76,6 +79,7 @@ const buildPostView = (space: Space | undefined, p: Post, comments: CommentView[
   authorName:    p.authorName ?? '',
   authorInitial: (p.authorName ?? '?').charAt(0),
   authorAvatarUrl: avatarMap[p.authorUid ?? ''] || undefined,
+  authorBadges:    badgeMap[p.authorUid ?? ''],
   content:       p.content,
   reactions:     { ...(p.reactionCounts ?? {}) },
   myReactions:   [],
@@ -103,6 +107,7 @@ export const usePortalStore = () => {
   // 投稿側にはアイコンを保存せず、都度ユーザー一覧から解決することで、マイページで
   // 写真を変更した際に過去の投稿表示にも即座に反映されるようにする
   const authorAvatars       = useState<Record<string, string>>('portal:authorAvatars', () => ({}))
+  const authorBadges        = useState<Record<string, UserBadge[]>>('portal:authorBadges', () => ({}))
   const authorAvatarsLoaded = useState<boolean>('portal:authorAvatarsLoaded', () => false)
   const ensureAuthorAvatarsLoaded = async (force = false) => {
     if (authorAvatarsLoaded.value && !force) return
@@ -110,6 +115,9 @@ export const usePortalStore = () => {
     const users = await fetchUsers().catch(() => [])
     authorAvatars.value = Object.fromEntries(
       users.filter(u => u.avatarUrl).map(u => [u.uid, u.avatarUrl as string]),
+    )
+    authorBadges.value = Object.fromEntries(
+      users.filter(u => u.badges && u.badges.length > 0).map(u => [u.uid, u.badges as UserBadge[]]),
     )
     authorAvatarsLoaded.value = true
   }
@@ -157,7 +165,7 @@ export const usePortalStore = () => {
 
     const views = await Promise.all(rawPosts.map(async (p) => {
       const comments = await spacesApi.fetchComments(spaceId, p.id).catch(() => [] as SpaceComment[])
-      return buildPostView(space, p, comments.map(c => toCommentView(c, authorAvatars.value)), authorAvatars.value)
+      return buildPostView(space, p, comments.map(c => toCommentView(c, authorAvatars.value, authorBadges.value)), authorAvatars.value, authorBadges.value)
     }))
 
     posts.value = [...posts.value.filter(p => p.spaceId !== spaceId), ...views].sort((a, b) => {
@@ -185,7 +193,7 @@ export const usePortalStore = () => {
     await ensureAuthorAvatarsLoaded()
     const perSpace = await Promise.all(spaces.value.map(async (s) => {
       const rawPosts = await spacesApi.fetchPosts(s.id).catch(() => [] as Post[])
-      return rawPosts.filter(p => !p.isPinned && p.status !== 'draft').map(p => buildPostView(s, p, [], authorAvatars.value))
+      return rawPosts.filter(p => !p.isPinned && p.status !== 'draft').map(p => buildPostView(s, p, [], authorAvatars.value, authorBadges.value))
     }))
     previewPosts.value = perSpace.flat().sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
     previewLoaded.value = true
@@ -267,7 +275,7 @@ export const usePortalStore = () => {
     if (!post) return
     await spacesApi.createComment(post.spaceId, postId, content)
     const comments = await spacesApi.fetchComments(post.spaceId, postId)
-    post.comments = comments.map(c => toCommentView(c, authorAvatars.value))
+    post.comments = comments.map(c => toCommentView(c, authorAvatars.value, authorBadges.value))
     post.commentCount = post.comments.length
     post.showComments = true
   }
