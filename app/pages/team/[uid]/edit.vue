@@ -234,7 +234,6 @@ const groupLabel = computed(() => groups.value.find(g => g.id === form.groupId)?
             :avatar-url="target.avatarUrl"
             :display-name="target.displayName"
             :group-id="target.groupId"
-            :badges="target.badges"
             size="lg"
           />
           <div v-if="uploadingPhoto" class="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">

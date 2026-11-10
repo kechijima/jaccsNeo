@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { USER_BADGE_OPTIONS } from '~/types/user'
+import { USER_BADGE_OPTIONS, TITLE_BADGE_ICONS } from '~/types/user'
 import type { AppUser } from '~/types/user'
 import { useGroupLabels } from '~/composables/useGroupLabels'
 import { useDisplayName } from '~/composables/useDisplayName'
@@ -42,6 +42,9 @@ const groupLabel = computed(() => profile.value?.groupId ? getGroupLabel(profile
 
 // ── バッジ表示（管理画面で付与されたものをタイトル・グループと並べて表示） ──
 const activeBadges = computed(() => USER_BADGE_OPTIONS.filter(o => profile.value?.badges?.includes(o.value)))
+
+// ── タイトルバッジ（職位タイトルに応じたメダリオン画像。画像未用意のタイトルはテキストのみ表示） ──
+const titleBadgeIcon = computed(() => TITLE_BADGE_ICONS[profile.value?.position as keyof typeof TITLE_BADGE_ICONS])
 
 const roleLabels: Record<string, string> = {
   system_admin: 'システム管理者',
@@ -92,13 +95,15 @@ const activeTab = ref<typeof tabs[number]['key']>('basic')
           :avatar-url="profile.avatarUrl"
           :display-name="profile.displayName"
           :group-id="profile.groupId"
-          :badges="profile.badges"
           size="lg"
         />
         <div class="flex-1 min-w-0">
           <p class="text-lg font-bold text-gray-900">{{ formatDisplayName(profile) }}</p>
           <div class="flex items-center gap-2 flex-wrap mt-1">
-            <span class="badge bg-primary-50 text-primary-700 text-xs">{{ v(profile.position) }}</span>
+            <span class="badge bg-primary-50 text-primary-700 text-xs flex items-center gap-1">
+              <img v-if="titleBadgeIcon" :src="titleBadgeIcon" :alt="profile.position" class="h-3.5 w-3.5" />
+              {{ v(profile.position) }}
+            </span>
             <span
               v-for="b in activeBadges"
               :key="b.value"

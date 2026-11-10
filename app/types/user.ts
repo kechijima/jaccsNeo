@@ -14,6 +14,24 @@ export const TITLE_OPTIONS = [
   'MM1', 'MM2', 'MM3', 'MM4', 'MM5', 'MM6',
 ] as const
 
+// タイトルバッジ画像（TITLE_OPTIONSの一部にのみ用意されている。Sプラン・Bプランは対象外）
+export const TITLE_BADGE_ICONS: Partial<Record<typeof TITLE_OPTIONS[number], string>> = {
+  EM1: '/badges/title-em1.png',
+  EM2: '/badges/title-em2.png',
+  EM3: '/badges/title-em3.png',
+  EM4: '/badges/title-em4.png',
+  PM1: '/badges/title-pm1.png',
+  PM3: '/badges/title-pm3.png',
+  PM6: '/badges/title-pm6.png',
+  PM12: '/badges/title-pm12.png',
+  MM1: '/badges/title-mm1.png',
+  MM2: '/badges/title-mm2.png',
+  MM3: '/badges/title-mm3.png',
+  MM4: '/badges/title-mm4.png',
+  MM5: '/badges/title-mm5.png',
+  MM6: '/badges/title-mm6.png',
+}
+
 // TITLE_OPTIONS内での序列（未設定・不明なタイトルは最下位=-1扱い）
 export const titleLevel = (position?: string): number =>
   position ? TITLE_OPTIONS.indexOf(position as typeof TITLE_OPTIONS[number]) : -1

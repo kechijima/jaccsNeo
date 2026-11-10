@@ -7,7 +7,7 @@ import { useDisplayName } from '~/composables/useDisplayName'
 import { useRequests } from '~/composables/useRequests'
 import { getAnimalFortune } from '~/utils/animalFortune'
 import { toKatakana, hasNonKatakana } from '~/utils/kana'
-import { USER_BADGE_OPTIONS } from '~/types/user'
+import { USER_BADGE_OPTIONS, TITLE_BADGE_ICONS } from '~/types/user'
 import type { AppUser } from '~/types/user'
 import type { Group } from '~/types/group'
 
@@ -242,6 +242,9 @@ const groupLabel = computed(() => groups.value.find(g => g.id === form.groupId)?
 
 // ── バッジ表示（管理画面で付与されたものをタイトル・グループと並べて表示） ──
 const activeBadges = computed(() => USER_BADGE_OPTIONS.filter(o => user.value?.badges?.includes(o.value)))
+
+// ── タイトルバッジ（職位タイトルに応じたメダリオン画像。画像未用意のタイトルはテキストのみ表示） ──
+const titleBadgeIcon = computed(() => TITLE_BADGE_ICONS[user.value?.position as keyof typeof TITLE_BADGE_ICONS])
 </script>
 
 <template>
@@ -291,7 +294,6 @@ const activeBadges = computed(() => USER_BADGE_OPTIONS.filter(o => user.value?.b
           :avatar-url="user.avatarUrl"
           :display-name="user.displayName"
           :group-id="user.groupId"
-          :badges="user.badges"
           size="lg"
         />
         <div v-if="uploadingPhoto" class="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
@@ -301,7 +303,10 @@ const activeBadges = computed(() => USER_BADGE_OPTIONS.filter(o => user.value?.b
       <div class="flex-1 min-w-0">
         <p class="text-lg font-bold text-gray-900">{{ formatDisplayName(user) }}</p>
         <div class="flex items-center gap-2 flex-wrap mt-1">
-          <span class="badge bg-primary-50 text-primary-700 text-xs">{{ user.position }}</span>
+          <span class="badge bg-primary-50 text-primary-700 text-xs flex items-center gap-1">
+            <img v-if="titleBadgeIcon" :src="titleBadgeIcon" :alt="user.position" class="h-3.5 w-3.5" />
+            {{ user.position }}
+          </span>
           <span
             v-for="b in activeBadges"
             :key="b.value"

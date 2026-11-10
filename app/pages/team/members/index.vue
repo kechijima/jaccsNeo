@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { AppUser, UserBadge } from '~/types/user'
+import type { AppUser } from '~/types/user'
 import { useDirectorIndex } from '~/composables/useDirectorIndex'
 import { DIRECTOR_ROLE_LABELS } from '~/types/directorIndex'
 import { useGroups } from '~/composables/useGroups'
@@ -54,7 +54,6 @@ interface MemberRow {
   name: string
   position: string
   avatarUrl?: string
-  badges?: UserBadge[]
   lastName?: string
   firstName?: string
   kumiaiName?: string
@@ -102,7 +101,6 @@ const toMemberRow = (u: AppUser, groupId?: string): MemberRow => ({
   name: u.displayName,
   position: u.role,
   avatarUrl: u.avatarUrl,
-  badges: u.badges,
   lastName: u.lastName,
   firstName: u.firstName,
   kumiaiName: u.kumiaiName,
@@ -358,7 +356,6 @@ const filteredGroups = computed<GroupRow[]>(() => {
                   :avatar-url="m.avatarUrl"
                   :display-name="m.name"
                   :group-id="m.groupId"
-                  :badges="m.badges"
                   size="md"
                 />
                 <div>

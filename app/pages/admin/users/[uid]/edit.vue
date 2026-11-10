@@ -288,7 +288,7 @@ const toggleSpecialTeam = (team: string) => {
     <div v-if="authStore.isSystemAdmin" class="card p-5 space-y-4">
       <div class="flex items-center gap-4">
         <div class="relative shrink-0">
-          <UserAvatar :avatar-url="avatarUrl" :display-name="displayName" :group-id="form.groupId" :badges="badges" size="lg" />
+          <UserAvatar :avatar-url="avatarUrl" :display-name="displayName" :group-id="form.groupId" size="lg" />
           <div v-if="uploadingPhoto" class="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
             <Icon name="heroicons:arrow-path" class="h-5 w-5 text-white animate-spin" />
           </div>
