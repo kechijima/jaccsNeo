@@ -7,6 +7,7 @@ import { useDisplayName } from '~/composables/useDisplayName'
 import { useRequests } from '~/composables/useRequests'
 import { getAnimalFortune } from '~/utils/animalFortune'
 import { toKatakana, hasNonKatakana } from '~/utils/kana'
+import { USER_BADGE_OPTIONS } from '~/types/user'
 import type { AppUser } from '~/types/user'
 import type { Group } from '~/types/group'
 
@@ -238,6 +239,9 @@ const handlePhotoSelect = async (e: Event) => {
 
 // ── グループ表示 ──────────────────────────────────────────────────────────
 const groupLabel = computed(() => groups.value.find(g => g.id === form.groupId)?.name ?? form.groupId)
+
+// ── バッジ表示（管理画面で付与されたものをタイトル・グループと並べて表示） ──
+const activeBadges = computed(() => USER_BADGE_OPTIONS.filter(o => user.value?.badges?.includes(o.value)))
 </script>
 
 <template>
@@ -298,6 +302,14 @@ const groupLabel = computed(() => groups.value.find(g => g.id === form.groupId)?
         <p class="text-lg font-bold text-gray-900">{{ formatDisplayName(user) }}</p>
         <div class="flex items-center gap-2 flex-wrap mt-1">
           <span class="badge bg-primary-50 text-primary-700 text-xs">{{ user.position }}</span>
+          <span
+            v-for="b in activeBadges"
+            :key="b.value"
+            class="badge bg-amber-50 text-amber-700 text-xs flex items-center gap-1"
+          >
+            <img :src="b.icon" :alt="b.label" class="h-3.5 w-3.5" />
+            {{ b.label }}
+          </span>
           <span class="badge bg-gray-100 text-gray-600 text-xs">{{ groupLabel }}</span>
           <span class="text-xs text-gray-400">{{ user.email }}</span>
         </div>
