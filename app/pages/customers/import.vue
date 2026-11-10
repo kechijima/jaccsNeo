@@ -84,6 +84,7 @@ interface PreviewRow {
   status: 'new' | 'duplicate' | 'invalid'
   existingId?: string
   note?: string
+  fpUnmatched?: boolean
 }
 
 const previewRows = ref<PreviewRow[]>([])
@@ -91,28 +92,56 @@ const buildingPreview = ref(false)
 const buildPreviewError = ref('')
 
 // レコード番号（kintoneId）が既存の顧客と一致する行は「重複」として扱う
-// （インポート実行時にスキップ/上書きを選べるようにする）
+// （インポート実行時にスキップ/上書きを選べるようにする）。
+// 「担当 未来設計士?」列はCSV上ではメールアドレスが入っているため、システムの
+// ユーザー情報とメールアドレスで突き合わせ、一致すればassignedFpId（UID）を
+// 設定する。これにより、そのユーザー自身がログインして検索した際に
+// 「自分の担当」として正しく絞り込めるようになる（useCustomers().fetchCustomers()
+// がassignedFpIdでフィルタしているため）。一致しない場合はエラーにはせず、
+// 警告としてプレビューに表示するのみに留める（担当未設定のまま顧客を作成できる）
 const buildPreviewAndNext = async () => {
   buildingPreview.value = true
   buildPreviewError.value = ''
   try {
-    const { customers } = await fetchCustomers()
+    const [{ customers }, users] = await Promise.all([fetchCustomers(), useUsers().fetchUsers()])
     const existingByKintoneId = new Map(
       customers.filter(c => c.kintoneId).map(c => [c.kintoneId as string, c.id]),
     )
-    previewRows.value = parsedRows.value.map((form) => {
+    const userByEmail = new Map(
+      users.filter(u => u.email).map(u => [u.email.trim().toLowerCase(), u]),
+    )
+
+    previewRows.value = parsedRows.value.map((rawForm) => {
+      const form = { ...rawForm }
+      const notes: string[] = []
+
+      // CSVの「担当 未来設計士?」列の値（メールアドレス）をユーザーと突き合わせる
+      let fpUnmatched = false
+      const fpEmail = (form.assignedFpName ?? '').trim()
+      if (fpEmail) {
+        const matchedUser = userByEmail.get(fpEmail.toLowerCase())
+        if (matchedUser) {
+          form.assignedFpId = matchedUser.uid
+          form.assignedFpName = matchedUser.displayName
+        } else {
+          fpUnmatched = true
+          notes.push(`担当未来設計士「${fpEmail}」に一致するユーザーが見つかりません`)
+        }
+      }
+
       const name = (form.name ?? '').trim()
       if (!name) {
         return {
           form, name: '', nameKana: form.nameKana ?? '', dob: form.dob ?? '', tel: form.tel ?? '',
-          kintoneId: form.kintoneId, status: 'invalid' as const, note: '氏名が未入力です',
+          kintoneId: form.kintoneId, status: 'invalid' as const, note: '氏名が未入力です', fpUnmatched,
         }
       }
       const existingId = form.kintoneId ? existingByKintoneId.get(form.kintoneId) : undefined
+      if (existingId) notes.unshift('既存の顧客（レコード番号が一致）')
       return {
         form, name, nameKana: form.nameKana ?? '', dob: form.dob ?? '', tel: form.tel ?? '',
         kintoneId: form.kintoneId, status: existingId ? 'duplicate' as const : 'new' as const, existingId,
-        note: existingId ? '既存の顧客（レコード番号が一致）' : undefined,
+        note: notes.length > 0 ? notes.join(' / ') : undefined, fpUnmatched,
       }
     })
     step.value = 3
@@ -126,6 +155,7 @@ const buildPreviewAndNext = async () => {
 const newCount       = computed(() => previewRows.value.filter(r => r.status === 'new').length)
 const duplicateCount = computed(() => previewRows.value.filter(r => r.status === 'duplicate').length)
 const invalidCount   = computed(() => previewRows.value.filter(r => r.status === 'invalid').length)
+const fpUnmatchedCount = computed(() => previewRows.value.filter(r => r.fpUnmatched).length)
 
 // ── Step 4: インポート実行 ────────────────────────────────────────────────
 const overwriteMode = ref<'skip' | 'overwrite'>('skip')
@@ -304,6 +334,10 @@ const handleImport = async () => {
           <div v-if="invalidCount > 0" class="flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600">
             <Icon name="heroicons:exclamation-circle" class="h-4 w-4" />
             {{ invalidCount }}件 エラー（スキップ）
+          </div>
+          <div v-if="fpUnmatchedCount > 0" class="flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700">
+            <Icon name="heroicons:user-circle" class="h-4 w-4" />
+            {{ fpUnmatchedCount }}件 担当未来設計士が未一致（メールアドレス不一致）
           </div>
         </div>
 
