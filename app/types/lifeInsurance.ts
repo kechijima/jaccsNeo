@@ -19,7 +19,10 @@ export interface LifeInsuranceCase {
   // 担当未来設計士のuid。同姓同名ユーザーによる取り違えを防ぐため、新規登録・編集画面では
   // こちらをユーザー選択で設定する。CSVインポート等の過去データには存在しない場合がある
   assignedFpUid?: string
-  faceToFaceStaffName?: string // 面前担当者名
+  faceToFaceStaffName?: string // 面前担当者名（表示用）
+  // 面前担当者のuid。専門チーム「生命保険募集人」のメンバーから選択する
+  // （担当未来設計士のassignedFpUidと同じく、同姓同名ユーザーの取り違えを防ぐ）
+  faceToFaceStaffUid?: string
 
   contractContent?: string     // 契約内容
   planningContent?: string     // プランニング内容
