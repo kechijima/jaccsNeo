@@ -127,10 +127,16 @@ const removeVideo = async (id: string) => {
       <div>
         <h1 class="text-xl font-bold text-gray-900">動画管理</h1>
       </div>
-      <button v-if="isSystemAdmin && !showForm" type="button" class="btn-primary text-sm" @click="openForm">
-        <Icon name="heroicons:plus" class="h-4 w-4" />
-        動画を追加
-      </button>
+      <div v-if="isSystemAdmin && !showForm" class="flex items-center gap-2 shrink-0">
+        <NuxtLink to="/tools/videos/import" class="btn-secondary text-sm flex items-center gap-1.5">
+          <Icon name="heroicons:arrow-up-tray" class="h-4 w-4" />
+          CSVインポート
+        </NuxtLink>
+        <button type="button" class="btn-primary text-sm" @click="openForm">
+          <Icon name="heroicons:plus" class="h-4 w-4" />
+          動画を追加
+        </button>
+      </div>
     </div>
 
     <!-- 新規登録フォーム -->
