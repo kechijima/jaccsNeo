@@ -125,10 +125,16 @@ const commentFmt = (d: Date) => d.toLocaleString('ja-JP', { month: 'numeric', da
       <div>
         <h1 class="text-xl font-bold text-gray-900">問い合わせ管理</h1>
       </div>
-      <button type="button" class="btn-primary text-sm" @click="showForm = !showForm">
-        <Icon name="heroicons:plus" class="h-4 w-4" />
-        問い合わせを送る
-      </button>
+      <div class="flex items-center gap-2 shrink-0">
+        <NuxtLink v-if="isSystemAdmin" to="/tools/inquiries/import" class="btn-secondary text-sm flex items-center gap-1.5">
+          <Icon name="heroicons:arrow-up-tray" class="h-4 w-4" />
+          CSVインポート
+        </NuxtLink>
+        <button type="button" class="btn-primary text-sm" @click="showForm = !showForm">
+          <Icon name="heroicons:plus" class="h-4 w-4" />
+          問い合わせを送る
+        </button>
+      </div>
     </div>
 
     <!-- 新規問い合わせフォーム -->
