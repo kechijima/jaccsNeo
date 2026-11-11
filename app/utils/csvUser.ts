@@ -1,7 +1,7 @@
 // ユーザー情報CSVインポート用の列定義・変換ヘルパー。
 // types/customer.ts の CSV_FIELD_MAP（外部kintoneファイルの見出しと突合する）とは
 // 完全に別物。こちらはこのアプリ自身が定義する、ユーザー向けの日本語ヘッダー。
-import type { UserRole } from '~/types/user'
+import { USER_BADGE_OPTIONS, type UserRole } from '~/types/user'
 
 export interface UserCsvColumn {
   header: string
@@ -24,6 +24,9 @@ export const USER_CSV_COLUMNS: UserCsvColumn[] = [
   { header: '所属組合',             key: 'kumiaiId',            group: 'account' },
   { header: 'タイトル',             key: 'position',            group: 'account' },
   { header: 'バッジ',               key: 'badges',              group: 'profile' },
+  // バッジごとの個別列（例: 「M100」「M5-3」列にそれぞれTRUE/FALSE）にも対応する。
+  // 上の「バッジ」列（読点・カンマ区切りの複数値）と併用・単独どちらでも使える
+  ...USER_BADGE_OPTIONS.map(b => ({ header: b.label, key: `badge:${b.value}`, group: 'profile' as const })),
   { header: '未来設計ID',           key: 'employeeId',          group: 'profile' },
   { header: '携帯電話',             key: 'mobile',              group: 'profile' },
   { header: '誕生日',               key: 'birthday',            group: 'profile' },

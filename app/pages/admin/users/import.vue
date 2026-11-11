@@ -266,6 +266,7 @@ const previewRows = computed<UserPreviewRow[]>(() => {
     const profileFields: Record<string, any> = {}
     for (const col of USER_CSV_COLUMNS) {
       if (col.group !== 'profile') continue
+      if (col.key.startsWith('badge:')) continue // 個別バッジ列（TRUE/FALSE）は下でまとめて処理する
       const v = rawByKey[col.key]
       if (v) profileFields[col.key] = v
     }
@@ -278,17 +279,27 @@ const previewRows = computed<UserPreviewRow[]>(() => {
         warnings.push(`${key === 'lastNameKana' ? '姓（よみがな）' : '名（よみがな）'}にカタカナ以外の文字が含まれています`)
       }
     }
-    // バッジは読点・カンマ区切りの複数値（例: 「M100、M5-3」）をUserBadge[]に変換する。
+    // バッジは2通りの列形式に対応する（どちらか一方でも、両方同時でもよい）。
+    // (A) 単一の「バッジ」列に読点・カンマ区切りの複数値（例: 「M100、M5-3」）
+    // (B) バッジごとの個別列（例: 「M100」列・「M5-3」列にそれぞれTRUE/FALSE）
     // 管理画面（ユーザー編集）のチェックボックスと同じUSER_BADGE_OPTIONSの値（M100/M5-3）
-    // と照合し、一致しない値は警告のみ（該当分はスキップ）とする
-    if (profileFields.badges) {
-      const badges: UserBadge[] = []
-      for (const name of splitUserMultiValue(profileFields.badges)) {
-        const b = USER_BADGE_OPTIONS.find(o => o.value === name)
-        if (b) badges.push(b.value)
-        else warnings.push(`バッジ「${name}」が見つかりません（M100・M5-3のいずれかを指定してください）`)
+    // と照合し、(A)で一致しない値は警告のみ（該当分はスキップ）とする
+    const BADGE_TRUTHY_RE = /^(true|1|yes|はい|○|レ|済)$/i
+    const hasBadgeColumn = profileFields.badges !== undefined || USER_BADGE_OPTIONS.some(o => rawByKey[`badge:${o.value}`] !== undefined)
+    if (hasBadgeColumn) {
+      const badges = new Set<UserBadge>()
+      if (profileFields.badges) {
+        for (const name of splitUserMultiValue(profileFields.badges)) {
+          const b = USER_BADGE_OPTIONS.find(o => o.value === name)
+          if (b) badges.add(b.value)
+          else warnings.push(`バッジ「${name}」が見つかりません（M100・M5-3のいずれかを指定してください）`)
+        }
       }
-      profileFields.badges = badges
+      for (const opt of USER_BADGE_OPTIONS) {
+        const raw = rawByKey[`badge:${opt.value}`]
+        if (raw !== undefined && BADGE_TRUTHY_RE.test(raw.trim())) badges.add(opt.value)
+      }
+      profileFields.badges = Array.from(badges)
     }
     // 姓・名・所属組合名はcreateAuthUserが受け取らない（displayNameの生成にのみ
     // 使われる）ため、AppUserの個別フィールドとしてもここで明示的に反映する
