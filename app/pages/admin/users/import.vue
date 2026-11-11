@@ -2,7 +2,9 @@
 // ユーザー情報（組合員情報）のCSV一括インポート。
 // customers/import.vue・admin/apps/[appId]/import.vueと同じ4ステップ構成。
 // メールアドレスで既存ユーザーと照合し、未一致なら新規作成（Firebase Auth＋
-// Firestore）、一致すればプロフィール更新のみを行う。
+// Firestore）、一致すればプロフィール更新のみを行う。メールアドレス列が
+// 無いCSV（姓・名のみ）の場合は氏名（姓+名、同姓同名はよみがなで絞り込み）で
+// 既存ユーザーと照合する（この経路では新規作成は行わず更新のみ）。
 import { readCsvFile, parseCsv } from '~/utils/csv'
 import { downloadCsv } from '~/utils/csvCustomer'
 import { USER_CSV_COLUMNS, ROLE_LABEL_TO_VALUE, splitUserMultiValue, buildUserCsvTemplate } from '~/utils/csvUser'
@@ -108,6 +110,14 @@ watch(csvHeaders, (headers) => {
 })
 
 const hasEmailMapping = computed(() => Object.values(mapping.value).includes('email'))
+// メールアドレス列が無いCSV（例: 姓・名・バッジのみ）でも、既存ユーザーの更新に限り
+// 氏名（姓・名の両方）での照合を許可する（バッジ一括付与等の用途を想定。新規作成は
+// メールアドレスが無いと不可能なため、氏名のみのマッピングでは更新のみ対応となる）
+const hasNameMapping = computed(() => {
+  const mapped = Object.values(mapping.value)
+  return mapped.includes('lastName') && mapped.includes('firstName')
+})
+const canProceedMapping = computed(() => hasEmailMapping.value || hasNameMapping.value)
 
 // ── Step3: プレビュー・検証 ─────────────────────────────────────
 interface UserPreviewRow {
@@ -125,6 +135,21 @@ interface UserPreviewRow {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+// 氏名（姓+名）での照合用。同姓同名が複数いる場合は一意に特定できないため、
+// よみがな（姓名）も一致した場合に限り絞り込む（それでも複数残ればエラー扱い）
+const nameKey = (lastName: string, firstName: string) => `${lastName.trim()}|${firstName.trim()}`
+const existingByName = computed(() => {
+  const map = new Map<string, AppUser[]>()
+  for (const u of existingUsers.value) {
+    if (!u.lastName || !u.firstName) continue
+    const key = nameKey(u.lastName, u.firstName)
+    const list = map.get(key) ?? []
+    list.push(u)
+    map.set(key, list)
+  }
+  return map
+})
+
 const previewRows = computed<UserPreviewRow[]>(() => {
   const existingByEmail = new Map(
     existingUsers.value.filter(u => u.email).map(u => [u.email.trim().toLowerCase(), u]),
@@ -141,19 +166,46 @@ const previewRows = computed<UserPreviewRow[]>(() => {
     const email = rawByKey.email ?? ''
     const warnings: string[] = []
     let blockingError = ''
+    let existing: AppUser | undefined
 
-    if (!email) {
-      blockingError = 'メールアドレスが空です'
-    } else if (!EMAIL_RE.test(email)) {
-      blockingError = 'メールアドレスの形式が不正です'
+    if (hasEmailMapping.value) {
+      // メールアドレス列がマッピングされている場合は、従来通りメールアドレスで照合する
+      // （行ごとに空欄・不正な値があってもエラー扱いとし、氏名照合へは切り替えない）
+      if (!email) {
+        blockingError = 'メールアドレスが空です'
+      } else if (!EMAIL_RE.test(email)) {
+        blockingError = 'メールアドレスの形式が不正です'
+      } else {
+        const key = email.toLowerCase()
+        if (seenEmails.has(key)) blockingError = 'CSV内でメールアドレスが重複しています'
+        seenEmails.add(key)
+      }
+      if (!blockingError) existing = existingByEmail.get(email.toLowerCase())
+    } else if (rawByKey.lastName && rawByKey.firstName) {
+      // メールアドレス列が無い場合は氏名で既存ユーザーを照合する（新規作成は不可）
+      const candidates = existingByName.value.get(nameKey(rawByKey.lastName, rawByKey.firstName)) ?? []
+      if (candidates.length === 0) {
+        blockingError = '氏名が一致する既存ユーザーが見つかりません'
+      } else if (candidates.length === 1) {
+        existing = candidates[0]
+      } else {
+        // 同姓同名が複数いる場合、よみがなが一致すれば絞り込む
+        const narrowed = (rawByKey.lastNameKana && rawByKey.firstNameKana)
+          ? candidates.filter(u => toKatakana(u.lastNameKana ?? '') === toKatakana(rawByKey.lastNameKana) && toKatakana(u.firstNameKana ?? '') === toKatakana(rawByKey.firstNameKana))
+          : []
+        if (narrowed.length === 1) {
+          existing = narrowed[0]
+        } else {
+          blockingError = '同姓同名の既存ユーザーが複数見つかり、特定できません（よみがなを含めてもユーザーを一意に絞り込めませんでした）'
+        }
+      }
     } else {
-      const key = email.toLowerCase()
-      if (seenEmails.has(key)) blockingError = 'CSV内でメールアドレスが重複しています'
-      seenEmails.add(key)
+      blockingError = 'メールアドレス、または氏名（姓・名の両方）のいずれかが必要です'
     }
 
-    const existing = !blockingError ? existingByEmail.get(email.toLowerCase()) : undefined
-    const mode: 'create' | 'update' | null = blockingError ? null : (existing ? 'update' : 'create')
+    // メールアドレス列が無い行は新規作成できない（Firebase Authアカウント作成に
+    // メールアドレスが必須のため）。既存ユーザーが見つからなければエラーのまま
+    const mode: 'create' | 'update' | null = blockingError ? null : (existing ? 'update' : (email ? 'create' : null))
 
     let role: UserRole | undefined
     if (rawByKey.role) {
@@ -309,7 +361,7 @@ const handleImport = async () => {
         success++
       } else {
         errorN++
-        rowErrors.value.push({ email: chunk[idx].email, message: (r.reason as Error)?.message ?? '更新に失敗しました' })
+        rowErrors.value.push({ email: chunk[idx].email || chunk[idx].displayName, message: (r.reason as Error)?.message ?? '更新に失敗しました' })
       }
     })
     done += chunk.length
@@ -370,7 +422,7 @@ const handleImport = async () => {
       <!-- Step 1: ファイルアップロード -->
       <div v-if="step === 1" class="card p-6 space-y-4">
         <h2 class="font-semibold text-gray-900">CSVファイルを選択</h2>
-        <p class="text-sm text-gray-500">メールアドレスで既存ユーザーと照合します。一致すれば情報を更新、一致しなければ新規にアカウントを作成します。</p>
+        <p class="text-sm text-gray-500">メールアドレスで既存ユーザーと照合します。一致すれば情報を更新、一致しなければ新規にアカウントを作成します。メールアドレス列が無いCSV（姓・名のみ）の場合は、氏名で既存ユーザーと照合して更新します（この場合、新規作成はできません）。</p>
         <div
           class="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-10 transition"
           :class="isDragging ? 'border-primary-400 bg-primary-50' : 'border-gray-300 bg-gray-50 hover:border-primary-300'"
@@ -443,9 +495,13 @@ const handleImport = async () => {
           </table>
         </div>
 
-        <p v-if="!hasEmailMapping" class="text-sm text-red-600 flex items-center gap-1.5">
+        <p v-if="!canProceedMapping" class="text-sm text-red-600 flex items-center gap-1.5">
           <Icon name="heroicons:exclamation-circle" class="h-4 w-4" />
-          「メールアドレス」に対応する列を1つ選択してください
+          「メールアドレス」、または「姓」と「名」の両方に対応する列を選択してください
+        </p>
+        <p v-else-if="!hasEmailMapping" class="text-sm text-amber-600 flex items-center gap-1.5">
+          <Icon name="heroicons:information-circle" class="h-4 w-4" />
+          メールアドレス列が無いため、氏名で既存ユーザーを照合します（新規作成は行われません）
         </p>
 
         <div class="rounded-lg bg-blue-50 border border-blue-200 p-4">
@@ -460,7 +516,7 @@ const handleImport = async () => {
 
         <div class="flex justify-between">
           <button class="btn-secondary" @click="step = 1">← 戻る</button>
-          <button class="btn-primary" :disabled="!hasEmailMapping" @click="step = 3">
+          <button class="btn-primary" :disabled="!canProceedMapping" @click="step = 3">
             次へ：プレビュー確認
             <Icon name="heroicons:arrow-right" class="h-4 w-4 ml-1" />
           </button>
