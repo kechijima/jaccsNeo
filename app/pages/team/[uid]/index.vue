@@ -101,7 +101,7 @@ const activeTab = ref<typeof tabs[number]['key']>('basic')
           <p class="text-lg font-bold text-gray-900">{{ formatDisplayName(profile) }}</p>
           <div class="flex items-center gap-2 flex-wrap mt-1">
             <span class="badge bg-primary-50 text-primary-700 text-xs flex items-center gap-1">
-              <img v-if="titleBadgeIcon" :src="titleBadgeIcon" :alt="profile.position" class="h-3.5 w-3.5" />
+              <img v-if="titleBadgeIcon" :src="titleBadgeIcon" :alt="profile.position" class="h-6 w-6" />
               {{ v(profile.position) }}
             </span>
             <span
@@ -109,7 +109,7 @@ const activeTab = ref<typeof tabs[number]['key']>('basic')
               :key="b.value"
               class="badge bg-amber-50 text-amber-700 text-xs flex items-center gap-1"
             >
-              <img :src="b.icon" :alt="b.label" class="h-3.5 w-3.5" />
+              <img :src="b.icon" :alt="b.label" class="h-6 w-6" />
               {{ b.label }}
             </span>
             <span class="badge bg-gray-100 text-gray-600 text-xs">{{ groupLabel }}</span>
