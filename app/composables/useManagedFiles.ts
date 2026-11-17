@@ -3,7 +3,7 @@
  * files コレクション（メタデータ）+ Firebase Storage（実体）
  */
 import {
-  collection, doc, addDoc, updateDoc, deleteDoc, getDocs, query, orderBy,
+  collection, doc, addDoc, updateDoc, deleteDoc, getDocs, query,
   serverTimestamp, type DocumentData,
 } from 'firebase/firestore'
 import type { ManagedFile, ManagedFileForm } from '~/types/tools'
@@ -36,9 +36,10 @@ export const useManagedFiles = () => {
 
   const filesCol = () => collection($db, 'files')
 
+  // 並び順はタイトルのあいうえお順（日本語ロケールでの比較）をデフォルトとする
   const fetchFiles = async (): Promise<ManagedFile[]> => {
-    const snap = await getDocs(query(filesCol(), orderBy('createdAt', 'desc')))
-    const all = snap.docs.map(d => toManagedFile(d.id, d.data()))
+    const snap = await getDocs(query(filesCol()))
+    const all = snap.docs.map(d => toManagedFile(d.id, d.data())).sort((a, b) => a.title.localeCompare(b.title, 'ja'))
     if (authStore.isSystemAdmin) return all
     return all.filter(f => canViewManagedFile(f, authStore.user))
   }

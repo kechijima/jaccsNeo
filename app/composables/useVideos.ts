@@ -3,7 +3,7 @@
  * videos コレクションを利用する簡易CRUD
  */
 import {
-  collection, doc, addDoc, updateDoc, deleteDoc, getDocs, query, orderBy,
+  collection, doc, addDoc, updateDoc, deleteDoc, getDocs, query,
   serverTimestamp, type DocumentData,
 } from 'firebase/firestore'
 import type { ManagedVideo, ManagedVideoForm } from '~/types/tools'
@@ -36,9 +36,10 @@ export const useVideos = () => {
 
   const videosCol = () => collection($db, 'videos')
 
+  // 並び順はタイトルのあいうえお順（日本語ロケールでの比較）をデフォルトとする
   const fetchVideos = async (): Promise<ManagedVideo[]> => {
-    const snap = await getDocs(query(videosCol(), orderBy('createdAt', 'desc')))
-    const all = snap.docs.map(d => toVideo(d.id, d.data()))
+    const snap = await getDocs(query(videosCol()))
+    const all = snap.docs.map(d => toVideo(d.id, d.data())).sort((a, b) => a.title.localeCompare(b.title, 'ja'))
     if (authStore.isSystemAdmin) return all
     return all.filter(v => canViewVideo(v, authStore.user))
   }
