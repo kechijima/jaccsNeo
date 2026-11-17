@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { CustomerForm, FamilyMember, Reminder } from '~/types/customer'
+import type { AppUser } from '~/types/user'
 import { getAnimalFortune } from '~/utils/animalFortune'
 import { useUsers } from '~/composables/useUsers'
 
@@ -22,12 +23,21 @@ const update = (key: string, value: any) => {
   emit('update:modelValue', { ...props.modelValue, [key]: value })
 }
 
-// 担当未来設計士の候補（自由入力だが、既存ユーザー名を検索・選択できるようにする）
+// 担当未来設計士。以前は自由入力のComboBox（氏名の文字列をそのまま保存）だったため、
+// 編集時にassignedFpId（UID）が更新されず、表記揺れ・CSVインポート時の未一致メール
+// アドレスがそのまま残る等の不整合が起きていた。他画面（案件の担当者等）と同じ
+// SearchableUserSelect（UID選択・氏名検索）に統一し、選択結果からassignedFpNameも
+// 自動的に同期する
 const { fetchUsers } = useUsers()
-const assignedFpSuggestions = ref<string[]>([])
+const assignedFpOptions = ref<AppUser[]>([])
 fetchUsers().then((users) => {
-  assignedFpSuggestions.value = users.filter(u => !u.isWithdrawn).map(u => u.displayName)
+  assignedFpOptions.value = users.filter(u => !u.isWithdrawn)
 }).catch(() => {})
+
+const updateAssignedFp = (uid: string) => {
+  const user = assignedFpOptions.value.find(u => u.uid === uid)
+  emit('update:modelValue', { ...props.modelValue, assignedFpId: uid || undefined, assignedFpName: user?.displayName ?? '' })
+}
 
 // 状況（ワン/ツー/フォロー以降）のテキストエリアは、内部スクロールだと見づらいため
 // 改行ごとに高さが自動で広がるようにする（最小の見た目はrows属性のまま維持する）
@@ -445,8 +455,8 @@ const updateReminder = (idx: number, key: keyof Reminder, value: string) => {
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">担当未来設計士</label>
-          <ComboBox :model-value="form.assignedFpName ?? ''" :items="assignedFpSuggestions"
-            @update:model-value="update('assignedFpName', $event)" />
+          <SearchableUserSelect :model-value="form.assignedFpId ?? ''" :users="assignedFpOptions"
+            placeholder="選択してください" @update:model-value="updateAssignedFp" />
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">関係性</label>

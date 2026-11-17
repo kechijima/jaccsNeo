@@ -3,7 +3,7 @@ import { useCustomerStore } from '~/composables/useCustomerStore'
 import { useSavedSearchStore } from '~/composables/useSavedSearchStore'
 import { useDataScope } from '~/composables/useDataScope'
 import { useOperationLog } from '~/composables/useOperationLog'
-import { exportApoToCsv, downloadCsv } from '~/utils/csvCustomer'
+import { exportApoToExcel, downloadExcel } from '~/utils/csvCustomer'
 import { getAnimalFortune } from '~/utils/animalFortune'
 import type { Customer } from '~/types/customer'
 import type { FilterOperator, FilterCondition, SavedSearch } from '~/types/savedSearch'
@@ -244,12 +244,12 @@ const goToPage = (p: number) => {
   currentPage.value = Math.min(Math.max(1, p), totalPages.value)
 }
 
-// ── フォロー表出力（絞り込み結果全件を出力） ────────────────────────────
-const handleExportApo = () => {
-  const csv = exportApoToCsv(filtered.value)
+// ── フォロー表出力（絞り込み結果全件を出力。格子付きExcelファイル） ──────────
+const handleExportApo = async () => {
+  const buffer = await exportApoToExcel(filtered.value)
   const label = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '')
-  downloadCsv(csv, `apo_report_${label}.csv`)
-  useOperationLog().log('csv_export', `アポ確認CSV（${filtered.value.length}件）`).catch(() => {})
+  downloadExcel(buffer, `apo_report_${label}.xlsx`)
+  useOperationLog().log('csv_export', `アポ確認Excel（${filtered.value.length}件）`).catch(() => {})
 }
 
 // ── ステータス色 ──────────────────────────────────────────────────────────

@@ -1,69 +1,47 @@
 <script setup lang="ts">
-import { exportApoToCsv, downloadCsv } from '~/utils/csvCustomer'
+import { exportApoToExcel, downloadExcel } from '~/utils/csvCustomer'
 import { useCustomerStore } from '~/composables/useCustomerStore'
-import { useDataScope } from '~/composables/useDataScope'
 import { useOperationLog } from '~/composables/useOperationLog'
 import { useAuthStore } from '~/stores/auth'
 import type { Customer } from '~/types/customer'
 
 definePageMeta({ middleware: ['auth'] })
 
-const { customers, ensureLoaded: ensureCustomersLoaded } = useCustomerStore()
-
-// ── 閲覧範囲（ロールに応じて担当FPで絞り込む） ──────────────────────────
-// 一般: 自分のみ / EM2以上: 自分と自分がサポートするメンバー / 理事会・システム管理者: 制限なし
-const { scopedFpNames, ensureScope } = useDataScope()
-await Promise.all([ensureScope(), ensureCustomersLoaded()])
+const { fetchMyCustomers } = useCustomerStore()
 const authStore = useAuthStore()
-const scopeMessage = computed(() => {
-  if (scopedFpNames.value === null) return '全メンバーのアポ状況を分析できます'
-  if (authStore.isEm2Above) return '自分と自分がサポートするメンバーのアポ状況を分析できます'
-  return '自分のアポ状況を分析できます'
-})
+
+// ── 閲覧範囲はロールによらず常にログインユーザー自身の担当顧客のみ ──────────
+// （全件取得だと読み込みが重いため、Firestore側でassignedFpId/assignedFpNameに
+// よる絞り込みクエリを使う。顧客一覧全体の取得は行わない）
+const customers = ref<Customer[]>([])
+customers.value = await fetchMyCustomers(authStore.user?.uid ?? '', authStore.user?.displayName)
+const scopeMessage = '自分のアポ状況を分析できます'
 
 const now = new Date()
 const nextWeek = new Date(now.getTime() + 7 * 86400000)
 
 const parse = (dateStr?: string) => (dateStr ? new Date(dateStr) : null)
 
-// ── アポ対象顧客（appointment1 or appointment2 を持つ、またはアポ調整中。閲覧範囲で絞り込み） ────
-const apoCustomers = computed<Customer[]>(() => {
-  let list = customers.value.filter(c =>
-    c.appointment1?.place ||
-    c.appointment2?.place ||
-    c.status1 === 'アポ調整中',
-  )
-  if (scopedFpNames.value !== null) {
-    list = list.filter(c => scopedFpNames.value!.has(c.assignedFpName ?? ''))
-  }
-  return list
-})
+// ── アポ対象顧客（appointment1 or appointment2 を持つ、またはアポ調整中） ────────
+const apoCustomers = computed<Customer[]>(() => customers.value.filter(c =>
+  c.appointment1?.place ||
+  c.appointment2?.place ||
+  c.status1 === 'アポ調整中',
+))
 
-// ── 閲覧範囲内の全顧客（アポの有無に関わらず、属性分析の母集団） ──────────
-const scopedAllCustomers = computed<Customer[]>(() => {
-  if (scopedFpNames.value === null) return customers.value
-  return customers.value.filter(c => scopedFpNames.value!.has(c.assignedFpName ?? ''))
-})
+// ── 自分の全顧客（アポの有無に関わらず、属性分析の母集団） ──────────────────
+const scopedAllCustomers = computed<Customer[]>(() => customers.value)
 
-// ── 分析対象FP（管理者・EM2以上は閲覧範囲内の特定ユーザーを選んで分析できる） ──
-const selectedFp = ref('')  // '' = 閲覧範囲すべて
-
-// 分析対象の選択肢（閲覧範囲内の全顧客の担当FP名から動的に生成）
+// 分析対象は常に自分のみのため、FP選択は不要（showFpSelectorは常にfalse）
+const selectedFp = ref('')
 const fpOptions = computed(() =>
   [...new Set(scopedAllCustomers.value.map(c => c.assignedFpName || '担当未設定'))].sort()
 )
 const showFpSelector = computed(() => fpOptions.value.length > 1)
 const fpSelectOptions = computed(() => fpOptions.value.map(fp => ({ id: fp, label: fp })))
 
-// 分析対象で絞り込んだ顧客（性別・段数構成、サマリー、アポ一覧に反映）
-const targetAllCustomers = computed<Customer[]>(() => {
-  if (!selectedFp.value) return scopedAllCustomers.value
-  return scopedAllCustomers.value.filter(c => (c.assignedFpName || '担当未設定') === selectedFp.value)
-})
-const targetApoCustomers = computed<Customer[]>(() => {
-  if (!selectedFp.value) return apoCustomers.value
-  return apoCustomers.value.filter(c => (c.assignedFpName || '担当未設定') === selectedFp.value)
-})
+const targetAllCustomers = computed<Customer[]>(() => scopedAllCustomers.value)
+const targetApoCustomers = computed<Customer[]>(() => apoCustomers.value)
 
 const BAR_COLORS = ['bg-primary-500', 'bg-sky-500', 'bg-amber-400', 'bg-emerald-500', 'bg-rose-400', 'bg-purple-400', 'bg-gray-400']
 
@@ -175,12 +153,12 @@ const filteredList = computed<Customer[]>(() => {
   })
 })
 
-// ── CSV出力 ──────────────────────────────────────────────────────────────────
-const handleExport = () => {
-  const csv = exportApoToCsv(filteredList.value)
+// ── Excel出力（格子付き） ──────────────────────────────────────────────────────
+const handleExport = async () => {
+  const buffer = await exportApoToExcel(filteredList.value)
   const label = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '')
-  downloadCsv(csv, `apo_report_${label}.csv`)
-  useOperationLog().log('csv_export', `アポ確認CSV（${filteredList.value.length}件）`).catch(() => {})
+  downloadExcel(buffer, `apo_report_${label}.xlsx`)
+  useOperationLog().log('csv_export', `アポ確認Excel（${filteredList.value.length}件）`).catch(() => {})
 }
 
 // ── 表示ヘルパー ──────────────────────────────────────────────────────────────
@@ -229,8 +207,8 @@ const apoNote = (c: Customer): string =>
         <SearchableSelect
           v-model="selectedFp"
           :items="fpSelectOptions"
-          :placeholder="scopedFpNames === null ? '全員' : '自分がサポートする範囲すべて'"
-          :clear-label="scopedFpNames === null ? '全員' : '自分がサポートする範囲すべて'"
+          placeholder="自分の担当すべて"
+          clear-label="自分の担当すべて"
           search-placeholder="担当者名で検索..."
         />
       </div>

@@ -1,6 +1,6 @@
 import {
   collection, doc, getDocs, addDoc, updateDoc, deleteDoc,
-  serverTimestamp, query, orderBy, type DocumentData,
+  serverTimestamp, query, orderBy, where, type DocumentData,
 } from 'firebase/firestore'
 import type { Customer, CustomerForm } from '~/types/customer'
 
@@ -48,6 +48,21 @@ export const useCustomerStore = () => {
     }
   }
 
+  // 自分が担当FPの顧客のみを取得する（アポ状況分析ページ等、全件取得が不要な場面向け）。
+  // 共有キャッシュ（customers/loaded）には書き込まず、呼び出し元にローカルな結果のみ返す。
+  // assignedFpId（uid）に加え、uid未設定の過去データ（CSV取込分等）を取りこぼさないよう
+  // assignedFpName（氏名）でも並行して問い合わせ、結果をマージする
+  const fetchMyCustomers = async (uid: string, displayName?: string): Promise<Customer[]> => {
+    const queries = [getDocs(query(customersCol(), where('assignedFpId', '==', uid)))]
+    if (displayName) queries.push(getDocs(query(customersCol(), where('assignedFpName', '==', displayName))))
+    const snaps = await Promise.all(queries)
+    const map = new Map<string, Customer>()
+    for (const snap of snaps) {
+      for (const d of snap.docs) if (!map.has(d.id)) map.set(d.id, toCustomer(d.id, d.data()))
+    }
+    return [...map.values()]
+  }
+
   const getById = (id: Ref<string> | string) =>
     computed(() => customers.value.find(c => c.id === unref(id)) ?? null)
 
@@ -76,5 +91,5 @@ export const useCustomerStore = () => {
     customers.value = customers.value.filter(c => c.id !== id)
   }
 
-  return { customers, loading, loaded, ensureLoaded, getById, create, update, remove }
+  return { customers, loading, loaded, ensureLoaded, fetchMyCustomers, getById, create, update, remove }
 }
