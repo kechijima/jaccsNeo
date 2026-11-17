@@ -14,10 +14,37 @@ const loading = ref(true)
 const loadError = ref('')
 const videos = ref<ManagedVideo[]>([])
 
+// Vimeoは動画ごとに埋め込み許可ドメインの「プライバシー設定」があり、許可されていない
+// ドメイン（このアプリ等）からiframeで埋め込むと「プライバシー設定のため再生できません」
+// と表示されて再生できない（kintone/Vimeo既存データの一括インポート時によくある）。
+// Vimeoの動画はiframe埋め込みをせず、サムネイル画像＋クリックでvimeo.com上の動画ページを
+// 新しいタブで開くカード表示にする（埋め込み許可の有無に関係なく、直接視聴ページを
+// 開くだけなら視聴自体は可能なケースが多いため）
+const vimeoId = (url: string): string | null => url.match(/vimeo\.com\/(?:video\/)?(\d+)/)?.[1] ?? null
+const vimeoWatchUrl = (url: string): string => {
+  const id = vimeoId(url)
+  return id ? `https://vimeo.com/${id}` : url
+}
+
+const vimeoThumbnails = ref<Record<string, string>>({})
+const fetchVimeoThumbnails = async (list: ManagedVideo[]) => {
+  await Promise.all(list.filter(v => vimeoId(v.url) && !vimeoThumbnails.value[v.id]).map(async (v) => {
+    try {
+      const res = await fetch(`https://vimeo.com/api/oembed.json?url=${encodeURIComponent(vimeoWatchUrl(v.url))}`)
+      if (!res.ok) return
+      const data = await res.json()
+      if (data.thumbnail_url) vimeoThumbnails.value = { ...vimeoThumbnails.value, [v.id]: data.thumbnail_url }
+    } catch {
+      // サムネイルが取得できなくても、再生リンク自体は表示されるので無視してよい
+    }
+  }))
+}
+
 const load = async () => {
   loading.value = true
   try {
     videos.value = await fetchVideos()
+    fetchVimeoThumbnails(videos.value)
   } catch (e: any) {
     loadError.value = e.message ?? '動画の取得に失敗しました'
   } finally {
@@ -218,7 +245,28 @@ const removeVideo = async (id: string) => {
 
     <div v-else class="grid md:grid-cols-2 gap-4">
       <div v-for="v in videos" :key="v.id" class="card overflow-hidden">
-        <div class="aspect-video bg-black">
+        <!-- Vimeoはプライバシー設定で埋め込みがブロックされることがあるため、
+             サムネイル＋クリックでvimeo.com上の視聴ページを新しいタブで開く形にする -->
+        <a
+          v-if="vimeoId(v.url)"
+          :href="vimeoWatchUrl(v.url)"
+          target="_blank"
+          rel="noopener"
+          class="relative block aspect-video bg-black group"
+        >
+          <img
+            v-if="vimeoThumbnails[v.id]"
+            :src="vimeoThumbnails[v.id]"
+            alt=""
+            class="w-full h-full object-cover"
+          />
+          <div class="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/35 transition">
+            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-white/90">
+              <Icon name="heroicons:play" class="h-6 w-6 text-gray-800 ml-0.5" />
+            </div>
+          </div>
+        </a>
+        <div v-else class="aspect-video bg-black">
           <iframe :src="toEmbedUrl(v.url)" class="w-full h-full" allowfullscreen frameborder="0" />
         </div>
         <div class="p-4">
