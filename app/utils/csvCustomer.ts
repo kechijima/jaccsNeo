@@ -182,12 +182,34 @@ const APO_COLUMNS = [
   { label: 'ツーアポメモ',  get: (c: Customer) => c.appointment2?.note ?? '' },
 ]
 
-export function exportApoToCsv(customers: Customer[]): string {
-  const header = APO_COLUMNS.map(c => `"${c.label}"`).join(',')
-  const rows = customers.map(customer =>
-    APO_COLUMNS.map(col => `"${col.get(customer).replace(/"/g, '""')}"`).join(','),
-  )
-  return [header, ...rows].join('\r\n')
+/**
+ * フォロー表（アポ状況）を格子（全セル罫線）付きのExcelファイルとして生成する。
+ * exceljsは比較的大きいライブラリのため、この関数が実際に呼ばれた時点で
+ * 初めて動的importし、通常利用時の初期バンドルサイズに影響させないようにする
+ */
+export async function exportApoToExcel(customers: Customer[]): Promise<ArrayBuffer> {
+  const ExcelJS = (await import('exceljs')).default
+  const workbook = new ExcelJS.Workbook()
+  const sheet = workbook.addWorksheet('フォロー表')
+
+  const thinBorder = { style: 'thin' as const, color: { argb: 'FF999999' } }
+  const allBorders = { top: thinBorder, bottom: thinBorder, left: thinBorder, right: thinBorder }
+
+  sheet.columns = APO_COLUMNS.map(c => ({ header: c.label, key: c.label, width: 16 }))
+
+  const headerRow = sheet.getRow(1)
+  headerRow.eachCell((cell) => {
+    cell.font = { bold: true }
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } }
+    cell.border = allBorders
+  })
+
+  for (const customer of customers) {
+    const row = sheet.addRow(APO_COLUMNS.map(col => col.get(customer)))
+    row.eachCell({ includeEmpty: true }, (cell) => { cell.border = allBorders })
+  }
+
+  return workbook.xlsx.writeBuffer()
 }
 
 /**
@@ -200,6 +222,17 @@ export function downloadCsv(csvText: string, filename: string) {
   const sjisArray = Encoding.convert(unicodeArray, { to: 'SJIS', from: 'UNICODE' })
   const bytes = new Uint8Array(sjisArray)
   const blob = new Blob([bytes], { type: 'text/csv;charset=shift_jis;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+/** Excel(.xlsx)バイナリのダウンロードトリガー（exportApoToExcel()等の戻り値を渡す） */
+export function downloadExcel(buffer: ArrayBuffer, filename: string) {
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
