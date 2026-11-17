@@ -298,10 +298,12 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
     <!-- メインコンテンツ -->
     <main class="flex-1 min-w-0 flex flex-col">
 
-      <!-- ヘッダー画像バナー -->
+      <!-- ヘッダー画像バナー。タイトルを通常フロー配置にし、名前が折り返しても
+           見切れず親ごと伸びるようにする（固定heightをmin-heightに、スペース名部分を
+           absolute inset-0から外し、flex flex-col justify-endで下寄せする） -->
       <div
-        class="relative w-full overflow-hidden bg-gradient-to-r from-indigo-500 via-indigo-400 to-sky-400"
-        style="height: 144px;"
+        class="relative w-full overflow-hidden bg-gradient-to-r from-indigo-500 via-indigo-400 to-sky-400 flex flex-col justify-end"
+        style="min-height: 144px;"
       >
         <img
           v-if="space.headerImage"
@@ -309,36 +311,35 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
           alt=""
           class="absolute inset-0 w-full h-full object-cover"
         />
+        <div class="absolute inset-0" style="background: rgba(0,0,0,0.35)" />
         <!-- スペース名オーバーレイ -->
-        <div class="absolute inset-0 flex items-end px-4 pb-3" style="background: rgba(0,0,0,0.35)">
-          <div class="flex items-end justify-between w-full">
-            <div>
-              <p class="text-2xl md:text-3xl font-bold text-white drop-shadow">{{ space.name }}</p>
-            </div>
-            <div class="flex items-center gap-2 shrink-0 pb-0.5">
-              <NuxtLink to="/portal" class="text-white/80 hover:text-white transition">
-                <Icon name="heroicons:arrow-left" class="h-4 w-4" />
-              </NuxtLink>
-              <button
-                type="button"
-                class="p-1.5 rounded-full transition"
-                :class="isFavoriteSpace(spaceId)
-                  ? 'bg-amber-400 text-white hover:bg-amber-500'
-                  : 'bg-white/20 text-white hover:bg-white/30'"
-                :aria-label="isFavoriteSpace(spaceId) ? 'お気に入りから外す' : 'お気に入りに追加'"
-                :title="isFavoriteSpace(spaceId) ? 'お気に入り登録中' : 'お気に入りに追加'"
-                @click="toggleFavoriteSpace(spaceId)"
-              >
-                <Icon :name="isFavoriteSpace(spaceId) ? 'heroicons:star-solid' : 'heroicons:star'" class="h-4 w-4" />
-              </button>
-              <NuxtLink
-                v-if="space.isAdmin"
-                :to="`/portal/spaces/${spaceId}/settings`"
-                class="p-1.5 rounded-full bg-white/20 hover:bg-white/30 transition text-white"
-              >
-                <Icon name="heroicons:cog-6-tooth" class="h-4 w-4" />
-              </NuxtLink>
-            </div>
+        <div class="relative flex items-end justify-between w-full px-4 pb-3 pt-3">
+          <div>
+            <p class="text-2xl md:text-3xl font-bold text-white drop-shadow">{{ space.name }}</p>
+          </div>
+          <div class="flex items-center gap-2 shrink-0 pb-0.5">
+            <NuxtLink to="/portal" class="text-white/80 hover:text-white transition">
+              <Icon name="heroicons:arrow-left" class="h-4 w-4" />
+            </NuxtLink>
+            <button
+              type="button"
+              class="p-1.5 rounded-full transition"
+              :class="isFavoriteSpace(spaceId)
+                ? 'bg-amber-400 text-white hover:bg-amber-500'
+                : 'bg-white/20 text-white hover:bg-white/30'"
+              :aria-label="isFavoriteSpace(spaceId) ? 'お気に入りから外す' : 'お気に入りに追加'"
+              :title="isFavoriteSpace(spaceId) ? 'お気に入り登録中' : 'お気に入りに追加'"
+              @click="toggleFavoriteSpace(spaceId)"
+            >
+              <Icon :name="isFavoriteSpace(spaceId) ? 'heroicons:star-solid' : 'heroicons:star'" class="h-4 w-4" />
+            </button>
+            <NuxtLink
+              v-if="space.isAdmin"
+              :to="`/portal/spaces/${spaceId}/settings`"
+              class="p-1.5 rounded-full bg-white/20 hover:bg-white/30 transition text-white"
+            >
+              <Icon name="heroicons:cog-6-tooth" class="h-4 w-4" />
+            </NuxtLink>
           </div>
         </div>
       </div>
