@@ -641,8 +641,10 @@ const staffPickUid = ref('')
 const settingsSaving = ref(false)
 const settingsError = ref('')
 
-const ownerCandidates = computed(() => users.value.filter(u => !ownerUids.value.includes(u.uid)))
-const staffCandidates = computed(() => users.value.filter(u => !staffUids.value.includes(u.uid)))
+// 脱退済みユーザーは新たに責任者・担当者として選べないようにする（既存の割当表示・解除はusers側で
+// フィルタしていないため維持される。他画面の「稼働中ユーザー」判定と同じ!u.isWithdrawnを使う）
+const ownerCandidates = computed(() => users.value.filter(u => !u.isWithdrawn && !ownerUids.value.includes(u.uid)))
+const staffCandidates = computed(() => users.value.filter(u => !u.isWithdrawn && !staffUids.value.includes(u.uid)))
 
 const addOwner = () => {
   if (!ownerPickUid.value) return
