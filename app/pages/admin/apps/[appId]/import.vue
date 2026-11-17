@@ -9,6 +9,7 @@ import { useAppDefs } from '~/composables/useAppDefs'
 import { useCustomerStore } from '~/composables/useCustomerStore'
 import { useServices } from '~/composables/useServices'
 import type { AppDef } from '~/types/appDef'
+import { STATUS_LABELS } from '~/types/service'
 import type { ServiceCase, ServiceCaseForm, ServiceStatus, ServiceType } from '~/types/service'
 import type { AppUser } from '~/types/user'
 
@@ -62,12 +63,19 @@ const exportError = ref('')
 // 変換して出力する（インポート側がメールアドレスを期待しているため、出力した
 // CSVをそのまま再インポートできるようにするための対応）
 const emailOf = (uid?: string) => uid ? (allUsers.value.find(u => u.uid === uid)?.email ?? '') : ''
+// 再インポート時にparseDateValue()でそのまま解釈できる形式（YYYY-MM-DD HH:mm:ss）で出力する
+const formatTimestamp = (ts: any) => ts?.toDate ? ts.toDate().toLocaleString('sv-SE') : ''
 
 const exportColumns = computed(() => [
   { label: '顧客名', get: (c: ServiceCase) => customers.value.find(cu => cu.id === c.customerId)?.name ?? '' },
   ...GENERIC_FIELD_OPTIONS.map(o => ({
     label: o.label,
-    get: (c: ServiceCase) => USER_FIELD_KEYS.has(o.value) ? emailOf((c as any)[o.value]) : ((c as any)[o.value] ?? ''),
+    get: (c: ServiceCase) => {
+      if (USER_FIELD_KEYS.has(o.value)) return emailOf((c as any)[o.value])
+      if (o.value === 'status') return STATUS_LABELS[c.status]
+      if (o.value === 'createdAt' || o.value === 'updatedAt') return formatTimestamp((c as any)[o.value])
+      return (c as any)[o.value] ?? ''
+    },
   })),
   ...(app.value?.fields ?? [])
     .filter(f => !['label', 'space', 'record_number'].includes(f.type))
@@ -156,12 +164,27 @@ const GENERIC_FIELD_OPTIONS = [
   { value: 'reminderNote',    label: 'リマインダー内容' },
   { value: 'plannerUid',      label: '担当未来設計士（メールアドレス）' },
   { value: 'assigneeUid',     label: '担当者（メールアドレス）' },
+  { value: 'status',          label: 'ステータス（進捗状況）' },
+  { value: 'createdAt',       label: '作成日時' },
+  { value: 'updatedAt',       label: '更新日時' },
 ]
 // CSVの値がメールアドレスとして渡され、ユーザーと突き合わせてUID化する対象の
 // マッピング先キー（固定フィールド側）。アプリ専用の「担当者」カスタムフィールド
 // （type === 'assignee'）も同様にUID化が必要だが、こちらはpreviewRows側で
 // fieldsById経由のtype判定により個別に扱う
 const USER_FIELD_KEYS = new Set(['plannerUid', 'assigneeUid'])
+// ステータスの日本語ラベル（kintoneの「進捗状況」）⇔内部キーの変換用
+const STATUS_LABEL_TO_VALUE: Record<string, ServiceStatus> = Object.fromEntries(
+  (Object.entries(STATUS_LABELS) as [ServiceStatus, string][]).map(([k, v]) => [v, k]),
+)
+// kintoneエクスポートの日時表記（YYYY/MM/DD HH:mm、YYYY-MM-DD等）を緩く解釈する。
+// 解釈できない場合はnullを返し、呼び出し側で警告のみ（行はエラーにしない）とする
+const parseDateValue = (raw: string): Date | null => {
+  const direct = new Date(raw)
+  if (!isNaN(direct.getTime())) return direct
+  const normalized = new Date(raw.replace(/\//g, '-').replace(' ', 'T'))
+  return isNaN(normalized.getTime()) ? null : normalized
+}
 
 // アプリ側に「担当者」カスタムフィールド（type: 'assignee'）が追加されている場合、
 // 画面（customers/[id]/services/[serviceType]/new.vue等）はそちらを優先して使い、
@@ -244,6 +267,20 @@ const previewRows = computed<PreviewRow[]>(() => {
         } else {
           warnings.push(`「${raw}」に一致するユーザーが見つかりません`)
         }
+        continue
+      }
+
+      if (target === 'status') {
+        const resolved = STATUS_LABEL_TO_VALUE[raw]
+        if (resolved) formFields.status = resolved
+        else warnings.push(`ステータス「${raw}」が不明なため、一律設定（${STATUS_LABELS[defaultStatus.value]}）を適用します`)
+        continue
+      }
+
+      if (target === 'createdAt' || target === 'updatedAt') {
+        const parsed = parseDateValue(raw)
+        if (parsed) formFields[target] = parsed
+        else warnings.push(`「${raw}」を日時として解釈できないため、${target === 'createdAt' ? '作成日時' : '更新日時'}はインポート実行時刻になります`)
         continue
       }
 
@@ -467,7 +504,7 @@ const handleImport = async () => {
             <option value="completed">完了</option>
             <option value="failed">不成立</option>
           </select>
-          <p class="mt-1 text-xs text-gray-400">CSVにステータス列があっても自動判定はせず、ここで選んだステータスを全行に一律で設定します</p>
+          <p class="mt-1 text-xs text-gray-400">CSVの「ステータス」列をマッピングした場合はその値を優先します。未マッピング・値が不明な行にはここで選んだステータスを一律で設定します</p>
         </div>
 
         <div class="flex justify-between">
@@ -493,8 +530,8 @@ const handleImport = async () => {
             {{ errorCount }}件 エラー（スキップされます）
           </div>
           <div v-if="warningCount > 0" class="flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700">
-            <Icon name="heroicons:user-circle" class="h-4 w-4" />
-            {{ warningCount }}件 担当者・担当未来設計士が未一致（メールアドレス不一致）
+            <Icon name="heroicons:exclamation-triangle" class="h-4 w-4" />
+            {{ warningCount }}件 警告あり
           </div>
         </div>
 

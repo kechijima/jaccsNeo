@@ -12,6 +12,7 @@ import {
   limit,
   serverTimestamp,
   arrayUnion,
+  Timestamp,
   type DocumentData,
 } from 'firebase/firestore'
 import type { ServiceCase, ServiceCaseForm, ServiceType, ServiceStatus, ServiceProgressReport } from '~/types/service'
@@ -99,15 +100,18 @@ export const useServices = () => {
   }
 
   // ===== 新規作成 =====
+  // createdAt/updatedAtはCSVインポート（kintone移行）で過去の日時を引き継ぎたい場合のみ
+  // formに指定する（通常の新規作成画面では指定されず、従来通りserverTimestamp()になる）
   const createCase = async (customerId: string, serviceType: ServiceType, form: ServiceCaseForm): Promise<string> => {
+    const { createdAt, updatedAt, ...rest } = form
     const ref = await addDoc(casesRef(customerId, serviceType), {
-      ...stripUndefined(form),
+      ...stripUndefined(rest),
       customerId,
       serviceType,
       createdBy: authStore.user?.uid,
       updatedBy: authStore.user?.uid,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
+      createdAt: createdAt ? Timestamp.fromDate(createdAt) : serverTimestamp(),
+      updatedAt: updatedAt ? Timestamp.fromDate(updatedAt) : serverTimestamp(),
     })
     return ref.id
   }

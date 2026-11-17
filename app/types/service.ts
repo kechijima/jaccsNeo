@@ -159,6 +159,10 @@ export interface ServiceCaseForm {
   assigneeUid?: string
   plannerUid?: string
   customFields?: Record<string, string | string[]>
+  // CSVインポート（kintone移行）時に過去の日時を引き継ぐための任意項目。
+  // 未指定時は従来通りcreateCase/updateCase側でserverTimestamp()を使う
+  createdAt?: Date
+  updatedAt?: Date
 }
 
 export interface ServiceSummary {
