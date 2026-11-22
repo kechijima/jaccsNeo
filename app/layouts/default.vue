@@ -190,11 +190,11 @@ const handleMarkAllRead = async () => {
       :class="sidebarCollapsed ? 'md:w-16' : 'md:w-60'"
     >
 
-      <!-- ロゴ -->
-      <div class="flex items-center gap-2.5 px-5 py-4 border-b border-gray-200" :class="sidebarCollapsed ? 'justify-center px-0' : ''">
+      <!-- ロゴ（クリックでホームへ） -->
+      <NuxtLink to="/dashboard" class="flex items-center gap-2.5 px-5 py-4 border-b border-gray-200 hover:bg-gray-50 transition" :class="sidebarCollapsed ? 'justify-center px-0' : ''">
         <img src="/logo.png" alt="" class="w-8 h-8 object-contain shrink-0" />
         <span v-if="!sidebarCollapsed" class="text-base font-bold text-gray-900 truncate">JACCS Neo</span>
-      </div>
+      </NuxtLink>
 
       <!-- 開閉トグル -->
       <button
@@ -419,10 +419,10 @@ const handleMarkAllRead = async () => {
 
       <!-- スマホヘッダー -->
       <header class="md:hidden flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
-        <div class="flex items-center gap-2">
+        <NuxtLink to="/dashboard" class="flex items-center gap-2">
           <img src="/logo.png" alt="" class="w-7 h-7 object-contain shrink-0" />
           <span class="text-sm font-bold text-gray-900">JACCS Neo</span>
-        </div>
+        </NuxtLink>
         <div class="flex items-center gap-1">
           <button
             type="button"
