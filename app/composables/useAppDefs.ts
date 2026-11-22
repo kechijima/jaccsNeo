@@ -36,6 +36,7 @@ const toAppDef = (id: string, data: DocumentData): AppDef => ({
   // 旧仕様（単一責任者）のデータも読み込めるよう、ownerUidしか無い場合はそれを配列化する
   ownerUids: data.ownerUids ?? (data.ownerUid ? [data.ownerUid] : []),
   staffUids: data.staffUids ?? [],
+  staffSpecialTeamIds: data.staffSpecialTeamIds ?? [],
   sourceServiceType: data.sourceServiceType,
   category: data.category,
   staleAlertDays: data.staleAlertDays,
