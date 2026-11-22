@@ -117,27 +117,6 @@ const summary = computed(() => {
   return { total: all.length, future: future.length, adjusting: adjusting.length, done: done.length, thisWeek: thisWeek.length, laterThan: laterThan.length }
 })
 
-// ── 担当者別集計（CSVデータの担当者名でグルーピング） ────────────────────────
-const fpStats = computed(() => {
-  const fpMap: Record<string, { name: string; future: number; adjusting: number; done: number; total: number }> = {}
-
-  for (const c of apoCustomers.value) {
-    const fpName = c.assignedFpName || '担当未設定'
-    if (!fpMap[fpName]) {
-      fpMap[fpName] = { name: fpName, future: 0, adjusting: 0, done: 0, total: 0 }
-    }
-    const cls = classify(c)
-    fpMap[fpName][cls]++
-    fpMap[fpName].total++
-  }
-
-  return Object.values(fpMap)
-    .filter(fp => fp.total > 0)
-    .sort((a, b) => b.total - a.total)
-})
-
-const maxFpTotal = computed(() => Math.max(...fpStats.value.map(f => f.total), 1))
-
 // ── アポ一覧（分析対象で絞り込み済み） ───────────────────────────────────────
 const filteredList = computed<Customer[]>(() => {
   const list = targetApoCustomers.value
@@ -238,58 +217,6 @@ const apoNote = (c: Customer): string =>
       </div>
     </div>
 
-    <!-- FP別アポ状況 -->
-    <div class="card p-5 space-y-4">
-      <h2 class="font-semibold text-gray-900 flex items-center gap-2">
-        <Icon name="heroicons:users" class="h-5 w-5 text-primary-500" />
-        担当未来設計士別アポ状況
-      </h2>
-
-      <div class="space-y-3">
-        <div v-for="fp in fpStats" :key="fp.name">
-          <div class="flex items-center gap-3">
-            <span class="text-sm font-medium text-gray-700 w-20 shrink-0 truncate">{{ fp.name }}</span>
-            <div class="flex-1 flex gap-0.5 rounded overflow-hidden h-6">
-              <!-- アポ確定 -->
-              <div
-                v-if="fp.future > 0"
-                class="bg-primary-500 flex items-center justify-center text-white text-[11px] font-semibold transition-all"
-                :style="{ width: `${(fp.future / maxFpTotal) * 100}%` }"
-                :title="`アポ確定: ${fp.future}件`"
-              >{{ fp.future }}</div>
-              <!-- 調整中 -->
-              <div
-                v-if="fp.adjusting > 0"
-                class="bg-amber-400 flex items-center justify-center text-white text-[11px] font-semibold transition-all"
-                :style="{ width: `${(fp.adjusting / maxFpTotal) * 100}%` }"
-                :title="`調整中: ${fp.adjusting}件`"
-              >{{ fp.adjusting }}</div>
-              <!-- 実施済み -->
-              <div
-                v-if="fp.done > 0"
-                class="bg-gray-200 flex items-center justify-center text-gray-500 text-[11px] font-semibold transition-all"
-                :style="{ width: `${(fp.done / maxFpTotal) * 100}%` }"
-                :title="`実施済み: ${fp.done}件`"
-              >{{ fp.done }}</div>
-            </div>
-            <span class="text-sm font-bold text-gray-700 w-8 text-right shrink-0">{{ fp.total }}</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- 凡例 -->
-      <div class="flex items-center gap-4 pt-1">
-        <span class="flex items-center gap-1.5 text-xs text-gray-500">
-          <span class="h-2.5 w-2.5 rounded-sm bg-primary-500 inline-block"></span>アポ確定
-        </span>
-        <span class="flex items-center gap-1.5 text-xs text-gray-500">
-          <span class="h-2.5 w-2.5 rounded-sm bg-amber-400 inline-block"></span>調整中
-        </span>
-        <span class="flex items-center gap-1.5 text-xs text-gray-500">
-          <span class="h-2.5 w-2.5 rounded-sm bg-gray-200 inline-block"></span>実施済み
-        </span>
-      </div>
-    </div>
 
     <!-- 顧客属性分析（性別・段数） -->
     <div class="grid sm:grid-cols-2 gap-4">
