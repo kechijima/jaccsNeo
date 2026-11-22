@@ -245,8 +245,60 @@ export const useDirectorIndex = () => {
     return { synced, skipped }
   }
 
+  // 旧Excel移行分（uidを持たない静的データ）を中心に、漢字の異体字・表記揺れ等で
+  // 現在のユーザー情報と一致しなくなった名前の残骸（例: 「髙田優介」と「高田優介」の
+  // ような表記違いで、一方が現在のユーザーと一致せず宙に浮いたまま残る等）を削除する
+  // （管理画面から手動実行）。判定基準は「現在在籍中のユーザーの表示名と完全一致するか」
+  // のみとし、一致する限りはサポート設定（メイン/サブサポート）の有無に関わらず残す
+  // （一致しない名前だけを、過去データの残骸として削除する）
+  const cleanupOrphanedEntries = async (): Promise<{ removedNames: string[]; removedRows: number; touchedRows: number }> => {
+    const users = await fetchUsers()
+    const activeByUid = new Map(users.filter(u => !u.isWithdrawn).map(u => [u.uid, u]))
+    const activeByName = new Map(users.filter(u => !u.isWithdrawn).map(u => [u.displayName, u]))
+
+    await fetchAll()
+
+    const batch = writeBatch($db)
+    const removedNames = new Set<string>()
+    let removedRows = 0
+    let touchedRows = 0
+
+    for (const row of rows.value) {
+      const directorValid = row.directorUid ? activeByUid.has(row.directorUid) : activeByName.has(row.directorName)
+      if (!directorValid) {
+        batch.delete(doc($db, COLLECTION, row.id))
+        removedNames.add(row.directorName)
+        row.memberNames.forEach(n => removedNames.add(n))
+        removedRows++
+        touchedRows++
+        continue
+      }
+
+      const nextNames = row.memberNames.filter(n => activeByName.has(n))
+      if (nextNames.length === row.memberNames.length) continue
+
+      row.memberNames.filter(n => !nextNames.includes(n)).forEach(n => removedNames.add(n))
+      if (nextNames.length === 0) {
+        batch.delete(doc($db, COLLECTION, row.id))
+        removedRows++
+      } else {
+        const nextUids = nextNames.map(n => activeByName.get(n)!.uid)
+        batch.update(doc($db, COLLECTION, row.id), { memberNames: nextNames, memberUids: nextUids })
+      }
+      touchedRows++
+    }
+
+    if (touchedRows > 0) {
+      await batch.commit()
+      await fetchAll(true)
+    }
+
+    return { removedNames: [...removedNames], removedRows, touchedRows }
+  }
+
   return {
     rows, loading, loaded, fetchAll, seedFromStatic, searchByDirector, directorNames,
     upsertDirectorAssignment, removeMemberFromIndex, cleanupWithdrawnMembers, resyncAllFromUsers,
+    cleanupOrphanedEntries,
   }
 }

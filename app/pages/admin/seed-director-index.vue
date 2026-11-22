@@ -4,7 +4,7 @@ import { DIRECTOR_INDEX_DATA } from '~/data/directorIndexData'
 
 definePageMeta({ middleware: ['auth', 'admin'] })
 
-const { fetchAll, seedFromStatic, cleanupWithdrawnMembers, resyncAllFromUsers, rows } = useDirectorIndex()
+const { fetchAll, seedFromStatic, cleanupWithdrawnMembers, resyncAllFromUsers, cleanupOrphanedEntries, rows } = useDirectorIndex()
 
 const checking = ref(true)
 const seeding  = ref(false)
@@ -74,6 +74,26 @@ const runResync = async () => {
     resyncError.value = e.message ?? '再同期に失敗しました'
   } finally {
     resyncing.value = false
+  }
+}
+
+// ── 現在のユーザーと一致しない名前（残骸データ）のクリーンアップ ─────────────
+// 旧Excel移行分を中心に、漢字の異体字・表記揺れ等で現在のユーザーと一致しなく
+// なった名前が残り続け、メンバー一覧で同一人物が重複して見える不具合の対処
+const cleaningOrphans = ref(false)
+const orphanResult = ref<{ removedNames: string[]; removedRows: number; touchedRows: number } | null>(null)
+const orphanError = ref('')
+
+const runOrphanCleanup = async () => {
+  cleaningOrphans.value = true
+  orphanError.value = ''
+  orphanResult.value = null
+  try {
+    orphanResult.value = await cleanupOrphanedEntries()
+  } catch (e: any) {
+    orphanError.value = e.message ?? '除去処理に失敗しました'
+  } finally {
+    cleaningOrphans.value = false
   }
 }
 </script>
@@ -230,6 +250,53 @@ const runResync = async () => {
           <Icon v-if="resyncing" name="heroicons:arrow-path" class="h-4 w-4 animate-spin" />
           <Icon v-else name="heroicons:arrow-path-rounded-square" class="h-4 w-4" />
           {{ resyncing ? '再同期中...' : 'ユーザーデータから再同期する' }}
+        </button>
+      </div>
+
+      <!-- 現在のユーザーと一致しない名前（残骸データ）のクリーンアップ -->
+      <div class="border-t border-gray-100 pt-6 mt-2 space-y-3">
+        <div>
+          <h2 class="font-semibold text-gray-900 flex items-center gap-2">
+            <Icon name="heroicons:trash" class="h-5 w-5 text-primary-600" />
+            一致しない名前（残骸データ）のクリーンアップ
+          </h2>
+          <p class="text-sm text-gray-500 mt-0.5">
+            旧Excel移行分のデータを中心に、漢字の異体字・表記揺れ等で現在のユーザー情報と
+            一致しなくなった名前がそのまま残り、メンバー一覧で同一人物が重複して表示される
+            ことがあります（例: 同じ人が「サポートなし」の行と「○○%サポート」の行の
+            両方に出てくる）。このボタンで、現在在籍中のユーザーの表示名と完全一致しない
+            名前（ディレクター名・担当メンバー名）を一括で削除します。一致する名前は、
+            サポート設定の有無に関わらず削除しません。
+          </p>
+        </div>
+
+        <div v-if="orphanError" class="rounded-lg bg-red-50 border border-red-200 px-4 py-3 flex items-start gap-3">
+          <Icon name="heroicons:exclamation-circle" class="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+          <p class="text-sm text-red-700">{{ orphanError }}</p>
+        </div>
+
+        <div v-if="orphanResult" class="rounded-lg bg-green-50 border border-green-200 px-4 py-3 flex items-start gap-3">
+          <Icon name="heroicons:check-circle" class="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
+          <div class="text-sm text-green-700">
+            <p v-if="orphanResult.removedNames.length === 0">一致しない名前は見つかりませんでした。</p>
+            <p v-else>
+              {{ orphanResult.removedNames.length }}名を{{ orphanResult.touchedRows }}件の行から削除しました
+              （うち{{ orphanResult.removedRows }}件は行ごと削除）。
+            </p>
+            <p v-if="orphanResult.removedNames.length > 0" class="mt-0.5 text-green-600">
+              削除した名前: {{ orphanResult.removedNames.join('、') }}
+            </p>
+          </div>
+        </div>
+
+        <button
+          class="btn-secondary flex items-center gap-2"
+          :disabled="cleaningOrphans"
+          @click="runOrphanCleanup"
+        >
+          <Icon v-if="cleaningOrphans" name="heroicons:arrow-path" class="h-4 w-4 animate-spin" />
+          <Icon v-else name="heroicons:trash" class="h-4 w-4" />
+          {{ cleaningOrphans ? '確認中...' : '一致しない名前を削除する' }}
         </button>
       </div>
     </template>
