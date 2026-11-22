@@ -186,6 +186,18 @@ const parseDateValue = (raw: string): Date | null => {
   return isNaN(normalized.getTime()) ? null : normalized
 }
 
+// kintoneはチェックボックス・複数選択項目を選択肢ごとに別列として書き出す
+// （列見出しが「フィールド名[選択肢名]」の形式になり、値は選択されていれば"1"等、
+// されていなければ"-"等になる）。この列見出しからフィールド名・選択肢名を取り出す
+const OPTION_COLUMN_RE = /^(.+)\[(.+)\]$/
+const parseOptionColumn = (header: string): { baseLabel: string; option: string } | null => {
+  const m = header.match(OPTION_COLUMN_RE)
+  return m ? { baseLabel: m[1].trim(), option: m[2].trim() } : null
+}
+// 選択肢列の値が「未選択」を表すとみなす値（空文字はraw自体が既に除外されるためここでは
+// ダッシュ類・0のみを見ればよい）
+const CHECKBOX_FALSY = new Set(['-', '－', 'ー', '―', '0'])
+
 // アプリ側に「担当者」カスタムフィールド（type: 'assignee'）が追加されている場合、
 // 画面（customers/[id]/services/[serviceType]/new.vue等）はそちらを優先して使い、
 // 固定フィールドのassigneeUidは使わない（重複を避ける設計）。CSVマッピングの
@@ -204,11 +216,24 @@ const fieldOptions = computed(() => [
 
 const mapping = ref<Record<string, string>>({})
 
-// 列名から「顧客名」「氏名」等を含むものを初期値として自動推定しておく（変更可能）
+// チェックボックス・複数選択タイプのフィールドを、ラベル文字列から引けるようにする
+// （kintoneの「フィールド名[選択肢名]」形式の列見出しをこのフィールドへ自動マッピングするため）
+const checkboxFieldByLabel = computed(() => new Map(
+  (app.value?.fields ?? []).filter(f => ['checkbox', 'multi_select'].includes(f.type)).map(f => [f.label, f]),
+))
+
+// 列名から「顧客名」「氏名」等を含むものを初期値として自動推定しておく（変更可能）。
+// 「フィールド名[選択肢名]」形式の列（kintoneのチェックボックス・複数選択の書き出し形式）は、
+// フィールド名が一致するチェックボックス・複数選択タイプのフィールドへまとめて自動マッピングする
+// （手動で選択肢の数だけ同じ項目を選び直す手間を無くすため）
 watch(csvHeaders, (headers) => {
   const m: Record<string, string> = {}
   headers.forEach((h) => {
-    if (/顧客|氏名|名前/.test(h) && !Object.values(m).includes(CUSTOMER_NAME_TARGET)) {
+    const optionCol = parseOptionColumn(h)
+    const matchedField = optionCol ? checkboxFieldByLabel.value.get(optionCol.baseLabel) : undefined
+    if (matchedField) {
+      m[h] = matchedField.id
+    } else if (/顧客|氏名|名前/.test(h) && !Object.values(m).includes(CUSTOMER_NAME_TARGET)) {
       m[h] = CUSTOMER_NAME_TARGET
     } else {
       m[h] = ''
@@ -255,6 +280,23 @@ const previewRows = computed<PreviewRow[]>(() => {
       if (!raw) continue
 
       const def = fieldsById.get(target)
+
+      // 「フィールド名[選択肢名]」形式の列（kintoneのチェックボックス・複数選択の書き出し形式）を
+      // チェックボックス・複数選択タイプのフィールドへマッピングした場合、値は「選択されているか
+      // どうか」のフラグとして扱い、選択肢名を配列に積み上げる（同じフィールドへマッピングされた
+      // 他の選択肢列の結果とマージする。通常のテキスト列として直接マッピングした場合は、
+      // 従来通り読点・カンマ区切りの複数値として扱う）
+      if (def && ['checkbox', 'multi_select'].includes(def.type)) {
+        const optionCol = parseOptionColumn(col)
+        if (optionCol && optionCol.baseLabel === def.label) {
+          if (!CHECKBOX_FALSY.has(raw)) {
+            const existing = Array.isArray(customFields[target]) ? customFields[target] as string[] : []
+            customFields[target] = [...existing, optionCol.option]
+          }
+          continue
+        }
+      }
+
       const isUserField = USER_FIELD_KEYS.has(target) || def?.type === 'assignee'
       if (isUserField) {
         const matchedUser = userByEmail.value.get(raw.toLowerCase())
@@ -465,6 +507,9 @@ const handleImport = async () => {
         <p class="text-sm text-gray-500">
           CSVの列とシステムのフィールドを対応付けてください。
           「★顧客名」は既存の顧客情報の氏名と完全一致で照合するために必須です。
+          kintoneのチェックボックス・複数選択項目を書き出した「フィールド名［選択肢名］」形式の
+          列は、同名のチェックボックス・複数選択フィールドへ自動でまとめてマッピングされます
+          （選択されている列のみ、その選択肢が反映されます）。
         </p>
 
         <div class="overflow-x-auto">
