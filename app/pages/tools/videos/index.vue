@@ -14,19 +14,15 @@ const loading = ref(true)
 const loadError = ref('')
 const videos = ref<ManagedVideo[]>([])
 
-// Vimeoは動画ごとに「埋め込み許可ドメイン」と「vimeo.com上での直接閲覧可否
-// （Hide from vimeo.com等）」という、別々に設定できる2つのプライバシー制限がある。
-// 前者が原因だとiframe埋め込みが「プライバシー設定のため再生できません」で失敗し、
-// 後者が原因だとvimeo.com上の視聴ページへの直接リンクが「ページが見つかりません」で
-// 失敗する（どちらか一方だけ許可されている動画が混在するため、どちらか片方の手段だけに
-// 統一すると一部の動画が見られなくなる）。そのため埋め込み（iframe）を基本としつつ、
-// 埋め込みが失敗した場合の代替としてvimeo.com上の視聴ページを新しいタブで開く
-// リンクも併記する（どちらか一方が許可されていれば視聴できるようにするため）
+// Vimeoはiframeへの埋め込み（ドメイン許可制限）と、vimeo.com上の視聴ページ
+// （vimeo.com/{id}、「Hide from vimeo.com」等）への直接アクセスがそれぞれ別の
+// プライバシー制限を受けることがあり、前者が原因だと「プライバシー設定のため
+// 再生できません」、後者が原因だと「ページが見つかりません」になる。一方、
+// 動画のプレーヤーURL自体（player.vimeo.com/video/{id}、CSVインポート時に
+// 保存されているURLそのもの）は、iframe埋め込みではなくブラウザで直接開けば
+// 再生できることを確認済みのため、フォールバックリンクはvimeo.com/{id}へ変換せず、
+// 保存されているURLをそのまま新しいタブで開くようにする
 const vimeoId = (url: string): string | null => url.match(/vimeo\.com\/(?:video\/)?(\d+)/)?.[1] ?? null
-const vimeoWatchUrl = (url: string): string => {
-  const id = vimeoId(url)
-  return id ? `https://vimeo.com/${id}` : url
-}
 
 const load = async () => {
   loading.value = true
@@ -235,12 +231,11 @@ const removeVideo = async (id: string) => {
         <div class="aspect-video bg-black">
           <iframe :src="toEmbedUrl(v.url)" class="w-full h-full" allowfullscreen frameborder="0" />
         </div>
-        <!-- Vimeoは「埋め込み許可ドメイン」と「vimeo.com上での直接閲覧可否」が動画ごとに
-             別々に設定されているため、上の埋め込みが失敗する動画でも、vimeo.com上の視聴
-             ページでは見られることがある（逆のケースもある）。代替手段として併記する -->
+        <!-- 上のiframe埋め込みが失敗する動画でも、保存されているプレーヤーURL自体を
+             ブラウザで直接開けば再生できることがあるため、代替手段として併記する -->
         <a
           v-if="vimeoId(v.url)"
-          :href="vimeoWatchUrl(v.url)"
+          :href="v.url"
           target="_blank"
           rel="noopener"
           class="block px-4 py-1.5 text-xs text-primary-600 hover:underline bg-gray-50 border-t border-gray-100"
