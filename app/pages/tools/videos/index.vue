@@ -14,37 +14,24 @@ const loading = ref(true)
 const loadError = ref('')
 const videos = ref<ManagedVideo[]>([])
 
-// Vimeoは動画ごとに埋め込み許可ドメインの「プライバシー設定」があり、許可されていない
-// ドメイン（このアプリ等）からiframeで埋め込むと「プライバシー設定のため再生できません」
-// と表示されて再生できない（kintone/Vimeo既存データの一括インポート時によくある）。
-// Vimeoの動画はiframe埋め込みをせず、サムネイル画像＋クリックでvimeo.com上の動画ページを
-// 新しいタブで開くカード表示にする（埋め込み許可の有無に関係なく、直接視聴ページを
-// 開くだけなら視聴自体は可能なケースが多いため）
+// Vimeoは動画ごとに「埋め込み許可ドメイン」と「vimeo.com上での直接閲覧可否
+// （Hide from vimeo.com等）」という、別々に設定できる2つのプライバシー制限がある。
+// 前者が原因だとiframe埋め込みが「プライバシー設定のため再生できません」で失敗し、
+// 後者が原因だとvimeo.com上の視聴ページへの直接リンクが「ページが見つかりません」で
+// 失敗する（どちらか一方だけ許可されている動画が混在するため、どちらか片方の手段だけに
+// 統一すると一部の動画が見られなくなる）。そのため埋め込み（iframe）を基本としつつ、
+// 埋め込みが失敗した場合の代替としてvimeo.com上の視聴ページを新しいタブで開く
+// リンクも併記する（どちらか一方が許可されていれば視聴できるようにするため）
 const vimeoId = (url: string): string | null => url.match(/vimeo\.com\/(?:video\/)?(\d+)/)?.[1] ?? null
 const vimeoWatchUrl = (url: string): string => {
   const id = vimeoId(url)
   return id ? `https://vimeo.com/${id}` : url
 }
 
-const vimeoThumbnails = ref<Record<string, string>>({})
-const fetchVimeoThumbnails = async (list: ManagedVideo[]) => {
-  await Promise.all(list.filter(v => vimeoId(v.url) && !vimeoThumbnails.value[v.id]).map(async (v) => {
-    try {
-      const res = await fetch(`https://vimeo.com/api/oembed.json?url=${encodeURIComponent(vimeoWatchUrl(v.url))}`)
-      if (!res.ok) return
-      const data = await res.json()
-      if (data.thumbnail_url) vimeoThumbnails.value = { ...vimeoThumbnails.value, [v.id]: data.thumbnail_url }
-    } catch {
-      // サムネイルが取得できなくても、再生リンク自体は表示されるので無視してよい
-    }
-  }))
-}
-
 const load = async () => {
   loading.value = true
   try {
     videos.value = await fetchVideos()
-    fetchVimeoThumbnails(videos.value)
   } catch (e: any) {
     loadError.value = e.message ?? '動画の取得に失敗しました'
   } finally {
@@ -245,30 +232,21 @@ const removeVideo = async (id: string) => {
 
     <div v-else class="grid md:grid-cols-2 gap-4">
       <div v-for="v in videos" :key="v.id" class="card overflow-hidden">
-        <!-- Vimeoはプライバシー設定で埋め込みがブロックされることがあるため、
-             サムネイル＋クリックでvimeo.com上の視聴ページを新しいタブで開く形にする -->
+        <div class="aspect-video bg-black">
+          <iframe :src="toEmbedUrl(v.url)" class="w-full h-full" allowfullscreen frameborder="0" />
+        </div>
+        <!-- Vimeoは「埋め込み許可ドメイン」と「vimeo.com上での直接閲覧可否」が動画ごとに
+             別々に設定されているため、上の埋め込みが失敗する動画でも、vimeo.com上の視聴
+             ページでは見られることがある（逆のケースもある）。代替手段として併記する -->
         <a
           v-if="vimeoId(v.url)"
           :href="vimeoWatchUrl(v.url)"
           target="_blank"
           rel="noopener"
-          class="relative block aspect-video bg-black group"
+          class="block px-4 py-1.5 text-xs text-primary-600 hover:underline bg-gray-50 border-t border-gray-100"
         >
-          <img
-            v-if="vimeoThumbnails[v.id]"
-            :src="vimeoThumbnails[v.id]"
-            alt=""
-            class="w-full h-full object-cover"
-          />
-          <div class="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/35 transition">
-            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-white/90">
-              <Icon name="heroicons:play" class="h-6 w-6 text-gray-800 ml-0.5" />
-            </div>
-          </div>
+          再生できない場合はこちら（Vimeoで直接開く）
         </a>
-        <div v-else class="aspect-video bg-black">
-          <iframe :src="toEmbedUrl(v.url)" class="w-full h-full" allowfullscreen frameborder="0" />
-        </div>
         <div class="p-4">
           <div class="flex items-start justify-between gap-2">
             <p class="font-semibold text-gray-900 text-sm">{{ v.title }}</p>
