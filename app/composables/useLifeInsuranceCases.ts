@@ -1,6 +1,6 @@
 import {
   collection, doc, getDocs, addDoc, updateDoc, deleteDoc,
-  serverTimestamp, writeBatch, type DocumentData,
+  serverTimestamp, writeBatch, query, where, getCountFromServer, type DocumentData,
 } from 'firebase/firestore'
 import { LIFE_INSURANCE_CASES } from '~/data/lifeInsuranceData'
 import type { LifeInsuranceCase, LifeInsuranceCaseInput } from '~/types/lifeInsurance'
@@ -76,6 +76,13 @@ export const useLifeInsuranceCases = () => {
   const getByCustomerId = (customerId: Ref<string> | string) =>
     computed(() => cases.value.filter(c => c.customerId === unref(customerId)))
 
+  // 顧客1人分の件数だけをFirestore側で集計取得する（アプリ連携状況の「対応あり」判定等、
+  // 全顧客分のドキュメント本体をダウンロードする必要が無い場面向け）
+  const fetchCountForCustomer = async (customerId: string): Promise<number> => {
+    const snap = await getCountFromServer(query(collection($db, COLLECTION), where('customerId', '==', customerId)))
+    return snap.data().count
+  }
+
   const getById = (id: Ref<string> | string) =>
     computed(() => cases.value.find(c => c.id === unref(id)) ?? null)
 
@@ -123,5 +130,5 @@ export const useLifeInsuranceCases = () => {
     return count
   }
 
-  return { cases, loading, loaded, fetchAll, getByCustomerId, getById, create, update, remove, seedFromStatic }
+  return { cases, loading, loaded, fetchAll, getByCustomerId, getById, create, update, remove, seedFromStatic, fetchCountForCustomer }
 }

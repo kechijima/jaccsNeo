@@ -19,28 +19,26 @@ const customerName = computed(() => customer.value?.name ?? '')
 const canEdit = computed(() => customer.value ? canEditCustomer(customer.value.assignedFpId ?? '') : false)
 
 // 各アプリの「対応あり」件数は、この顧客の実際の案件レコード数（cases サブコレクション）
-// から判定する（固定アプリ・新規作成アプリとも同じ基準に統一）。アプリごとに個別取得すると
-// 件数分（最大45件）のFirestoreクエリが並列発生し体感が遅くなるため、全顧客・全アプリ横断の
-// collectionGroupクエリを1回だけ発行し、この顧客のcustomerIdでクライアント側に絞り込む。
+// から判定する（固定アプリ・新規作成アプリとも同じ基準に統一）。以前は全顧客・全アプリ横断の
+// collectionGroupクエリでドキュメント本体を丸ごと取得してからこの顧客のcustomerIdで
+// クライアント側に絞り込んでいたが、件数だけをFirestore側で集計するgetCountFromServerを使い、
+// この顧客のサブコレクションだけを問い合わせる（fetchCaseCountsForCustomer）ように変更した。
 //
 // 「生命保険」だけは実データが customers/{cid}/services/{type}/cases サブコレクションではなく、
-// 専用のトップレベルコレクション（lifeInsuranceCases）に保存されているため、上記の
-// collectionGroupクエリには一切含まれない。これを見落とすと、案件が実際に存在していても
+// 専用のトップレベルコレクション（lifeInsuranceCases）に保存されているため、
+// fetchCaseCountsForCustomerの集計には含まれない。これを見落とすと、案件が実際に存在していても
 // 「対応なし」と表示され続けてしまう（生命保険だけ常に対応なしになる不具合があった）ため、
-// 別途lifeInsuranceCasesも取得して合算する
-const { fetchAllCases } = useServices()
-const { cases: liCases, fetchAll: fetchAllLifeInsuranceCases } = useLifeInsuranceCases()
+// 別途lifeInsuranceCases側の件数も取得して合算する
+const { fetchCaseCountsForCustomer } = useServices()
+const { fetchCountForCustomer: fetchLifeInsuranceCountForCustomer } = useLifeInsuranceCases()
 const caseCounts = ref<Record<string, number>>({})
 const loadingCases = ref(true)
 onMounted(async () => {
   try {
-    const [allCases] = await Promise.all([fetchAllCases(), fetchAllLifeInsuranceCases()])
-    const counts: Record<string, number> = {}
-    for (const c of allCases) {
-      if (c.customerId !== customerId.value) continue
-      counts[c.serviceType] = (counts[c.serviceType] ?? 0) + 1
-    }
-    const liCount = liCases.value.filter(c => c.customerId === customerId.value).length
+    const [counts, liCount] = await Promise.all([
+      fetchCaseCountsForCustomer(customerId.value),
+      fetchLifeInsuranceCountForCustomer(customerId.value),
+    ])
     if (liCount > 0) counts.lifeInsurance = liCount
     caseCounts.value = counts
   } catch {

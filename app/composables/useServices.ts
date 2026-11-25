@@ -11,6 +11,7 @@ import {
   where,
   orderBy,
   limit,
+  getCountFromServer,
   serverTimestamp,
   arrayUnion,
   Timestamp,
@@ -18,6 +19,18 @@ import {
 } from 'firebase/firestore'
 import type { ServiceCase, ServiceCaseForm, ServiceType, ServiceStatus, ServiceProgressReport } from '~/types/service'
 import { useAuthStore } from '~/stores/auth'
+
+// lifeInsuranceは実データがこのサブコレクションではなく専用のlifeInsuranceCasesコレクションに
+// 保存されているため（他のアプリとは異なる例外）、ここでの集計では常に0件になる。
+// 呼び出し側（顧客のアプリ連携状況等）はuseLifeInsuranceCases側の件数と合算する必要がある
+const ALL_SERVICE_TYPES: ServiceType[] = [
+  'lifeInsurance', 'fireInsurance', 'autoInsurance',
+  'realEstatePurchase', 'realEstateSale', 'realEstateRental',
+  'homeLoan', 'jobChange', 'seniorPlanning',
+  'communication', 'hikari', 'moving', 'renovation',
+  'travel', 'bridal', 'legal', 'inheritance',
+  'companySetup', 'waterServer',
+]
 
 const toCase = (id: string, data: DocumentData): ServiceCase => ({
   id,
@@ -72,19 +85,26 @@ export const useServices = () => {
     return snap.docs.map(d => toCase(d.id, d.data()))
   }
 
+  // ===== 顧客1人分の、各サービスタイプごとの案件件数 =====
+  // 以前はcustomers/[id]/services/index.vue（アプリ連携状況の一覧）が、全顧客・全19アプリ
+  // 横断のcollectionGroupクエリでドキュメント本体を丸ごと取得してからこの顧客のcustomerIdで
+  // クライアント側に絞り込んでいたが、ドキュメント本体ではなく件数だけをFirestore側で集計する
+  // getCountFromServer()を使い、この顧客のサブコレクションだけを問い合わせるようにする
+  // （lifeInsuranceは対象外。呼び出し側でuseLifeInsuranceCases().fetchCountForCustomer()と合算する）
+  const fetchCaseCountsForCustomer = async (customerId: string): Promise<Record<string, number>> => {
+    const results = await Promise.all(
+      ALL_SERVICE_TYPES.filter(t => t !== 'lifeInsurance').map(async (type) => {
+        const snap = await getCountFromServer(casesRef(customerId, type))
+        return [type, snap.data().count] as const
+      }),
+    )
+    return Object.fromEntries(results.filter(([, count]) => count > 0))
+  }
+
   // ===== 全サービスタイプのサマリー =====
   const fetchAllServiceSummaries = async (customerId: string) => {
-    const serviceTypes: ServiceType[] = [
-      'lifeInsurance', 'fireInsurance', 'autoInsurance',
-      'realEstatePurchase', 'realEstateSale', 'realEstateRental',
-      'homeLoan', 'jobChange', 'seniorPlanning',
-      'communication', 'hikari', 'moving', 'renovation',
-      'travel', 'bridal', 'legal', 'inheritance',
-      'companySetup', 'waterServer',
-    ]
-
     const results = await Promise.all(
-      serviceTypes.map(async (type) => {
+      ALL_SERVICE_TYPES.map(async (type) => {
         const q = query(casesRef(customerId, type), orderBy('updatedAt', 'desc'), limit(1))
         const snap = await getDocs(q)
         return {
@@ -189,6 +209,7 @@ export const useServices = () => {
     fetchCases,
     fetchAllCases,
     fetchAllCasesForType,
+    fetchCaseCountsForCustomer,
     fetchAllServiceSummaries,
     fetchCase,
     createCase,
