@@ -32,7 +32,13 @@ ensureFavoritesLoaded()
 await store.fetchSpaces(true)
 const spaceRawPre = store.spaces.value.find(sp => sp.id === spaceId.value)
 const accessDenied = !spaceRawPre
-if (!accessDenied) await store.fetchPostsForSpace(spaceId.value)
+if (!accessDenied) {
+  // 投稿本体はコメント抜きで先に取得し、画面表示をブロックしない。コメントは
+  // このページでは常時表示する設計（展開トグルが無い）ため、表示直後に
+  // バックグラウンドで取得して差し込む（初期表示自体は投稿取得のみで完了させる）
+  await store.fetchPostsForSpace(spaceId.value, false, false)
+  Promise.all(store.getPostsBySpace(spaceId.value).value.map(p => store.ensureCommentsLoaded(p.id))).catch(() => {})
+}
 
 const members = ref<AppUser[]>([])
 onMounted(async () => {
@@ -662,7 +668,8 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
 
           <!-- コメント -->
           <div class="px-4 py-3 border-t border-gray-100 space-y-2 bg-gray-50/50">
-            <div v-if="post.comments.length > 0" class="space-y-2">
+            <div v-if="!post.commentsLoaded" class="text-xs text-gray-400">コメントを読み込み中...</div>
+            <div v-else-if="post.comments.length > 0" class="space-y-2">
               <div v-for="comment in post.comments" :key="comment.id" class="flex items-start gap-2">
                 <div class="h-7 w-7 rounded-full flex items-center justify-center overflow-hidden text-white text-xs font-semibold shrink-0 bg-gray-400">
                   <img v-if="comment.authorAvatarUrl" :src="comment.authorAvatarUrl" alt="" class="h-full w-full object-cover" />

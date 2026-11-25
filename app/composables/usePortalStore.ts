@@ -45,6 +45,7 @@ export interface PostView {
   myReactions: string[]
   commentCount: number
   comments: CommentView[]
+  commentsLoaded: boolean
   showComments: boolean
   isPinned: boolean
   status: 'draft' | 'published'
@@ -67,7 +68,7 @@ const toCommentView = (c: SpaceComment, avatarMap: Record<string, string>): Comm
   postedAt:        toDate(c.createdAt).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' }),
 })
 
-const buildPostView = (space: Space | undefined, p: Post, comments: CommentView[], avatarMap: Record<string, string>): PostView => ({
+const buildPostView = (space: Space | undefined, p: Post, comments: CommentView[], avatarMap: Record<string, string>, commentsLoaded: boolean): PostView => ({
   id:            p.id,
   spaceId:       p.spaceId,
   spaceName:     space?.name ?? '',
@@ -81,6 +82,7 @@ const buildPostView = (space: Space | undefined, p: Post, comments: CommentView[
   myReactions:   [],
   commentCount:  p.commentCount ?? comments.length,
   comments,
+  commentsLoaded,
   showComments:  false,
   isPinned:      p.isPinned ?? false,
   status:        p.status ?? 'published',
@@ -137,7 +139,10 @@ export const usePortalStore = () => {
   }
 
   // ── 投稿一覧（スペースごとに取得しキャッシュへマージ） ───────────────
-  const fetchPostsForSpace = async (spaceId: string, force = false) => {
+  // loadComments=falseの場合、コメント本文は取得せず空のまま返す（commentCountは
+  // postドキュメント側に保持されているため表示は変わらない）。コメントは
+  // ensureCommentsLoaded()で、実際に展開されたタイミングに遅延取得する
+  const fetchPostsForSpace = async (spaceId: string, force = false, loadComments = true) => {
     if (loadedSpaceIds.value.includes(spaceId) && !force) return
     await fetchSpaces()
     const space = spaces.value.find(s => s.id === spaceId)
@@ -156,8 +161,9 @@ export const usePortalStore = () => {
       .filter(p => p.status !== 'draft' || p.authorUid === myUid)
 
     const views = await Promise.all(rawPosts.map(async (p) => {
+      if (!loadComments) return buildPostView(space, p, [], authorAvatars.value, false)
       const comments = await spacesApi.fetchComments(spaceId, p.id).catch(() => [] as SpaceComment[])
-      return buildPostView(space, p, comments.map(c => toCommentView(c, authorAvatars.value)), authorAvatars.value)
+      return buildPostView(space, p, comments.map(c => toCommentView(c, authorAvatars.value)), authorAvatars.value, true)
     }))
 
     posts.value = [...posts.value.filter(p => p.spaceId !== spaceId), ...views].sort((a, b) => {
@@ -167,10 +173,21 @@ export const usePortalStore = () => {
     if (!loadedSpaceIds.value.includes(spaceId)) loadedSpaceIds.value = [...loadedSpaceIds.value, spaceId]
   }
 
-  // ── 全スペースの投稿をまとめて取得（掲示板トップ用） ──────────────────
+  // ── 全スペースの投稿をまとめて取得（掲示板トップ用）。全スペース分の投稿を
+  // 一度に表示するため、表示するかどうか分からないコメント本文は取得しない
+  // （展開時にensureCommentsLoaded()で取得する） ──────────────────────────
   const fetchAllPosts = async (force = false) => {
     await fetchSpaces(force)
-    await Promise.all(spaces.value.map(s => fetchPostsForSpace(s.id, force)))
+    await Promise.all(spaces.value.map(s => fetchPostsForSpace(s.id, force, false)))
+  }
+
+  // 投稿を展開してコメントを表示するタイミングで、その投稿のコメントだけを取得する
+  const ensureCommentsLoaded = async (postId: string, force = false): Promise<void> => {
+    const post = posts.value.find(p => p.id === postId)
+    if (!post || (post.commentsLoaded && !force)) return
+    const comments = await spacesApi.fetchComments(post.spaceId, postId).catch(() => [] as SpaceComment[])
+    post.comments = comments.map(c => toCommentView(c, authorAvatars.value))
+    post.commentsLoaded = true
   }
 
   // ── ダッシュボード向けの軽量プレビュー取得 ────────────────────────────
@@ -185,7 +202,7 @@ export const usePortalStore = () => {
     await ensureAuthorAvatarsLoaded()
     const perSpace = await Promise.all(spaces.value.map(async (s) => {
       const rawPosts = await spacesApi.fetchPosts(s.id).catch(() => [] as Post[])
-      return rawPosts.filter(p => !p.isPinned && p.status !== 'draft').map(p => buildPostView(s, p, [], authorAvatars.value))
+      return rawPosts.filter(p => !p.isPinned && p.status !== 'draft').map(p => buildPostView(s, p, [], authorAvatars.value, false))
     }))
     previewPosts.value = perSpace.flat().sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
     previewLoaded.value = true
@@ -269,6 +286,7 @@ export const usePortalStore = () => {
     const comments = await spacesApi.fetchComments(post.spaceId, postId)
     post.comments = comments.map(c => toCommentView(c, authorAvatars.value))
     post.commentCount = post.comments.length
+    post.commentsLoaded = true
     post.showComments = true
   }
 
@@ -307,7 +325,7 @@ export const usePortalStore = () => {
   return {
     spaces, spacesLoaded, posts,
     previewPosts,
-    fetchSpaces, fetchPostsForSpace, fetchAllPosts, fetchRecentPostsPreview,
+    fetchSpaces, fetchPostsForSpace, fetchAllPosts, fetchRecentPostsPreview, ensureCommentsLoaded,
     getPostsBySpace, getPost, myDrafts,
     addPost, toggleReaction, addComment, editPost, publishDraft, deletePost,
   }

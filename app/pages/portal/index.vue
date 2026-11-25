@@ -153,6 +153,12 @@ const toggleReactorList = async (post: { id: string; spaceId: string }) => {
 // ── コメント ──────────────────────────────────────────────────────────
 const commentInputs = ref<Record<string, string>>({})
 
+// コメントは展開した投稿だけ、その場で遅延取得する（全投稿分を事前取得すると重いため）
+const toggleComments = async (post: { id: string; showComments: boolean }) => {
+  post.showComments = !post.showComments
+  if (post.showComments) await store.ensureCommentsLoaded(post.id)
+}
+
 const submitComment = async (postId: string) => {
   const content = commentInputs.value[postId]?.trim()
   if (!content) return
@@ -447,7 +453,7 @@ const upcomingEvents = computed(() =>
                 <!-- コメント -->
                 <button
                   class="flex items-center gap-1 text-xs text-gray-400 hover:text-primary-600 transition"
-                  @click="post.showComments = !post.showComments"
+                  @click="toggleComments(post)"
                 >
                   <Icon name="heroicons:chat-bubble-left" class="h-3.5 w-3.5" />
                   {{ post.commentCount }}件
@@ -472,7 +478,8 @@ const upcomingEvents = computed(() =>
 
               <!-- コメント展開 -->
               <div v-if="post.showComments" class="mt-3 space-y-2 border-t border-gray-100 pt-3">
-                <div v-if="post.comments.length === 0" class="text-xs text-gray-400">コメントはまだありません</div>
+                <div v-if="!post.commentsLoaded" class="text-xs text-gray-400">読み込み中...</div>
+                <div v-else-if="post.comments.length === 0" class="text-xs text-gray-400">コメントはまだありません</div>
                 <div v-for="comment in post.comments" :key="comment.id" class="flex items-start gap-2">
                   <div class="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-100 text-gray-600 font-semibold text-xs">
                     <img v-if="comment.authorAvatarUrl" :src="comment.authorAvatarUrl" alt="" class="h-full w-full object-cover" />
