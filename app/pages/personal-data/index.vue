@@ -15,18 +15,41 @@ const router = useRouter()
 const { user } = useCurrentUser()
 
 // ── 閲覧範囲（ロールに応じて担当FPで絞り込む） ──────────────────────────
-const { scopedFpNames, ensureScope } = useDataScope()
-await Promise.all([ensureScope(), store.ensureLoaded()])
+// 表示範囲トグルの既定値は「自分の担当のみ」のため、初期表示では自分の担当顧客
+// だけをクエリで絞り込んで取得する（全件取得を避け、読み込みを軽量化する）。
+// 「自分がサポートする範囲すべて」「全員」に切り替えた時だけ、その時点で初めて
+// 広い範囲（EM2以上は配下を含む複数名、理事会・管理者は全件）を取得する
+const { scopedFpNames, scopedFpUids, ensureScope } = useDataScope()
+await ensureScope()
 
-// 自分の権限で閲覧できる担当FP名の範囲に、まず絞り込む（一般・EM2以上はここで強制的に制限される）
-const scopedCustomers = computed(() => {
-  if (scopedFpNames.value === null) return store.customers.value
-  return store.customers.value.filter(c => scopedFpNames.value!.has(c.assignedFpName ?? ''))
-})
+const myCustomers = ref<Customer[]>([])
+myCustomers.value = await store.fetchMyCustomers(user.value?.uid ?? '', user.value?.displayName)
+
+const broadScopeCustomers = ref<Customer[]>([])
+const broadScopeLoaded = ref(false)
+const broadScopeLoading = ref(false)
+const loadBroadScope = async () => {
+  if (broadScopeLoaded.value) return
+  broadScopeLoading.value = true
+  try {
+    if (scopedFpNames.value === null) {
+      await store.ensureLoaded()
+      broadScopeCustomers.value = store.customers.value
+    } else {
+      broadScopeCustomers.value = await store.fetchScopedCustomers([...(scopedFpUids.value ?? [])], [...scopedFpNames.value])
+    }
+    broadScopeLoaded.value = true
+  } finally {
+    broadScopeLoading.value = false
+  }
+}
 
 // 「自分の担当のみ」/「自分の閲覧範囲すべて」の切り替え（デフォルトは自分の担当のみ）
 const fpFilter = ref<'me' | 'scope'>('me')
 const showFpScopeToggle = computed(() => scopedFpNames.value === null || (scopedFpNames.value?.size ?? 0) > 1)
+watch(fpFilter, (val) => { if (val === 'scope') loadBroadScope() })
+
+const scopedCustomers = computed(() => fpFilter.value === 'me' ? myCustomers.value : broadScopeCustomers.value)
 
 // ── 絞り込み条件（項目を選択 → 条件を入力） ─────────────────────────────
 type Operator = FilterOperator
@@ -335,6 +358,7 @@ const statusColor = (s: string) => {
         :class="fpFilter === 'scope' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
         @click="fpFilter = 'scope'"
       >{{ scopedFpNames === null ? '全員' : '自分がサポートする範囲すべて' }}</button>
+      <Icon v-if="broadScopeLoading" name="heroicons:arrow-path" class="h-4 w-4 text-gray-400 animate-spin" />
     </div>
     <p v-else class="text-xs text-gray-400">自分（{{ user?.displayName }}）の担当データのみ表示しています</p>
 

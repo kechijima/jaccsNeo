@@ -48,13 +48,23 @@ export const useCustomerStore = () => {
     }
   }
 
-  // 自分が担当FPの顧客のみを取得する（アポ状況分析ページ等、全件取得が不要な場面向け）。
-  // 共有キャッシュ（customers/loaded）には書き込まず、呼び出し元にローカルな結果のみ返す。
-  // assignedFpId（uid）に加え、uid未設定の過去データ（CSV取込分等）を取りこぼさないよう
-  // assignedFpName（氏名）でも並行して問い合わせ、結果をマージする
-  const fetchMyCustomers = async (uid: string, displayName?: string): Promise<Customer[]> => {
-    const queries = [getDocs(query(customersCol(), where('assignedFpId', '==', uid)))]
-    if (displayName) queries.push(getDocs(query(customersCol(), where('assignedFpName', '==', displayName))))
+  // 指定した担当FP（uid・氏名のどちらか一致）の顧客のみを取得する（パーソナルデータ
+  // 一覧のデフォルト表示・アポ状況分析など、全件取得が不要な場面向け）。共有キャッシュ
+  // （customers/loaded）には書き込まず、呼び出し元にローカルな結果のみ返す。
+  // assignedFpId（uid）優先で突合し、uid未設定の過去データ（CSV取込分等）を
+  // 取りこぼさないようassignedFpName（氏名）でも並行して問い合わせ、結果をマージする。
+  // Firestoreのin演算子は最大30件までのため、30件を超える場合は分割して並列取得する
+  const CHUNK_SIZE = 30
+  const chunk = <T,>(arr: T[], size: number): T[][] => {
+    const out: T[][] = []
+    for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size))
+    return out
+  }
+  const fetchScopedCustomers = async (uids: string[], names: string[]): Promise<Customer[]> => {
+    const queries = [
+      ...chunk(uids, CHUNK_SIZE).map(c => getDocs(query(customersCol(), where('assignedFpId', 'in', c)))),
+      ...chunk(names, CHUNK_SIZE).map(c => getDocs(query(customersCol(), where('assignedFpName', 'in', c)))),
+    ]
     const snaps = await Promise.all(queries)
     const map = new Map<string, Customer>()
     for (const snap of snaps) {
@@ -62,6 +72,10 @@ export const useCustomerStore = () => {
     }
     return [...map.values()]
   }
+
+  // fetchScopedCustomersの単一ユーザー版（自分一人分だけを取得したい場合のショートハンド）
+  const fetchMyCustomers = (uid: string, displayName?: string): Promise<Customer[]> =>
+    fetchScopedCustomers([uid], displayName ? [displayName] : [])
 
   const getById = (id: Ref<string> | string) =>
     computed(() => customers.value.find(c => c.id === unref(id)) ?? null)
@@ -91,5 +105,5 @@ export const useCustomerStore = () => {
     customers.value = customers.value.filter(c => c.id !== id)
   }
 
-  return { customers, loading, loaded, ensureLoaded, fetchMyCustomers, getById, create, update, remove }
+  return { customers, loading, loaded, ensureLoaded, fetchMyCustomers, fetchScopedCustomers, getById, create, update, remove }
 }

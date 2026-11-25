@@ -34,6 +34,8 @@ export const useDataScope = () => {
   const { fetchUsers } = useUsers()
 
   const scopedFpNames = useState<Set<string> | null>('dataScope:fpNames', () => new Set())
+  // uidでの絞り込み（Firestoreクエリ化）用。scopedFpNamesと常に対で更新する
+  const scopedFpUids  = useState<Set<string> | null>('dataScope:fpUids', () => new Set())
   const loaded  = useState<boolean>('dataScope:loaded', () => false)
   const loading = useState<boolean>('dataScope:loading', () => false)
 
@@ -45,24 +47,27 @@ export const useDataScope = () => {
       // authStore.userがまだ埋まっていない場合（初期化タイミングの問題）はloadedをtrueにせず、
       // 次回呼び出し時に再取得できるようにする（誤って空集合を確定・キャッシュしてしまうと
       // パーソナルデータが0件のまま戻らなくなるため）
-      if (!me) { scopedFpNames.value = new Set(); return }
+      if (!me) { scopedFpNames.value = new Set(); scopedFpUids.value = new Set(); return }
 
       if (authStore.isBoard) {
         // 理事会・システム管理者は制限なし（isBoardはsystem_adminも含む）
         scopedFpNames.value = null
+        scopedFpUids.value = null
         loaded.value = true
         return
       }
 
       const names = new Set<string>([me.displayName])
+      const uids = new Set<string>([me.uid])
       if (authStore.isEm2Above) {
         const users = await fetchUsers().catch(() => [])
         const descendantUids = collectDescendantUids(me.uid, users)
         for (const u of users) {
-          if (descendantUids.has(u.uid)) names.add(u.displayName)
+          if (descendantUids.has(u.uid)) { names.add(u.displayName); uids.add(u.uid) }
         }
       }
       scopedFpNames.value = names
+      scopedFpUids.value = uids
       loaded.value = true
     } finally {
       loading.value = false
@@ -74,5 +79,5 @@ export const useDataScope = () => {
   const isNameInScope = (name?: string | null): boolean =>
     scopedFpNames.value === null || (!!name && scopedFpNames.value.has(name))
 
-  return { scopedFpNames, loading, loaded, ensureScope, canSeeAll, isNameInScope }
+  return { scopedFpNames, scopedFpUids, loading, loaded, ensureScope, canSeeAll, isNameInScope }
 }
