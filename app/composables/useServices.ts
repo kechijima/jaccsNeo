@@ -8,6 +8,7 @@ import {
   updateDoc,
   deleteDoc,
   query,
+  where,
   orderBy,
   limit,
   serverTimestamp,
@@ -59,9 +60,16 @@ export const useServices = () => {
   }
 
   // ===== 指定サービスタイプの案件を全顧客横断で取得 =====
+  // 以前は全顧客・全サービスタイプ分（19アプリ分）を丸ごと取得してからクライアント側で
+  // このserviceTypeだけに絞り込んでいたが、アプリ別の案件一覧を開くたびに他18アプリ分の
+  // データまで毎回ダウンロードすることになり無駄が大きかった。where句（単一条件の等価
+  // 比較のみ、並び替えは付けない）でFirestore側に絞り込みを任せる。単一条件のみなので
+  // 複合インデックスは不要だが、collectionGroupクエリでこのフィールドを使うには
+  // firestore.indexes.jsonのfieldOverridesでCOLLECTION_GROUPスコープを有効化する
+  // 必要がある（デプロイ時に手動でfirestore:indexesの反映が必要）
   const fetchAllCasesForType = async (serviceType: ServiceType): Promise<ServiceCase[]> => {
-    const all = await fetchAllCases()
-    return all.filter(c => c.serviceType === serviceType)
+    const snap = await getDocs(query(collectionGroup($db, 'cases'), where('serviceType', '==', serviceType)))
+    return snap.docs.map(d => toCase(d.id, d.data()))
   }
 
   // ===== 全サービスタイプのサマリー =====
