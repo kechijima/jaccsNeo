@@ -108,6 +108,36 @@ export const useServices = () => {
     }
   }
 
+  // ===== 指定サービスタイプ + 詳細条件（ステータス／担当者／担当未来設計士のいずれか1つ）
+  // でのページ単位取得 =====
+  // 顧客名・会社名・備考のような自由記述の検索はFirestoreで部分一致検索ができないため
+  // 全件取得が必要だが、ステータス・担当者（assigneeUid）・担当未来設計士（plannerUid）は
+  // ケースドキュメントの固定フィールドのため、serviceTypeとの複合インデックスを追加の上で
+  // Firestore側に絞り込みを任せられる。3つの条件を同時に絞り込むと組み合わせ分の複合
+  // インデックスが必要になり際限がないため、この3条件は同時に1つだけ指定する前提とする
+  // （firestore.indexes.jsonに(serviceType, status|assigneeUid|plannerUid, updatedAt)の
+  // 3種の複合インデックスを用意済み。手動でのfirestore:indexesデプロイが必要）
+  type CaseDetailFilter = { field: 'status' | 'assigneeUid' | 'plannerUid'; value: string }
+  const fetchCasesPageForTypeFiltered = async (
+    serviceType: ServiceType,
+    filter: CaseDetailFilter,
+    cursor?: QueryDocumentSnapshot,
+  ): Promise<{ cases: ServiceCase[]; lastDoc: QueryDocumentSnapshot | null; hasMore: boolean }> => {
+    const constraints = [
+      where('serviceType', '==', serviceType),
+      where(filter.field, '==', filter.value),
+      orderBy('updatedAt', 'desc'),
+      limit(CASES_PAGE_SIZE),
+    ]
+    if (cursor) constraints.push(startAfter(cursor))
+    const snap = await getDocs(query(collectionGroup($db, 'cases'), ...constraints))
+    return {
+      cases: snap.docs.map(d => toCase(d.id, d.data())),
+      lastDoc: snap.docs[snap.docs.length - 1] ?? null,
+      hasMore: snap.docs.length === CASES_PAGE_SIZE,
+    }
+  }
+
   // ===== 顧客1人分の、各サービスタイプごとの案件件数 =====
   // 以前はcustomers/[id]/services/index.vue（アプリ連携状況の一覧）が、全顧客・全19アプリ
   // 横断のcollectionGroupクエリでドキュメント本体を丸ごと取得してからこの顧客のcustomerIdで
@@ -248,6 +278,7 @@ export const useServices = () => {
     fetchAllCases,
     fetchAllCasesForType,
     fetchCasesPageForType,
+    fetchCasesPageForTypeFiltered,
     fetchCaseCountsForCustomer,
     fetchCaseCountsByType,
     fetchAllServiceSummaries,

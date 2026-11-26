@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import type { QueryDocumentSnapshot } from 'firebase/firestore'
 import { SERVICE_LABELS, STATUS_LABELS } from '~/types/service'
-import type { ServiceCase } from '~/types/service'
+import type { ServiceCase, ServiceStatus } from '~/types/service'
 import type { Customer } from '~/types/customer'
 import { useServices } from '~/composables/useServices'
 import { useCustomerStore } from '~/composables/useCustomerStore'
 import { useLifeInsuranceCases } from '~/composables/useLifeInsuranceCases'
 import { useFavorites } from '~/composables/useFavorites'
 import { useAppDefs } from '~/composables/useAppDefs'
+import { useUsers } from '~/composables/useUsers'
 import { useAuthStore } from '~/stores/auth'
 import { useToast } from '~/composables/useToast'
 
@@ -51,11 +52,30 @@ interface JoinedCase extends ServiceCase {
   customerNameKana: string
 }
 
-const { fetchAllCasesForType, fetchCasesPageForType, deleteCase } = useServices()
+const { fetchAllCasesForType, fetchCasesPageForType, fetchCasesPageForTypeFiltered, deleteCase } = useServices()
 const { customers: allCustomers, fetchCustomersByIds, ensureLoaded: ensureCustomersLoaded } = useCustomerStore()
+const { fetchUsers } = useUsers()
 const genericCasesLoading = ref(!isLifeInsurance.value)
 const rawGenericCases = ref<ServiceCase[]>([])
 const genericCustomersById = ref<Map<string, Customer>>(new Map())
+
+// ── 詳細条件（ステータス・担当者・担当未来設計士のいずれか1つを指定可能） ──
+// 組み合わせ分の複合インデックスが際限なく必要になるため、3条件は同時に1つだけ
+// 指定できる仕様とする（選ぶと他の2つは自動でクリアする）
+const assigneeUsers = ref<{ uid: string; displayName: string }[]>([])
+const plannerUsers = ref<{ uid: string; displayName: string }[]>([])
+const detailFilterField = ref<'' | 'status' | 'assigneeUid' | 'plannerUid'>('')
+const detailFilterValue = ref('')
+const setDetailFilter = (field: 'status' | 'assigneeUid' | 'plannerUid', value: string) => {
+  detailFilterField.value = value ? field : ''
+  detailFilterValue.value = value
+}
+
+onMounted(async () => {
+  const users = await fetchUsers()
+  plannerUsers.value = users.map(u => ({ uid: u.uid, displayName: u.displayName }))
+  assigneeUsers.value = plannerUsers.value
+})
 
 // ── ページネーション（既定では上位25件のみ取得し、「もっと見る」で追加取得） ──
 // 検索・リマインダー順ソートは読み込み済みの範囲でしか機能しないため、実際に
@@ -87,11 +107,39 @@ const describeLoadError = (e: unknown): string => {
   return '案件一覧の取得に失敗しました。時間をおいて再度お試しください。'
 }
 
+// ページ単位取得（詳細条件が指定されていればFirestore側で絞り込み、
+// 未指定なら従来通りserviceTypeのみで取得する）
+const fetchGenericPage = (cursor?: QueryDocumentSnapshot) =>
+  (detailFilterField.value && detailFilterValue.value)
+    ? fetchCasesPageForTypeFiltered(
+        serviceType.value as any,
+        { field: detailFilterField.value, value: detailFilterValue.value },
+        cursor,
+      )
+    : fetchCasesPageForType(serviceType.value as any, cursor)
+
+const loadFirstGenericPage = async () => {
+  if (isLifeInsurance.value || genericFullyLoaded.value) return
+  genericCasesLoading.value = true
+  genericCasesError.value = ''
+  try {
+    const { cases, lastDoc, hasMore } = await fetchGenericPage()
+    rawGenericCases.value = cases
+    casesCursor.value = lastDoc
+    hasMoreCases.value = hasMore
+    await loadCustomersFor(cases)
+  } catch (e) {
+    genericCasesError.value = describeLoadError(e)
+  } finally {
+    genericCasesLoading.value = false
+  }
+}
+
 const loadMoreGenericCases = async () => {
   if (!hasMoreCases.value || loadingMoreCases.value || genericFullyLoaded.value) return
   loadingMoreCases.value = true
   try {
-    const { cases, lastDoc, hasMore } = await fetchCasesPageForType(serviceType.value as any, casesCursor.value ?? undefined)
+    const { cases, lastDoc, hasMore } = await fetchGenericPage(casesCursor.value ?? undefined)
     rawGenericCases.value = [...rawGenericCases.value, ...cases]
     casesCursor.value = lastDoc
     hasMoreCases.value = hasMore
@@ -103,8 +151,10 @@ const loadMoreGenericCases = async () => {
   }
 }
 
-// 検索・詳細条件・リマインダー順ソートが使われたら、一度だけこのserviceTypeの
-// 全件に読み込み直す（以後はキャッシュされ、再度の全件取得は行わない）
+// 検索・リマインダー順ソートが使われたら、一度だけこのserviceTypeの全件に
+// 読み込み直す（以後はキャッシュされ、再度の全件取得は行わない）。ステータス・
+// 担当者・担当未来設計士はケース本体のフィールドのため、全件読み込み後も
+// filteredGenericCases側でクライアント処理により引き続き正しく絞り込まれる
 const loadAllGenericCases = async () => {
   if (isLifeInsurance.value || genericFullyLoaded.value || loadingAllGenericCases.value) return
   loadingAllGenericCases.value = true
@@ -128,22 +178,12 @@ const loadAllGenericCases = async () => {
 
 // トップレベルawaitにすると、顧客件数が多い環境ではページ全体の描画が
 // 完了するまでローディング表示すら出せない（Suspenseが解決を待つ）ため、
-// マウント後に非同期で取得し、その間はgenericCasesLoadingでスピナーを出す
+// マウント後に非同期で取得し、その間はgenericCasesLoadingでスピナーを出す。
+// 詳細条件（ステータス・担当者・担当未来設計士）が変更された時も、同じ
+// 読み込み処理で先頭ページから取得し直す
 if (!isLifeInsurance.value) {
-  onMounted(async () => {
-    genericCasesLoading.value = true
-    try {
-      const { cases, lastDoc, hasMore } = await fetchCasesPageForType(serviceType.value as any)
-      rawGenericCases.value = cases
-      casesCursor.value = lastDoc
-      hasMoreCases.value = hasMore
-      await loadCustomersFor(cases)
-    } catch (e) {
-      genericCasesError.value = describeLoadError(e)
-    } finally {
-      genericCasesLoading.value = false
-    }
-  })
+  onMounted(loadFirstGenericPage)
+  watch(detailFilterValue, () => { if (!genericFullyLoaded.value) loadFirstGenericPage() })
 }
 
 // ── 削除（アプリ責任者・システム管理者のみ） ──────────────────────────
@@ -221,6 +261,12 @@ const applySortByReminder = <T extends { reminderDate?: string; updatedAt: any }
 const filteredGenericCases = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
   let list = genericCases.value
+  // ステータス・担当者・担当未来設計士での絞り込み。既定の取得時点でFirestore側で
+  // 絞り込まれている場合もあるが、検索等により全件読み込みへ切り替わった後も
+  // 正しく絞り込めるよう、ここでも同じ条件を適用する（冪等なので二重適用でも問題ない）
+  if (detailFilterField.value && detailFilterValue.value) {
+    list = list.filter(c => c[detailFilterField.value as 'status' | 'assigneeUid' | 'plannerUid'] === detailFilterValue.value)
+  }
   if (q) {
     list = list.filter(c =>
       c.customerName.toLowerCase().includes(q) ||
@@ -308,6 +354,41 @@ const statusClass = (status: string) => {
         <option value="updated">更新日順</option>
         <option value="reminder">リマインダー順</option>
       </select>
+    </div>
+
+    <!-- ===== 詳細条件（ステータス・担当者・担当未来設計士のいずれか1つ） ===== -->
+    <div v-if="!isLifeInsurance" class="flex flex-wrap items-center gap-2">
+      <span class="text-xs text-gray-400 shrink-0">詳細条件</span>
+      <select
+        class="input-field text-sm py-1.5 w-auto"
+        :value="detailFilterField === 'status' ? detailFilterValue : ''"
+        @change="setDetailFilter('status', ($event.target as HTMLSelectElement).value)"
+      >
+        <option value="">ステータスで絞り込み</option>
+        <option v-for="(label, key) in STATUS_LABELS" :key="key" :value="key">{{ label }}</option>
+      </select>
+      <select
+        class="input-field text-sm py-1.5 w-auto"
+        :value="detailFilterField === 'assigneeUid' ? detailFilterValue : ''"
+        @change="setDetailFilter('assigneeUid', ($event.target as HTMLSelectElement).value)"
+      >
+        <option value="">担当者で絞り込み</option>
+        <option v-for="u in assigneeUsers" :key="u.uid" :value="u.uid">{{ u.displayName }}</option>
+      </select>
+      <select
+        class="input-field text-sm py-1.5 w-auto"
+        :value="detailFilterField === 'plannerUid' ? detailFilterValue : ''"
+        @change="setDetailFilter('plannerUid', ($event.target as HTMLSelectElement).value)"
+      >
+        <option value="">担当未来設計士で絞り込み</option>
+        <option v-for="u in plannerUsers" :key="u.uid" :value="u.uid">{{ u.displayName }}</option>
+      </select>
+      <button
+        v-if="detailFilterField"
+        type="button"
+        class="text-xs text-gray-400 hover:text-gray-600 hover:underline"
+        @click="setDetailFilter(detailFilterField, '')"
+      >条件をクリア</button>
     </div>
 
     <!-- ========================================================= -->
