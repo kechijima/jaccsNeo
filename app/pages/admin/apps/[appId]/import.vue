@@ -61,13 +61,19 @@ const exportError = ref('')
 
 // 担当者・担当未来設計士はUID保存のため、エクスポートではメールアドレスに
 // 変換して出力する（インポート側がメールアドレスを期待しているため、出力した
-// CSVをそのまま再インポートできるようにするための対応）
-const emailOf = (uid?: string) => uid ? (allUsers.value.find(u => u.uid === uid)?.email ?? '') : ''
+// CSVをそのまま再インポートできるようにするための対応）。案件1件ごとに
+// allUsers.value.find()（線形探索）するとケース数×ユーザー数で重くなるため、
+// Mapを使ってO(1)で引けるようにする
+const userByUid = computed(() => new Map(allUsers.value.map(u => [u.uid, u])))
+const emailOf = (uid?: string) => uid ? (userByUid.value.get(uid)?.email ?? '') : ''
 // 再インポート時にparseDateValue()でそのまま解釈できる形式（YYYY-MM-DD HH:mm:ss）で出力する
 const formatTimestamp = (ts: any) => ts?.toDate ? ts.toDate().toLocaleString('sv-SE') : ''
 
+// 顧客名の解決も同様に、案件ごとのcustomers.value.find()を避けるためMapを使う
+const customerById = computed(() => new Map(customers.value.map(c => [c.id, c])))
+
 const exportColumns = computed(() => [
-  { label: '顧客名', get: (c: ServiceCase) => customers.value.find(cu => cu.id === c.customerId)?.name ?? '' },
+  { label: '顧客名', get: (c: ServiceCase) => customerById.value.get(c.customerId)?.name ?? '' },
   ...GENERIC_FIELD_OPTIONS.map(o => ({
     label: o.label,
     get: (c: ServiceCase) => {
@@ -262,12 +268,14 @@ const splitMultiValue = (raw: string): string[] =>
 const previewRows = computed<PreviewRow[]>(() => {
   const nameCol = Object.entries(mapping.value).find(([, target]) => target === CUSTOMER_NAME_TARGET)?.[0]
   const fieldsById = new Map((app.value?.fields ?? []).map(f => [f.id, f]))
+  // 顧客名のマッチングをCSV行ごとにcustomers.value.find()（線形探索）で行うと、
+  // 行数×顧客数の掛け算で非常に重くなる（例: 1000行×5000顧客=500万回の文字列比較）。
+  // Mapを一度だけ構築し、各行はO(1)で引けるようにする
+  const customerByName = new Map(customers.value.map(c => [c.name.trim(), c]))
 
   return csvRows.value.map((row) => {
     const customerName = nameCol ? (row[nameCol] ?? '').trim() : ''
-    const matched = customerName
-      ? customers.value.find(c => c.name.trim() === customerName)
-      : undefined
+    const matched = customerName ? customerByName.get(customerName) : undefined
 
     const formFields: Partial<ServiceCaseForm> = {}
     const customFields: Record<string, string | string[]> = {}
