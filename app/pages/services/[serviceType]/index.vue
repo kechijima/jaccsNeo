@@ -51,14 +51,26 @@ interface JoinedCase extends ServiceCase {
 
 const { fetchAllCasesForType, deleteCase } = useServices()
 const { customers, ensureLoaded: ensureCustomersLoaded } = useCustomerStore()
-const genericCasesLoading = ref(false)
+const genericCasesLoading = ref(!isLifeInsurance.value)
 const rawGenericCases = ref<ServiceCase[]>([])
 
+// トップレベルawaitにすると、顧客件数が多い環境ではページ全体の描画が
+// 完了するまでローディング表示すら出せない（Suspenseが解決を待つ）ため、
+// マウント後に非同期で取得し、その間はgenericCasesLoadingでスピナーを出す。
+// 顧客一覧と案件一覧は互いに依存しないため並列取得する
 if (!isLifeInsurance.value) {
-  genericCasesLoading.value = true
-  await ensureCustomersLoaded()
-  rawGenericCases.value = await fetchAllCasesForType(serviceType.value as any)
-  genericCasesLoading.value = false
+  onMounted(async () => {
+    genericCasesLoading.value = true
+    try {
+      const [, cases] = await Promise.all([
+        ensureCustomersLoaded(),
+        fetchAllCasesForType(serviceType.value as any),
+      ])
+      rawGenericCases.value = cases
+    } finally {
+      genericCasesLoading.value = false
+    }
+  })
 }
 
 // ── 削除（アプリ責任者・システム管理者のみ） ──────────────────────────
