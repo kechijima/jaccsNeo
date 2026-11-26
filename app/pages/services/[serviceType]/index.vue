@@ -66,6 +66,7 @@ const hasMoreCases = ref(false)
 const loadingMoreCases = ref(false)
 const genericFullyLoaded = ref(false)
 const loadingAllGenericCases = ref(false)
+const genericCasesError = ref('')
 
 const loadCustomersFor = async (cases: ServiceCase[]) => {
   const missingIds = [...new Set(cases.map(c => c.customerId))].filter(id => !genericCustomersById.value.has(id))
@@ -74,6 +75,16 @@ const loadCustomersFor = async (cases: ServiceCase[]) => {
   const next = new Map(genericCustomersById.value)
   for (const c of fetched) next.set(c.id, c)
   genericCustomersById.value = next
+}
+
+// Firestoreのインデックス未反映時などにエラーメッセージを画面に出す
+// （以前は失敗時に0件のまま黙って表示されてしまい、原因が分かりにくかった）
+const describeLoadError = (e: unknown): string => {
+  const msg = e instanceof Error ? e.message : String(e)
+  if (msg.includes('requires an index')) {
+    return '一覧の取得に必要なデータベースの設定（インデックス）がまだ反映されていない可能性があります。時間をおいて再度お試しいただくか、管理者にご確認ください。'
+  }
+  return '案件一覧の取得に失敗しました。時間をおいて再度お試しください。'
 }
 
 const loadMoreGenericCases = async () => {
@@ -85,6 +96,8 @@ const loadMoreGenericCases = async () => {
     casesCursor.value = lastDoc
     hasMoreCases.value = hasMore
     await loadCustomersFor(cases)
+  } catch (e) {
+    genericCasesError.value = describeLoadError(e)
   } finally {
     loadingMoreCases.value = false
   }
@@ -105,6 +118,8 @@ const loadAllGenericCases = async () => {
     genericCustomersById.value = new Map(allCustomers.value.map(c => [c.id, c]))
     genericFullyLoaded.value = true
     hasMoreCases.value = false
+  } catch (e) {
+    genericCasesError.value = describeLoadError(e)
   } finally {
     loadingAllGenericCases.value = false
     genericCasesLoading.value = false
@@ -123,6 +138,8 @@ if (!isLifeInsurance.value) {
       casesCursor.value = lastDoc
       hasMoreCases.value = hasMore
       await loadCustomersFor(cases)
+    } catch (e) {
+      genericCasesError.value = describeLoadError(e)
     } finally {
       genericCasesLoading.value = false
     }
@@ -432,6 +449,11 @@ const statusClass = (status: string) => {
       <div v-if="genericCasesLoading" class="card p-12 text-center">
         <Icon name="heroicons:arrow-path" class="h-8 w-8 text-gray-300 mx-auto mb-2 animate-spin" />
         <p class="text-gray-400 text-sm">読み込み中...</p>
+      </div>
+
+      <div v-else-if="genericCasesError" class="card p-12 text-center">
+        <Icon name="heroicons:exclamation-triangle" class="h-10 w-10 text-amber-300 mx-auto mb-3" />
+        <p class="text-gray-500 text-sm">{{ genericCasesError }}</p>
       </div>
 
       <div v-else-if="filteredGenericCases.length === 0" class="card p-12 text-center">

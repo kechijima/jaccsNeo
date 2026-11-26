@@ -124,6 +124,21 @@ export const useServices = () => {
     return Object.fromEntries(results.filter(([, count]) => count > 0))
   }
 
+  // ===== 全顧客横断・サービスタイプごとの件数 =====
+  // プロダクトアプリ一覧（/services）のアプリごとの件数表示用。以前はfetchAllCases()で
+  // 全顧客・全19アプリ分のドキュメント本体を丸ごと取得してからクライアント側でserviceType
+  // ごとに集計していたが、件数だけで十分なためgetCountFromServer()で型ごとに集計取得する
+  // （lifeInsuranceは対象外。呼び出し側でuseLifeInsuranceCases側の件数と合算する）
+  const fetchCaseCountsByType = async (): Promise<Record<string, number>> => {
+    const results = await Promise.all(
+      ALL_SERVICE_TYPES.filter(t => t !== 'lifeInsurance').map(async (type) => {
+        const snap = await getCountFromServer(query(collectionGroup($db, 'cases'), where('serviceType', '==', type)))
+        return [type, snap.data().count] as const
+      }),
+    )
+    return Object.fromEntries(results)
+  }
+
   // ===== 全サービスタイプのサマリー =====
   const fetchAllServiceSummaries = async (customerId: string) => {
     const results = await Promise.all(
@@ -234,6 +249,7 @@ export const useServices = () => {
     fetchAllCasesForType,
     fetchCasesPageForType,
     fetchCaseCountsForCustomer,
+    fetchCaseCountsByType,
     fetchAllServiceSummaries,
     fetchCase,
     createCase,

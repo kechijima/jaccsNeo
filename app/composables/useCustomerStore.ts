@@ -1,6 +1,7 @@
 import {
   collection, doc, getDocs, addDoc, updateDoc, deleteDoc,
   serverTimestamp, query, orderBy, where, limit, startAfter, documentId,
+  getCountFromServer,
   type DocumentData, type QueryDocumentSnapshot,
 } from 'firebase/firestore'
 import type { Customer, CustomerForm } from '~/types/customer'
@@ -62,6 +63,13 @@ export const useCustomerStore = () => {
       lastDoc: snap.docs[snap.docs.length - 1] ?? null,
       hasMore: snap.docs.length === CUSTOMERS_PAGE_SIZE,
     }
+  }
+
+  // 顧客の総件数だけを取得する（プロダクトアプリ一覧の「登録顧客数」表示等、
+  // 一覧データ本体が不要な場面向け。全件ダウンロードを避ける）
+  const fetchCustomerCount = async (): Promise<number> => {
+    const snap = await getCountFromServer(customersCol())
+    return snap.data().count
   }
 
   // 指定したIDの顧客だけをまとめて取得する（案件一覧の各ページに紐づく顧客名の解決など、

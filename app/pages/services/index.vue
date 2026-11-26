@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { APP_CATEGORY_DEFS, APP_CATEGORY_LIST } from '~/types/service'
-import type { ServiceCase } from '~/types/service'
 import { useCustomerStore } from '~/composables/useCustomerStore'
 import { useAppCatalog } from '~/composables/useAppCatalog'
 import { useLifeInsuranceCases } from '~/composables/useLifeInsuranceCases'
@@ -10,34 +9,54 @@ import type { AppCatalogEntry } from '~/composables/useAppCatalog'
 
 definePageMeta({ middleware: ['auth'] })
 
-const { customers, ensureLoaded: ensureCustomersLoaded } = useCustomerStore()
+const { fetchCustomerCount } = useCustomerStore()
 const { cases: liCases, fetchAll: fetchLiCases } = useLifeInsuranceCases()
 const { catalog, ensureLoaded: ensureCatalogLoaded } = useAppCatalog()
-const { fetchAllCases } = useServices()
+const { fetchAllCases, fetchCaseCountsByType } = useServices()
 
 // 案件数は実際の案件レコード（customers/{id}/services/{type}/cases サブコレクション、
-// 生命保険のみ専用のlifeInsuranceCasesコレクション）の件数で統一する
-const allCases = ref<ServiceCase[]>([])
-await Promise.all([fetchLiCases(), ensureCustomersLoaded(), ensureCatalogLoaded()])
-allCases.value = await fetchAllCases()
+// 生命保険のみ専用のlifeInsuranceCasesコレクション）の件数で統一する。
+// 以前はfetchAllCases()で全顧客・全19アプリ分のドキュメント本体を丸ごと取得していたが、
+// 件数の表示には中身は不要なため、型ごとの件数集計（getCountFromServer）に変更し、
+// 読み込みを大幅に軽量化する
+const caseCountsByType = ref<Record<string, number>>({})
+const customerCount = ref(0)
+await Promise.all([
+  fetchLiCases(),
+  ensureCatalogLoaded(),
+  fetchCustomerCount().then(c => (customerCount.value = c)),
+  fetchCaseCountsByType().then(c => (caseCountsByType.value = c)),
+])
 
 const { isFavoriteApp, toggleFavoriteApp, ensureLoaded: ensureFavoritesLoaded } = useFavorites()
 ensureFavoritesLoaded()
 
-// ── カウント計算（生命保険はFirestore連動の専用案件数、それ以外は実際の案件レコード数） ──
+// ── カウント計算（生命保険はFirestore連動の専用案件数、それ以外は型ごとの集計件数） ──
 const getCount = (entry: AppCatalogEntry) => {
   if (entry.key === 'lifeInsurance') return liCases.value.length
-  return allCases.value.filter(c => c.serviceType === entry.key).length
+  return caseCountsByType.value[entry.key] ?? 0
 }
 
 // ── サマリー ──────────────────────────────────────────────────────────
-const totalCases = computed(() => liCases.value.length + allCases.value.length)
+const totalCases = computed(() =>
+  liCases.value.length + Object.values(caseCountsByType.value).reduce((sum, n) => sum + n, 0)
+)
 
-const customersWithCases = computed(() => {
-  const ids = new Set<string>()
-  for (const c of liCases.value) ids.add(c.customerId)
-  for (const c of allCases.value) ids.add(c.customerId)
-  return ids.size
+// 「案件保有顧客」（1件以上の案件を持つ顧客の重複なし人数）は、件数集計だけでは
+// 算出できず全案件のcustomerIdを読む必要があるため負荷が大きい。ページの初期表示を
+// ブロックしないよう、マウント後に背景で取得する
+const customersWithCasesLoading = ref(true)
+const customersWithCases = ref(0)
+onMounted(async () => {
+  try {
+    const allCases = await fetchAllCases()
+    const ids = new Set<string>()
+    for (const c of liCases.value) ids.add(c.customerId)
+    for (const c of allCases) ids.add(c.customerId)
+    customersWithCases.value = ids.size
+  } finally {
+    customersWithCasesLoading.value = false
+  }
 })
 
 // ── カテゴリ別グルーピング（アプリ管理で設定したカテゴリに基づく） ──────
@@ -120,7 +139,8 @@ const filteredCategories = computed(() => {
       <div class="card p-4 col-span-1">
         <p class="text-xs text-gray-500 font-medium">案件保有顧客</p>
         <p class="mt-1 text-2xl font-bold text-gray-900">
-          {{ customersWithCases }}<span class="text-sm font-normal text-gray-500 ml-1">名</span>
+          <Icon v-if="customersWithCasesLoading" name="heroicons:arrow-path" class="h-5 w-5 text-gray-300 animate-spin" />
+          <template v-else>{{ customersWithCases }}<span class="text-sm font-normal text-gray-500 ml-1">名</span></template>
         </p>
         <div class="mt-2 flex items-center gap-1 text-xs text-gray-400">
           <Icon name="heroicons:users" class="h-3.5 w-3.5" />
@@ -140,7 +160,7 @@ const filteredCategories = computed(() => {
       <div class="card p-4 col-span-1">
         <p class="text-xs text-gray-500 font-medium">登録顧客数</p>
         <p class="mt-1 text-2xl font-bold text-gray-900">
-          {{ customers.length }}<span class="text-sm font-normal text-gray-500 ml-1">名</span>
+          {{ customerCount }}<span class="text-sm font-normal text-gray-500 ml-1">名</span>
         </p>
         <div class="mt-2 flex items-center gap-1 text-xs text-gray-400">
           <Icon name="heroicons:user-group" class="h-3.5 w-3.5" />
