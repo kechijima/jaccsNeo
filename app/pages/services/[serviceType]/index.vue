@@ -78,7 +78,11 @@ const currentDetailFilters = () => ({
 onMounted(async () => {
   const users = await fetchUsers()
   plannerUsers.value = users.map(u => ({ uid: u.uid, displayName: u.displayName }))
-  assigneeUsers.value = plannerUsers.value
+  // 担当者は、案件登録時に選択できる候補（このアプリの責任者・担当者）に揃える
+  const staffUidSet = new Set(
+    [...(currentAppDef.value?.ownerUids ?? []), ...(currentAppDef.value?.staffUids ?? [])].filter(Boolean),
+  )
+  assigneeUsers.value = plannerUsers.value.filter(u => staffUidSet.has(u.uid))
 })
 
 // ── ページネーション（既定では上位25件のみ取得し、「もっと見る」で追加取得） ──
@@ -367,10 +371,9 @@ const statusClass = (status: string) => {
         <option value="">担当者で絞り込み</option>
         <option v-for="u in assigneeUsers" :key="u.uid" :value="u.uid">{{ u.displayName }}</option>
       </select>
-      <select v-model="plannerFilter" class="input-field text-sm py-1.5 w-auto">
-        <option value="">担当未来設計士で絞り込み</option>
-        <option v-for="u in plannerUsers" :key="u.uid" :value="u.uid">{{ u.displayName }}</option>
-      </select>
+      <div class="w-48">
+        <SearchableUserSelect v-model="plannerFilter" :users="plannerUsers" placeholder="担当未来設計士で絞り込み" />
+      </div>
       <button
         v-if="hasDetailFilter"
         type="button"
