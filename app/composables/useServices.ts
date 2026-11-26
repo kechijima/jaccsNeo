@@ -11,11 +11,13 @@ import {
   where,
   orderBy,
   limit,
+  startAfter,
   getCountFromServer,
   serverTimestamp,
   arrayUnion,
   Timestamp,
   type DocumentData,
+  type QueryDocumentSnapshot,
 } from 'firebase/firestore'
 import type { ServiceCase, ServiceCaseForm, ServiceType, ServiceStatus, ServiceProgressReport } from '~/types/service'
 import { useAuthStore } from '~/stores/auth'
@@ -83,6 +85,27 @@ export const useServices = () => {
   const fetchAllCasesForType = async (serviceType: ServiceType): Promise<ServiceCase[]> => {
     const snap = await getDocs(query(collectionGroup($db, 'cases'), where('serviceType', '==', serviceType)))
     return snap.docs.map(d => toCase(d.id, d.data()))
+  }
+
+  // ===== 指定サービスタイプの案件をページ単位で取得 =====
+  // 一覧を開いた時点で全件（数百〜数千件）を丸ごと取得すると読み込みが重くなるため、
+  // 既定では上位N件だけを取得し、「もっと見る」で続きを取得する。serviceTypeでの絞り込みに
+  // 加えてupdatedAtで並び替える複合クエリになるため、firestore.indexes.jsonに
+  // collectionGroupスコープの複合インデックスを追加し、手動でfirestore:indexesの
+  // 反映が必要（fetchAllCasesForTypeの単一条件のみのクエリとは別に必要になる）
+  const CASES_PAGE_SIZE = 25
+  const fetchCasesPageForType = async (
+    serviceType: ServiceType,
+    cursor?: QueryDocumentSnapshot,
+  ): Promise<{ cases: ServiceCase[]; lastDoc: QueryDocumentSnapshot | null; hasMore: boolean }> => {
+    const constraints = [where('serviceType', '==', serviceType), orderBy('updatedAt', 'desc'), limit(CASES_PAGE_SIZE)]
+    if (cursor) constraints.push(startAfter(cursor))
+    const snap = await getDocs(query(collectionGroup($db, 'cases'), ...constraints))
+    return {
+      cases: snap.docs.map(d => toCase(d.id, d.data())),
+      lastDoc: snap.docs[snap.docs.length - 1] ?? null,
+      hasMore: snap.docs.length === CASES_PAGE_SIZE,
+    }
   }
 
   // ===== 顧客1人分の、各サービスタイプごとの案件件数 =====
@@ -209,6 +232,7 @@ export const useServices = () => {
     fetchCases,
     fetchAllCases,
     fetchAllCasesForType,
+    fetchCasesPageForType,
     fetchCaseCountsForCustomer,
     fetchAllServiceSummaries,
     fetchCase,

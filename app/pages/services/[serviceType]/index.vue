@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import type { QueryDocumentSnapshot } from 'firebase/firestore'
 import { SERVICE_LABELS, STATUS_LABELS } from '~/types/service'
 import type { ServiceCase } from '~/types/service'
+import type { Customer } from '~/types/customer'
 import { useServices } from '~/composables/useServices'
 import { useCustomerStore } from '~/composables/useCustomerStore'
 import { useLifeInsuranceCases } from '~/composables/useLifeInsuranceCases'
@@ -49,24 +51,78 @@ interface JoinedCase extends ServiceCase {
   customerNameKana: string
 }
 
-const { fetchAllCasesForType, deleteCase } = useServices()
-const { customers, ensureLoaded: ensureCustomersLoaded } = useCustomerStore()
+const { fetchAllCasesForType, fetchCasesPageForType, deleteCase } = useServices()
+const { customers: allCustomers, fetchCustomersByIds, ensureLoaded: ensureCustomersLoaded } = useCustomerStore()
 const genericCasesLoading = ref(!isLifeInsurance.value)
 const rawGenericCases = ref<ServiceCase[]>([])
+const genericCustomersById = ref<Map<string, Customer>>(new Map())
+
+// ── ページネーション（既定では上位25件のみ取得し、「もっと見る」で追加取得） ──
+// 検索・リマインダー順ソートは読み込み済みの範囲でしか機能しないため、実際に
+// 使われた時点でこのserviceTypeの全件（+関連顧客）を読み込む形に切り替える
+const CASES_PAGE_SIZE = 25
+const casesCursor = ref<QueryDocumentSnapshot | null>(null)
+const hasMoreCases = ref(false)
+const loadingMoreCases = ref(false)
+const genericFullyLoaded = ref(false)
+const loadingAllGenericCases = ref(false)
+
+const loadCustomersFor = async (cases: ServiceCase[]) => {
+  const missingIds = [...new Set(cases.map(c => c.customerId))].filter(id => !genericCustomersById.value.has(id))
+  if (missingIds.length === 0) return
+  const fetched = await fetchCustomersByIds(missingIds)
+  const next = new Map(genericCustomersById.value)
+  for (const c of fetched) next.set(c.id, c)
+  genericCustomersById.value = next
+}
+
+const loadMoreGenericCases = async () => {
+  if (!hasMoreCases.value || loadingMoreCases.value || genericFullyLoaded.value) return
+  loadingMoreCases.value = true
+  try {
+    const { cases, lastDoc, hasMore } = await fetchCasesPageForType(serviceType.value as any, casesCursor.value ?? undefined)
+    rawGenericCases.value = [...rawGenericCases.value, ...cases]
+    casesCursor.value = lastDoc
+    hasMoreCases.value = hasMore
+    await loadCustomersFor(cases)
+  } finally {
+    loadingMoreCases.value = false
+  }
+}
+
+// 検索・詳細条件・リマインダー順ソートが使われたら、一度だけこのserviceTypeの
+// 全件に読み込み直す（以後はキャッシュされ、再度の全件取得は行わない）
+const loadAllGenericCases = async () => {
+  if (isLifeInsurance.value || genericFullyLoaded.value || loadingAllGenericCases.value) return
+  loadingAllGenericCases.value = true
+  genericCasesLoading.value = true
+  try {
+    const [, cases] = await Promise.all([
+      ensureCustomersLoaded(),
+      fetchAllCasesForType(serviceType.value as any),
+    ])
+    rawGenericCases.value = cases
+    genericCustomersById.value = new Map(allCustomers.value.map(c => [c.id, c]))
+    genericFullyLoaded.value = true
+    hasMoreCases.value = false
+  } finally {
+    loadingAllGenericCases.value = false
+    genericCasesLoading.value = false
+  }
+}
 
 // トップレベルawaitにすると、顧客件数が多い環境ではページ全体の描画が
 // 完了するまでローディング表示すら出せない（Suspenseが解決を待つ）ため、
-// マウント後に非同期で取得し、その間はgenericCasesLoadingでスピナーを出す。
-// 顧客一覧と案件一覧は互いに依存しないため並列取得する
+// マウント後に非同期で取得し、その間はgenericCasesLoadingでスピナーを出す
 if (!isLifeInsurance.value) {
   onMounted(async () => {
     genericCasesLoading.value = true
     try {
-      const [, cases] = await Promise.all([
-        ensureCustomersLoaded(),
-        fetchAllCasesForType(serviceType.value as any),
-      ])
+      const { cases, lastDoc, hasMore } = await fetchCasesPageForType(serviceType.value as any)
       rawGenericCases.value = cases
+      casesCursor.value = lastDoc
+      hasMoreCases.value = hasMore
+      await loadCustomersFor(cases)
     } finally {
       genericCasesLoading.value = false
     }
@@ -106,7 +162,7 @@ const handleDeleteLi = async (id: string, name: string) => {
 }
 
 const genericCases = computed<JoinedCase[]>(() => rawGenericCases.value.map((c) => {
-  const customer = customers.value.find(cu => cu.id === c.customerId)
+  const customer = genericCustomersById.value.get(c.customerId)
   return {
     ...c,
     customerName: customer?.name ?? '（顧客不明）',
@@ -119,6 +175,13 @@ const totalCount = computed(() => isLifeInsurance.value ? liCases.value.length :
 // ── 検索・並び替え ────────────────────────────────────────────────────
 const searchQuery = ref('')
 const sortBy = ref<'updated' | 'reminder'>('updated')
+
+// 検索文字列の入力・リマインダー順ソートの選択は、ページ単位で読み込んだ
+// 範囲内だけでは正しく機能しないため、使われた時点で全件読み込みへ切り替える
+if (!isLifeInsurance.value) {
+  watch(searchQuery, (val) => { if (val.trim()) loadAllGenericCases() })
+  watch(sortBy, (val) => { if (val === 'reminder') loadAllGenericCases() })
+}
 
 const toDate = (val: any): Date | null => {
   if (!val) return null
@@ -502,6 +565,18 @@ const statusClass = (status: string) => {
             </div>
           </div>
         </div>
+      </div>
+
+      <div v-if="hasMoreCases && !genericFullyLoaded" class="flex justify-center">
+        <button
+          type="button"
+          class="btn-secondary text-sm flex items-center gap-1.5"
+          :disabled="loadingMoreCases"
+          @click="loadMoreGenericCases"
+        >
+          <Icon :name="loadingMoreCases ? 'heroicons:arrow-path' : 'heroicons:chevron-down'" class="h-4 w-4" :class="{ 'animate-spin': loadingMoreCases }" />
+          もっと見る
+        </button>
       </div>
 
       <p v-if="!genericCasesLoading" class="text-xs text-gray-400 text-right">

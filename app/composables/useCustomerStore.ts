@@ -1,6 +1,7 @@
 import {
   collection, doc, getDocs, addDoc, updateDoc, deleteDoc,
-  serverTimestamp, query, orderBy, where, type DocumentData,
+  serverTimestamp, query, orderBy, where, limit, startAfter, documentId,
+  type DocumentData, type QueryDocumentSnapshot,
 } from 'firebase/firestore'
 import type { Customer, CustomerForm } from '~/types/customer'
 
@@ -46,6 +47,32 @@ export const useCustomerStore = () => {
     } finally {
       loading.value = false
     }
+  }
+
+  // ===== ページ単位での取得（全件取得を避け、まず上位N件だけ表示したい場面向け） =====
+  const CUSTOMERS_PAGE_SIZE = 25
+  const fetchCustomersPage = async (
+    cursor?: QueryDocumentSnapshot,
+  ): Promise<{ customers: Customer[]; lastDoc: QueryDocumentSnapshot | null; hasMore: boolean }> => {
+    const constraints = [orderBy('updatedAt', 'desc'), limit(CUSTOMERS_PAGE_SIZE)]
+    if (cursor) constraints.push(startAfter(cursor))
+    const snap = await getDocs(query(customersCol(), ...constraints))
+    return {
+      customers: snap.docs.map(d => toCustomer(d.id, d.data())),
+      lastDoc: snap.docs[snap.docs.length - 1] ?? null,
+      hasMore: snap.docs.length === CUSTOMERS_PAGE_SIZE,
+    }
+  }
+
+  // 指定したIDの顧客だけをまとめて取得する（案件一覧の各ページに紐づく顧客名の解決など、
+  // 全顧客を読み込まずに必要な分だけ引きたい場面向け）
+  const fetchCustomersByIds = async (ids: string[]): Promise<Customer[]> => {
+    const uniqueIds = [...new Set(ids)]
+    if (uniqueIds.length === 0) return []
+    const snaps = await Promise.all(
+      chunk(uniqueIds, CHUNK_SIZE).map(c => getDocs(query(customersCol(), where(documentId(), 'in', c)))),
+    )
+    return snaps.flatMap(snap => snap.docs.map(d => toCustomer(d.id, d.data())))
   }
 
   // 指定した担当FP（uid・氏名のどちらか一致）の顧客のみを取得する（パーソナルデータ
@@ -105,5 +132,8 @@ export const useCustomerStore = () => {
     customers.value = customers.value.filter(c => c.id !== id)
   }
 
-  return { customers, loading, loaded, ensureLoaded, fetchMyCustomers, fetchScopedCustomers, getById, create, update, remove }
+  return {
+    customers, loading, loaded, ensureLoaded, fetchMyCustomers, fetchScopedCustomers,
+    fetchCustomersPage, fetchCustomersByIds, getById, create, update, remove,
+  }
 }

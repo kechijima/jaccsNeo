@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { QueryDocumentSnapshot } from 'firebase/firestore'
 import { useCustomerStore } from '~/composables/useCustomerStore'
 import { useSavedSearchStore } from '~/composables/useSavedSearchStore'
 import { useDataScope } from '~/composables/useDataScope'
@@ -28,17 +29,56 @@ myCustomers.value = await store.fetchMyCustomers(user.value?.uid ?? '', user.val
 const broadScopeCustomers = ref<Customer[]>([])
 const broadScopeLoaded = ref(false)
 const broadScopeLoading = ref(false)
+// 理事会・管理者（scopedFpNames === null、全顧客が対象）はページ単位で取得し、
+// 「もっと見る」で追加取得する。EM2以上（配下を含む複数名）はuidのin検索で
+// 元から絞り込まれており件数が限られるため、従来通り一括取得のままでよい
+const broadScopeCursor = ref<QueryDocumentSnapshot | null>(null)
+const broadScopeHasMore = ref(false)
+const broadScopeFullyLoaded = ref(false)
+const loadingMoreBroadScope = ref(false)
+
 const loadBroadScope = async () => {
   if (broadScopeLoaded.value) return
   broadScopeLoading.value = true
   try {
     if (scopedFpNames.value === null) {
-      await store.ensureLoaded()
-      broadScopeCustomers.value = store.customers.value
+      const { customers, lastDoc, hasMore } = await store.fetchCustomersPage()
+      broadScopeCustomers.value = customers
+      broadScopeCursor.value = lastDoc
+      broadScopeHasMore.value = hasMore
     } else {
       broadScopeCustomers.value = await store.fetchScopedCustomers([...(scopedFpUids.value ?? [])], [...scopedFpNames.value])
+      broadScopeFullyLoaded.value = true
     }
     broadScopeLoaded.value = true
+  } finally {
+    broadScopeLoading.value = false
+  }
+}
+
+const loadMoreBroadScope = async () => {
+  if (!broadScopeHasMore.value || loadingMoreBroadScope.value || broadScopeFullyLoaded.value) return
+  loadingMoreBroadScope.value = true
+  try {
+    const { customers, lastDoc, hasMore } = await store.fetchCustomersPage(broadScopeCursor.value ?? undefined)
+    broadScopeCustomers.value = [...broadScopeCustomers.value, ...customers]
+    broadScopeCursor.value = lastDoc
+    broadScopeHasMore.value = hasMore
+  } finally {
+    loadingMoreBroadScope.value = false
+  }
+}
+
+// 検索・詳細条件・リマインダー順ソートは読み込み済みの範囲でしか機能しないため、
+// 「全員」表示時に実際に使われた時点で一度だけ全件へ読み込み直す
+const loadAllBroadScope = async () => {
+  if (broadScopeFullyLoaded.value || scopedFpNames.value !== null || broadScopeLoading.value) return
+  broadScopeLoading.value = true
+  try {
+    await store.ensureLoaded()
+    broadScopeCustomers.value = store.customers.value
+    broadScopeFullyLoaded.value = true
+    broadScopeHasMore.value = false
   } finally {
     broadScopeLoading.value = false
   }
@@ -152,6 +192,12 @@ const nextReminder = (c: Customer): { label: string; date: Date } | null => {
 const activeConditionCount = computed(() =>
   conditions.value.filter(c => c.operator === 'notEmpty' || c.operator === 'empty' || c.value.trim() !== '').length
 )
+
+// 検索・詳細条件・リマインダー順ソートは「全員」表示時にページ単位で読み込んだ
+// 範囲内だけでは正しく機能しないため、実際に使われた時点で全件読み込みへ切り替える
+watch(searchQuery, (val) => { if (val.trim() && fpFilter.value === 'scope') loadAllBroadScope() })
+watch(activeConditionCount, (count) => { if (count > 0 && fpFilter.value === 'scope') loadAllBroadScope() })
+watch(sortBy, (val) => { if (val === 'reminder' && fpFilter.value === 'scope') loadAllBroadScope() })
 
 const filtered = computed(() => {
   let list = scopedCustomers.value
@@ -359,6 +405,13 @@ const statusColor = (s: string) => {
         @click="fpFilter = 'scope'"
       >{{ scopedFpNames === null ? '全員' : '自分がサポートする範囲すべて' }}</button>
       <Icon v-if="broadScopeLoading" name="heroicons:arrow-path" class="h-4 w-4 text-gray-400 animate-spin" />
+      <button
+        v-if="fpFilter === 'scope' && broadScopeHasMore && !broadScopeFullyLoaded"
+        type="button"
+        class="text-xs text-primary-600 hover:underline shrink-0 disabled:opacity-40"
+        :disabled="broadScopeLoading"
+        @click="loadMoreBroadScope"
+      >続きを読み込む（{{ broadScopeCustomers.length }}件読み込み済み）</button>
     </div>
     <p v-else class="text-xs text-gray-400">自分（{{ user?.displayName }}）の担当データのみ表示しています</p>
 
