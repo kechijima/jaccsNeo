@@ -18,15 +18,42 @@ const { fetchAllCases, fetchCaseCountsByType } = useServices()
 // 生命保険のみ専用のlifeInsuranceCasesコレクション）の件数で統一する。
 // 以前はfetchAllCases()で全顧客・全19アプリ分のドキュメント本体を丸ごと取得していたが、
 // 件数の表示には中身は不要なため、型ごとの件数集計（getCountFromServer）に変更し、
-// 読み込みを大幅に軽量化する
+// 読み込みを大幅に軽量化した。
+// さらに、以前はこれをトップレベルawaitにしていたため、各取得が軽量になった後も
+// 全て完了するまでSuspenseがページの描画自体を止めてしまい、クリックしてから
+// 画面が表示されるまで何も表示されず固まって見えていた。マウント後の非同期処理に
+// 変更し、読み込み中はスケルトン表示にすることで、ページ自体はすぐ表示されるようにする
+const catalogLoading = ref(true)
 const caseCountsByType = ref<Record<string, number>>({})
 const customerCount = ref(0)
-await Promise.all([
-  fetchLiCases(),
-  ensureCatalogLoaded(),
-  fetchCustomerCount().then(c => (customerCount.value = c)),
-  fetchCaseCountsByType().then(c => (caseCountsByType.value = c)),
-])
+// 「案件保有顧客」（1件以上の案件を持つ顧客の重複なし人数）は、件数集計だけでは
+// 算出できず全案件のcustomerIdを読む必要があるため負荷が大きい。他の軽量な取得とは
+// 分けて、マウント後に背景で取得する（liCases.value確定後に計算する必要があるため、
+// fetchLiCases()と同じonMounted内で、その完了を待ってから実行する）
+const customersWithCasesLoading = ref(true)
+const customersWithCases = ref(0)
+onMounted(async () => {
+  try {
+    await Promise.all([
+      fetchLiCases(),
+      ensureCatalogLoaded(),
+      fetchCustomerCount().then(c => (customerCount.value = c)),
+      fetchCaseCountsByType().then(c => (caseCountsByType.value = c)),
+    ])
+  } finally {
+    catalogLoading.value = false
+  }
+
+  try {
+    const allCases = await fetchAllCases()
+    const ids = new Set<string>()
+    for (const c of liCases.value) ids.add(c.customerId)
+    for (const c of allCases) ids.add(c.customerId)
+    customersWithCases.value = ids.size
+  } finally {
+    customersWithCasesLoading.value = false
+  }
+})
 
 const { isFavoriteApp, toggleFavoriteApp, ensureLoaded: ensureFavoritesLoaded } = useFavorites()
 ensureFavoritesLoaded()
@@ -41,23 +68,6 @@ const getCount = (entry: AppCatalogEntry) => {
 const totalCases = computed(() =>
   liCases.value.length + Object.values(caseCountsByType.value).reduce((sum, n) => sum + n, 0)
 )
-
-// 「案件保有顧客」（1件以上の案件を持つ顧客の重複なし人数）は、件数集計だけでは
-// 算出できず全案件のcustomerIdを読む必要があるため負荷が大きい。ページの初期表示を
-// ブロックしないよう、マウント後に背景で取得する
-const customersWithCasesLoading = ref(true)
-const customersWithCases = ref(0)
-onMounted(async () => {
-  try {
-    const allCases = await fetchAllCases()
-    const ids = new Set<string>()
-    for (const c of liCases.value) ids.add(c.customerId)
-    for (const c of allCases) ids.add(c.customerId)
-    customersWithCases.value = ids.size
-  } finally {
-    customersWithCasesLoading.value = false
-  }
-})
 
 // ── カテゴリ別グルーピング（アプリ管理で設定したカテゴリに基づく） ──────
 const categories = computed(() => {
@@ -171,7 +181,12 @@ const filteredCategories = computed(() => {
 
     <!-- ===== カテゴリ別サービスカード ===== -->
     <div class="space-y-6">
-      <div v-if="filteredCategories.length === 0" class="card p-12 text-center">
+      <div v-if="catalogLoading" class="card p-12 text-center">
+        <Icon name="heroicons:arrow-path" class="h-8 w-8 text-gray-300 mx-auto mb-2 animate-spin" />
+        <p class="text-gray-400 text-sm">読み込み中...</p>
+      </div>
+
+      <div v-else-if="filteredCategories.length === 0" class="card p-12 text-center">
         <Icon name="heroicons:magnifying-glass" class="h-10 w-10 text-gray-200 mx-auto mb-2" />
         <p class="text-gray-400">条件に一致するプロダクトが見つかりませんでした</p>
       </div>
