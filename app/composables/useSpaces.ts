@@ -20,7 +20,9 @@ import {
   writeBatch,
   Timestamp,
   getCountFromServer,
+  startAfter,
   type DocumentData,
+  type QueryDocumentSnapshot,
   type Unsubscribe,
 } from 'firebase/firestore'
 import type { Space, SpaceSummary, Post, Comment, SpaceForm, PostForm } from '~/types/portal'
@@ -172,10 +174,24 @@ export const useSpaces = () => {
   }
 
   // ===== 投稿取得 =====
-  const fetchPosts = async (spaceId: string): Promise<Post[]> => {
-    const q = query(postsCol(spaceId), orderBy('createdAt', 'desc'), limit(30))
-    const snap = await getDocs(q)
-    return snap.docs.map(d => toPost(d.id, d.data()))
+  const POSTS_PAGE_SIZE = 30
+
+  // cursor（前回取得分の最後のドキュメント）を渡すと、その続きから次ページを取得する
+  // （「もっと見る」形式のページネーション用）。戻り値のlastDocを次回呼び出しに渡す。
+  // hasMoreは「取得件数がページサイズちょうどだったか」で簡易判定する（次ページが
+  // ちょうど0件になるまで「もっと見る」が出ることがあるが、過不足なく動作する）
+  const fetchPosts = async (
+    spaceId: string,
+    cursor?: QueryDocumentSnapshot,
+  ): Promise<{ posts: Post[]; lastDoc: QueryDocumentSnapshot | null; hasMore: boolean }> => {
+    const constraints = [orderBy('createdAt', 'desc'), limit(POSTS_PAGE_SIZE)]
+    if (cursor) constraints.push(startAfter(cursor))
+    const snap = await getDocs(query(postsCol(spaceId), ...constraints))
+    return {
+      posts: snap.docs.map(d => toPost(d.id, d.data())),
+      lastDoc: snap.docs[snap.docs.length - 1] ?? null,
+      hasMore: snap.docs.length === POSTS_PAGE_SIZE,
+    }
   }
 
   // ===== 投稿単体取得（サムネイル＝ピン留め投稿の編集用） =====

@@ -89,6 +89,19 @@ onMounted(async () => {
 })
 
 // ── 投稿一覧（このスペース） ──────────────────────────────────────────
+// 「もっと見る」：Firestore側は1ページ30件までしか取得していないため、
+// 押すたびに次の30件を追加取得する
+const hasMorePosts = store.hasMorePostsForSpace(spaceId)
+const loadingMorePosts = ref(false)
+const loadMorePosts = async () => {
+  loadingMorePosts.value = true
+  try {
+    await store.loadMorePostsForSpace(spaceId.value)
+  } finally {
+    loadingMorePosts.value = false
+  }
+}
+
 const spacePosts = store.getPostsBySpace(spaceId)
 const pinnedPost = computed(() => spacePosts.value.find(p => p.isPinned) ?? null)
 
@@ -703,6 +716,19 @@ const getGroupColor = (groupId?: string) => groupId ? getGroupColorClass(groupId
         <div v-if="regularPosts.length === 0 && !pinnedPost" class="bg-white border border-gray-200 rounded-lg p-10 text-center">
           <Icon name="heroicons:chat-bubble-left-right" class="h-10 w-10 text-gray-200 mx-auto mb-2" />
           <p class="text-sm text-gray-400">{{ spacePosts.length === 0 ? 'まだ投稿がありません' : '条件に該当する投稿がありません' }}</p>
+        </div>
+
+        <!-- もっと見る -->
+        <div v-if="hasMorePosts" class="text-center pt-2">
+          <button
+            type="button"
+            class="btn-secondary text-sm"
+            :disabled="loadingMorePosts"
+            @click="loadMorePosts"
+          >
+            <Icon v-if="loadingMorePosts" name="heroicons:arrow-path" class="h-4 w-4 animate-spin mr-1" />
+            {{ loadingMorePosts ? '読み込み中...' : 'もっと見る' }}
+          </button>
         </div>
 
       </div>

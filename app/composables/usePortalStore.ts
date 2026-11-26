@@ -2,6 +2,7 @@
  * 掲示板（スペース・投稿）のグローバル共有ストア
  * Firestore（spaces / spaces/{id}/posts / .../comments）を app/composables/useSpaces.ts 経由で読み書きする
  */
+import type { QueryDocumentSnapshot } from 'firebase/firestore'
 import type { Space, Post, Comment as SpaceComment } from '~/types/portal'
 import { useSpaces } from '~/composables/useSpaces'
 import { useEvents } from '~/composables/useEvents'
@@ -100,6 +101,11 @@ export const usePortalStore = () => {
   const spacesLoaded   = useState<boolean>('portal:spacesLoaded', () => false)
   const posts          = useState<PostView[]>('portal:posts', () => [])
   const loadedSpaceIds = useState<string[]>('portal:loadedSpaceIds', () => [])
+  // スペースごとの投稿ページネーション状態（「もっと見る」用）。Firestoreの
+  // QueryDocumentSnapshot自体はuseStateに乗せると型の扱いが面倒なため、
+  // 通常のrefで保持する（SPAのタブ内だけで有効であれば十分なため問題ない）
+  const spaceCursors = ref<Record<string, QueryDocumentSnapshot | undefined>>({})
+  const spaceHasMore = ref<Record<string, boolean>>({})
 
   // ── 投稿者・コメント者アイコン（マイページで設定したavatarUrl）解決用 ──
   // 投稿側にはアイコンを保存せず、都度ユーザー一覧から解決することで、マイページで
@@ -157,8 +163,10 @@ export const usePortalStore = () => {
     const myUid = authStore.user?.uid
     await ensureAuthorAvatarsLoaded()
     // 下書きは投稿者本人にのみ見える（他のメンバーの一覧には出さない）
-    const rawPosts = (await spacesApi.fetchPosts(spaceId))
-      .filter(p => p.status !== 'draft' || p.authorUid === myUid)
+    const { posts: rawPostsAll, lastDoc, hasMore } = await spacesApi.fetchPosts(spaceId)
+    const rawPosts = rawPostsAll.filter(p => p.status !== 'draft' || p.authorUid === myUid)
+    spaceCursors.value = { ...spaceCursors.value, [spaceId]: lastDoc ?? undefined }
+    spaceHasMore.value = { ...spaceHasMore.value, [spaceId]: hasMore }
 
     const views = await Promise.all(rawPosts.map(async (p) => {
       if (!loadComments) return buildPostView(space, p, [], authorAvatars.value, false)
@@ -171,6 +179,23 @@ export const usePortalStore = () => {
       return b.createdAt.getTime() - a.createdAt.getTime()
     })
     if (!loadedSpaceIds.value.includes(spaceId)) loadedSpaceIds.value = [...loadedSpaceIds.value, spaceId]
+  }
+
+  // 「もっと見る」：そのスペースの次のページ分の投稿を追加で取得し、既存の一覧に追記する
+  const loadMorePostsForSpace = async (spaceId: string): Promise<void> => {
+    const cursor = spaceCursors.value[spaceId]
+    if (!cursor || !spaceHasMore.value[spaceId]) return
+    const space = spaces.value.find(s => s.id === spaceId)
+    if (!space) return
+    const authStore = useAuthStore()
+    const myUid = authStore.user?.uid
+    const { posts: rawPostsAll, lastDoc, hasMore } = await spacesApi.fetchPosts(spaceId, cursor)
+    const rawPosts = rawPostsAll.filter(p => p.status !== 'draft' || p.authorUid === myUid)
+    spaceCursors.value = { ...spaceCursors.value, [spaceId]: lastDoc ?? undefined }
+    spaceHasMore.value = { ...spaceHasMore.value, [spaceId]: hasMore }
+
+    const views = rawPosts.map(p => buildPostView(space, p, [], authorAvatars.value, false))
+    posts.value = [...posts.value, ...views]
   }
 
   // ── 全スペースの投稿をまとめて取得（掲示板トップ用）。全スペース分の投稿を
@@ -201,7 +226,7 @@ export const usePortalStore = () => {
     await fetchSpaces(force)
     await ensureAuthorAvatarsLoaded()
     const perSpace = await Promise.all(spaces.value.map(async (s) => {
-      const rawPosts = await spacesApi.fetchPosts(s.id).catch(() => [] as Post[])
+      const { posts: rawPosts } = await spacesApi.fetchPosts(s.id).catch(() => ({ posts: [] as Post[], lastDoc: null, hasMore: false }))
       return rawPosts.filter(p => !p.isPinned && p.status !== 'draft').map(p => buildPostView(s, p, [], authorAvatars.value, false))
     }))
     previewPosts.value = perSpace.flat().sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
@@ -322,10 +347,14 @@ export const usePortalStore = () => {
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
   })
 
+  const hasMorePostsForSpace = (spaceId: Ref<string> | string) =>
+    computed(() => spaceHasMore.value[unref(spaceId)] ?? false)
+
   return {
     spaces, spacesLoaded, posts,
     previewPosts,
     fetchSpaces, fetchPostsForSpace, fetchAllPosts, fetchRecentPostsPreview, ensureCommentsLoaded,
+    loadMorePostsForSpace, hasMorePostsForSpace,
     getPostsBySpace, getPost, myDrafts,
     addPost, toggleReaction, addComment, editPost, publishDraft, deletePost,
   }
