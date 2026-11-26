@@ -108,27 +108,25 @@ export const useServices = () => {
     }
   }
 
-  // ===== 指定サービスタイプ + 詳細条件（ステータス／担当者／担当未来設計士のいずれか1つ）
-  // でのページ単位取得 =====
+  // ===== 指定サービスタイプ + 詳細条件（ステータス・担当者・担当未来設計士、
+  // 任意の組み合わせ）でのページ単位取得 =====
   // 顧客名・会社名・備考のような自由記述の検索はFirestoreで部分一致検索ができないため
   // 全件取得が必要だが、ステータス・担当者（assigneeUid）・担当未来設計士（plannerUid）は
   // ケースドキュメントの固定フィールドのため、serviceTypeとの複合インデックスを追加の上で
-  // Firestore側に絞り込みを任せられる。3つの条件を同時に絞り込むと組み合わせ分の複合
-  // インデックスが必要になり際限がないため、この3条件は同時に1つだけ指定する前提とする
-  // （firestore.indexes.jsonに(serviceType, status|assigneeUid|plannerUid, updatedAt)の
-  // 3種の複合インデックスを用意済み。手動でのfirestore:indexesデプロイが必要）
-  type CaseDetailFilter = { field: 'status' | 'assigneeUid' | 'plannerUid'; value: string }
+  // Firestore側に絞り込みを任せられる。この3条件は自由に組み合わせて同時指定できるよう、
+  // firestore.indexes.jsonに単独3種・2つの組み合わせ3種・3つ全ての組み合わせ1種、
+  // 計7種の複合インデックスを用意済み（手動でのfirestore:indexesデプロイが必要）
+  type CaseDetailFilters = Partial<{ status: string; assigneeUid: string; plannerUid: string }>
   const fetchCasesPageForTypeFiltered = async (
     serviceType: ServiceType,
-    filter: CaseDetailFilter,
+    filters: CaseDetailFilters,
     cursor?: QueryDocumentSnapshot,
   ): Promise<{ cases: ServiceCase[]; lastDoc: QueryDocumentSnapshot | null; hasMore: boolean }> => {
-    const constraints = [
-      where('serviceType', '==', serviceType),
-      where(filter.field, '==', filter.value),
-      orderBy('updatedAt', 'desc'),
-      limit(CASES_PAGE_SIZE),
-    ]
+    const constraints = [where('serviceType', '==', serviceType)]
+    if (filters.status) constraints.push(where('status', '==', filters.status))
+    if (filters.assigneeUid) constraints.push(where('assigneeUid', '==', filters.assigneeUid))
+    if (filters.plannerUid) constraints.push(where('plannerUid', '==', filters.plannerUid))
+    constraints.push(orderBy('updatedAt', 'desc'), limit(CASES_PAGE_SIZE))
     if (cursor) constraints.push(startAfter(cursor))
     const snap = await getDocs(query(collectionGroup($db, 'cases'), ...constraints))
     return {

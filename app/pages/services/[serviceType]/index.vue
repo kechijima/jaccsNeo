@@ -59,17 +59,21 @@ const genericCasesLoading = ref(!isLifeInsurance.value)
 const rawGenericCases = ref<ServiceCase[]>([])
 const genericCustomersById = ref<Map<string, Customer>>(new Map())
 
-// ── 詳細条件（ステータス・担当者・担当未来設計士のいずれか1つを指定可能） ──
-// 組み合わせ分の複合インデックスが際限なく必要になるため、3条件は同時に1つだけ
-// 指定できる仕様とする（選ぶと他の2つは自動でクリアする）
+// ── 詳細条件（ステータス・担当者・担当未来設計士。自由に組み合わせて同時指定可） ──
+// 3条件のいずれの組み合わせでもFirestore側で絞り込めるよう、firestore.indexes.jsonに
+// 単独3種・2つの組み合わせ3種・3つ全ての組み合わせ1種、計7種の複合インデックスを用意済み
 const assigneeUsers = ref<{ uid: string; displayName: string }[]>([])
 const plannerUsers = ref<{ uid: string; displayName: string }[]>([])
-const detailFilterField = ref<'' | 'status' | 'assigneeUid' | 'plannerUid'>('')
-const detailFilterValue = ref('')
-const setDetailFilter = (field: 'status' | 'assigneeUid' | 'plannerUid', value: string) => {
-  detailFilterField.value = value ? field : ''
-  detailFilterValue.value = value
-}
+const statusFilter = ref('')
+const assigneeFilter = ref('')
+const plannerFilter = ref('')
+const hasDetailFilter = computed(() => !!(statusFilter.value || assigneeFilter.value || plannerFilter.value))
+const clearDetailFilters = () => { statusFilter.value = ''; assigneeFilter.value = ''; plannerFilter.value = '' }
+const currentDetailFilters = () => ({
+  status: statusFilter.value || undefined,
+  assigneeUid: assigneeFilter.value || undefined,
+  plannerUid: plannerFilter.value || undefined,
+})
 
 onMounted(async () => {
   const users = await fetchUsers()
@@ -107,15 +111,11 @@ const describeLoadError = (e: unknown): string => {
   return '案件一覧の取得に失敗しました。時間をおいて再度お試しください。'
 }
 
-// ページ単位取得（詳細条件が指定されていればFirestore側で絞り込み、
+// ページ単位取得（詳細条件が1つでも指定されていればFirestore側で絞り込み、
 // 未指定なら従来通りserviceTypeのみで取得する）
 const fetchGenericPage = (cursor?: QueryDocumentSnapshot) =>
-  (detailFilterField.value && detailFilterValue.value)
-    ? fetchCasesPageForTypeFiltered(
-        serviceType.value as any,
-        { field: detailFilterField.value, value: detailFilterValue.value },
-        cursor,
-      )
+  hasDetailFilter.value
+    ? fetchCasesPageForTypeFiltered(serviceType.value as any, currentDetailFilters(), cursor)
     : fetchCasesPageForType(serviceType.value as any, cursor)
 
 const loadFirstGenericPage = async () => {
@@ -183,7 +183,7 @@ const loadAllGenericCases = async () => {
 // 読み込み処理で先頭ページから取得し直す
 if (!isLifeInsurance.value) {
   onMounted(loadFirstGenericPage)
-  watch(detailFilterValue, () => { if (!genericFullyLoaded.value) loadFirstGenericPage() })
+  watch([statusFilter, assigneeFilter, plannerFilter], () => { if (!genericFullyLoaded.value) loadFirstGenericPage() })
 }
 
 // ── 削除（アプリ責任者・システム管理者のみ） ──────────────────────────
@@ -264,9 +264,9 @@ const filteredGenericCases = computed(() => {
   // ステータス・担当者・担当未来設計士での絞り込み。既定の取得時点でFirestore側で
   // 絞り込まれている場合もあるが、検索等により全件読み込みへ切り替わった後も
   // 正しく絞り込めるよう、ここでも同じ条件を適用する（冪等なので二重適用でも問題ない）
-  if (detailFilterField.value && detailFilterValue.value) {
-    list = list.filter(c => c[detailFilterField.value as 'status' | 'assigneeUid' | 'plannerUid'] === detailFilterValue.value)
-  }
+  if (statusFilter.value) list = list.filter(c => c.status === statusFilter.value)
+  if (assigneeFilter.value) list = list.filter(c => c.assigneeUid === assigneeFilter.value)
+  if (plannerFilter.value) list = list.filter(c => c.plannerUid === plannerFilter.value)
   if (q) {
     list = list.filter(c =>
       c.customerName.toLowerCase().includes(q) ||
@@ -356,38 +356,26 @@ const statusClass = (status: string) => {
       </select>
     </div>
 
-    <!-- ===== 詳細条件（ステータス・担当者・担当未来設計士のいずれか1つ） ===== -->
+    <!-- ===== 詳細条件（ステータス・担当者・担当未来設計士。組み合わせて指定可） ===== -->
     <div v-if="!isLifeInsurance" class="flex flex-wrap items-center gap-2">
       <span class="text-xs text-gray-400 shrink-0">詳細条件</span>
-      <select
-        class="input-field text-sm py-1.5 w-auto"
-        :value="detailFilterField === 'status' ? detailFilterValue : ''"
-        @change="setDetailFilter('status', ($event.target as HTMLSelectElement).value)"
-      >
+      <select v-model="statusFilter" class="input-field text-sm py-1.5 w-auto">
         <option value="">ステータスで絞り込み</option>
         <option v-for="(label, key) in STATUS_LABELS" :key="key" :value="key">{{ label }}</option>
       </select>
-      <select
-        class="input-field text-sm py-1.5 w-auto"
-        :value="detailFilterField === 'assigneeUid' ? detailFilterValue : ''"
-        @change="setDetailFilter('assigneeUid', ($event.target as HTMLSelectElement).value)"
-      >
+      <select v-model="assigneeFilter" class="input-field text-sm py-1.5 w-auto">
         <option value="">担当者で絞り込み</option>
         <option v-for="u in assigneeUsers" :key="u.uid" :value="u.uid">{{ u.displayName }}</option>
       </select>
-      <select
-        class="input-field text-sm py-1.5 w-auto"
-        :value="detailFilterField === 'plannerUid' ? detailFilterValue : ''"
-        @change="setDetailFilter('plannerUid', ($event.target as HTMLSelectElement).value)"
-      >
+      <select v-model="plannerFilter" class="input-field text-sm py-1.5 w-auto">
         <option value="">担当未来設計士で絞り込み</option>
         <option v-for="u in plannerUsers" :key="u.uid" :value="u.uid">{{ u.displayName }}</option>
       </select>
       <button
-        v-if="detailFilterField"
+        v-if="hasDetailFilter"
         type="button"
         class="text-xs text-gray-400 hover:text-gray-600 hover:underline"
-        @click="setDetailFilter(detailFilterField, '')"
+        @click="clearDetailFilters"
       >条件をクリア</button>
     </div>
 
